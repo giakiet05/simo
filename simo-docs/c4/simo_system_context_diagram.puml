@@ -1,0 +1,18 @@
+  @startuml                                                                          
+  !include  https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
+                                                                                     
+  LAYOUT_WITH_LEGEND()                                                               
+                                                                                     
+  title System Context Diagram for Simo                                              
+                                                                                     
+  Person(user, "User", "Person who tracks income and expenses")                      
+                                                                                     
+  System(simo, "Simo", "Simple money management app")                                
+                                                                                     
+  System_Ext(oauth, "Google OAuth", "Allows users to authenticate with Google account")                                                                          
+                                                                                     
+  Rel(user, simo, "Records transactions, views reports")                             
+                                                                                     
+  Rel(simo, oauth, "Authenticates users via", "OAuth 2.0")                           
+                                                                                     
+  @enduml  

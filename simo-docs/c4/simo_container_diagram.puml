@@ -1,0 +1,31 @@
+  @startuml                                                                                                                                                                  
+  !include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml                                                                            
+                                                                                                                                                                             
+  LAYOUT_WITH_LEGEND()                                                                                                                                                       
+                                                                                                                                                                             
+  title Container Diagram for Simo                                                                                                                                           
+                                                                                                                                                                             
+  Person(user, "User", "Person who tracks income and expenses")                                                                                                              
+                                                                                                                                                                             
+  System_Boundary(simo, "Simo System") {                                                                                                                                     
+      Container(mobile, "Mobile App", "Flutter", "Provides mobile interface for iOS and Android with offline capability")                                                    
+      ContainerDb(sqlite, "Mobile Local Database", "SQLite", "Stores user data locally on mobile app for offline usage")                                                     
+      Container(web, "Web App", "Flutter Web", "Provides web interface for desktop users")                                                                                   
+      Container(backend, "Backend API", "Go/Gin", "Handles business logic, data processing for web app, and synchronization between mobile app and web app")                 
+      ContainerDb(postgres, "Database", "PostgreSQL", "Stores user data, transactions, categories,...")                                                                          
+  }                                                                                                                                                                          
+                                                                                                                                                                             
+  System_Ext(oauth, "Google OAuth", "Allows users to authenticate with Google account")                                                                                      
+                                                                                                                                                                             
+  Rel(user, mobile, "Uses")                                                                                                                                                  
+  Rel(user, web, "Uses")                                                                                                                                                     
+                                                                                                                                                                             
+  Rel(mobile, sqlite, "Reads from and writes to", "SQL")                                                                                                                     
+  Rel(mobile, backend, "Syncs data when online to", "JSON/HTTPS")                                                                                                               
+                                                                                                                                                                             
+  Rel(web, backend, "Makes API calls to", "JSON/HTTPS")                                                                                                                         
+                                                                                                                                                                             
+  Rel(backend, postgres, "Reads from and writes to", "SQL/TCP")                                                                                                              
+  Rel(backend, oauth, "Authenticates users via", "OAuth 2.0/HTTPS")                                                                                                          
+                                                                                                                                                                             
+  @enduml 

@@ -1,0 +1,5 @@
+- [x] ERD
+- [x] System Architecture (C4)
+- [ ] Sequence Diagrams (for main flows)
+- [ ] API Design
+- [ ] Event Flow Diagram

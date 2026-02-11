@@ -1,0 +1,34 @@
+# Sequence Diagrams - Simo
+
+## 1. Create Multiple Transactions
+
+Mô tả: User nhập nhiều transactions trong cùng 1 form và lưu vào database
+https://mermaid.ai/live/edit#pako:eNqdVVlu2zAQvcqAX3ahuJK8xBYCA0nsAAUcp42cfBQGCkZibKGSqJKU4zTIWXqCXqA9TW7SoRabjt0FFeCFxJs3b2YexScS8JARj0j2JWdpwEYRXQiazFPAhwaKC7iRTJTrjAoVBVFGUwV-IBhLgUqYCZpKhEY8LTf3we8FX0UhE6_g9fZ-wDlVbMHF4zXLuA4y1_vo2brGGeSHoaMzDfM_TCLF5pVSXeDRcFiK9-Dy5ec3OA1DkwykUVkJxAhTlQcLpqqNiMlGs8SaEIwYnXngjyfj8xm8gYvrq0sIKkAJH50d7fFOIqlqGDIf4DXEbxXAPc4uFDwL-UP6m1Kny5cf3zPAXiTgQIMmPE-VpSOTPKbWRpwFKVeseZBjRjOYE92vhAs2J39N5P5nIpOj_S8cf5Dr0xWD0zjWcl8NtTalB7iDlIYLZEPP4sTYGVFFh5tUU8wLfIU-35Lc0jgKkQZoHBfa5cmdeDus5MMQ7K1yYGvklxu-mPMMLnCMjAZLUIYdoxRihJYw_dQJsYDyNHggscaGEdTcoktI5cd3U398PcOf2dVOjtvTyc3Yb7RaLSOyNGidws-DgEkJZppPUbifaaevO-cKRYYlnKVhXbhRzTbsJiv6KJX-blA0nOLYooDGRS-ar0KNmW9kts0CZTXgsLnngc1pihkVhcN2AIjQrkLiJX8AWbErTtEcerhzcjhRfTj28kzpKlrosu5o8LkoCwsiFlmIKCSeEjmzSMJEQvWSPGmWOVFLluB58_BvyO5pHivN_4xh-Kb7yHlSRwqeL5bEu6exxFVetLF6z292BXafiXPtSeIddwoO4j2RNfE6g5ZjO13bbff7brc76PUs8ki8I9d2WnbPGbQHTse1-91B_9kiX4u8Tqvbtt2O03PsYxc_XdciLIzwNrksr5vi1nn-BdrrLFM
+
+
+---
+
+## 2. Auto-generate Recurring Transactions
+
+Mô tả: Khi user mở app, system tự động check recurring configs và tạo transactions nếu đến ngày
+https://mermaid.ai/live/edit#pako:eNqVVv9u2kgQfpXR_nEiPZcGEmKwmlRJIHeVkrQHRCdVSGhrD7Cqveuu10lolGfpg_Rp7k1u7LWNAadV-cfs7jffzDcz--OJ-SpA5rEEv6YofRwKvtQ8mkmgH_eN0nCXoLbjmGsjfBFzaeA8joEn2Wd_bYz-R63uRYA6w9Aw1VrIZTnZaDHGWG2hs4l95PSxBE41lwmFKJRshg4vMtjkn2thcCbteibm9dkZhe3BzX8_vgMvBdAULdRC98Bfof_lXAZ_oUTNDVahtQ5KvhreWmeheLBEc06R3eOlkguxTDKDAp4BCDq88GAyuh5dTuEVXI0_3IAu2ed-bvT2s35z9u_fo_EIRDLnOR2cgtEpWrLhxeu6z2uRGFALKJCWJNn2u6vwsgRZ2K0yCOqeyraFMirga3JNqi4pRJRmSNnYJCFUKoYrahXk_qpwbFcaU1RznyXYA4mPZq5TCW9Pra93JXPehaHZR2yWfxK3VQfJSqVhAGRep90PzbYWlV0jyau1V-spr4VPs0ul13MReIXKdm3OyUE8Uqk01bod2iWzjrFayAZ2WlLw1bTkUTG92w51ryLIIc8Hu4KshKK93t9ORuMpfaYfqGsqNdsWtolK6ZPU9zFJGkl3i1dLUJGy4Of53a4ND_00JKOqtrmkzzzBAIhxoe2JtIY_QEiD-p6Hu_QvlH30yKM4RC8nrHhOIyXNKlw7Fd1px-a_7K2iteBP6EAO_qUcm7Q0DkjHLdGMU9mqSuSQsod5yX6wR1Wr1N3H4fl01HwCTEZTqIVY52yqZBVVYylfOgfucglb9cMw2dQGzn5j202-iBjMSiR7RwHKwA7yPy-coPX9S3un7K16Cyf7puWhPsYkpQOjhe1l24HullVJVW2b7GiZ1gEPqHHTzGXY9mrIrg4St1IPQFtWLATtfTLKizRj3U31Gn3OWKE8S-utasY0emwRuu7woEohc9hSi4B52Z3gsAh1xLMhe8ogM2ZWGOGMefQ3wAWnvGRRPJMZ3Y-flIpKS63S5Yp5C07BOcz2c_ESqCDkD3VeEeZ1Tno5B_Oe2CPzjo7aRyfuoN8fdN0jtzNw2Jp5Xbd93Dl2-8eu2-8ennTdZ4d9y3122r3B8aHbGwy6vX7_sEd4DAQ9NW7sWyR_kjz_DymN0ug
+
+---
+
+## Notes
+
+### Flow 1: Create Multiple Transactions
+- User có thể thêm nhiều items trong 1 form
+- Validation xảy ra ở Provider layer trước khi save
+- Tất cả transactions được save sequentially (có thể optimize với batch insert sau)
+- State update sau khi save xong để UI refresh
+
+### Flow 2: Auto-generate Recurring
+- Chạy mỗi khi user mở app (hoặc app resume from background)
+- Check tất cả active recurring configs
+- Chỉ tạo transaction nếu `next_run <= today`
+- Sau khi tạo, tính toán `next_run` mới dựa trên:
+  - `frequency`: daily/weekly/monthly
+  - `interval`: mỗi bao nhiêu days/weeks/months
+  - `day_of_week` hoặc `day_of_month`: ngày cụ thể trong tuần/tháng
+- Field `recurring_config_id` trong transaction giúp tránh duplicate (có thể check nếu cần)
