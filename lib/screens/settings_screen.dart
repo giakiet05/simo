@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import '../providers/settings_provider.dart';
 import '../providers/localization_provider.dart';
+import 'about_screen.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -22,6 +24,33 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     super.dispose();
   }
 
+  String _formatBudgetForDisplay(double budget) {
+    if (budget == budget.toInt()) {
+      return NumberFormat('#,###').format(budget.toInt());
+    }
+    return NumberFormat('#,###.##').format(budget);
+  }
+
+  void _onBudgetChanged(String value) {
+    final cleanValue = value.replaceAll(',', '');
+    final numValue = double.tryParse(cleanValue);
+
+    if (numValue != null) {
+      final formatted = _formatBudgetForDisplay(numValue);
+      if (formatted != value) {
+        final cursorPos = _budgetController.selection.baseOffset;
+        final oldCommas = value.substring(0, cursorPos).split(',').length - 1;
+
+        _budgetController.value = TextEditingValue(
+          text: formatted,
+          selection: TextSelection.collapsed(
+            offset: cursorPos + (formatted.split(',').length - 1 - oldCommas),
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final settingsAsync = ref.watch(settingsProvider);
@@ -37,17 +66,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         error: (error, stack) => Center(child: Text('Error: $error')),
         data: (settings) {
           if (!_initialized) {
-            _budgetController.text = settings.monthlyBudget.toString();
+            _budgetController.text = _formatBudgetForDisplay(settings.monthlyBudget);
             _selectedCurrency = settings.currency;
             _selectedLanguage = settings.language;
             _initialized = true;
           }
 
-          return Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+          return SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                 Text(
                   l10n.monthlyBudgetSetting,
                   style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -60,6 +90,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     border: const OutlineInputBorder(),
                     hintText: l10n.monthlyBudgetSetting,
                   ),
+                  onChanged: _onBudgetChanged,
                 ),
                 const SizedBox(height: 24),
                 Text(
@@ -112,8 +143,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   width: double.infinity,
                   child: ElevatedButton(
                     onPressed: () async {
-                      final budget =
-                          double.tryParse(_budgetController.text) ?? 0.0;
+                      final cleanText = _budgetController.text.replaceAll(',', '');
+                      final budget = double.tryParse(cleanText) ?? 0.0;
 
                       await ref
                           .read(settingsProvider.notifier)
@@ -139,8 +170,24 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     child: Text(l10n.save),
                   ),
                 ),
+                const SizedBox(height: 32),
+                const Divider(),
+                ListTile(
+                  leading: const Icon(Icons.info_outline),
+                  title: Text(l10n.about),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const AboutScreen(),
+                      ),
+                    );
+                  },
+                ),
               ],
             ),
+          ),
           );
         },
       ),

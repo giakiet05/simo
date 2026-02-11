@@ -4,11 +4,18 @@ import '../providers/category_provider.dart';
 import '../providers/localization_provider.dart';
 import '../models/category.dart';
 
-class CategoryScreen extends ConsumerWidget {
+class CategoryScreen extends ConsumerStatefulWidget {
   const CategoryScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<CategoryScreen> createState() => _CategoryScreenState();
+}
+
+class _CategoryScreenState extends ConsumerState<CategoryScreen> {
+  String? _selectedTypeFilter; // null = all, 'income', 'expense'
+
+  @override
+  Widget build(BuildContext context) {
     final categoriesAsync = ref.watch(categoryProvider);
     final l10n = ref.watch(localizationProvider);
 
@@ -17,18 +24,32 @@ class CategoryScreen extends ConsumerWidget {
         title: Text(l10n.categories),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         actions: [
-          TextButton.icon(
-            onPressed: () => _showAddDialog(context, ref),
-            icon: const Icon(Icons.add, color: Colors.white),
-            label: Text(l10n.add, style: const TextStyle(color: Colors.white)),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 8.0),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: TextButton.icon(
+                onPressed: () => _showAddDialog(context, ref),
+                icon: const Icon(Icons.add, color: Colors.black),
+                label: Text(l10n.add, style: const TextStyle(color: Colors.black)),
+              ),
+            ),
           ),
         ],
       ),
       body: categoriesAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, stack) => Center(child: Text('${l10n.error}: $error')),
-        data: (categories) {
-          if (categories.isEmpty) {
+        data: (allCategories) {
+          // Apply filter
+          final categories = _selectedTypeFilter != null
+              ? allCategories.where((cat) => cat.type == _selectedTypeFilter).toList()
+              : allCategories;
+
+          if (allCategories.isEmpty) {
             return Center(
               child: Text(l10n.noCategories),
             );
@@ -52,19 +73,65 @@ class CategoryScreen extends ConsumerWidget {
                   ],
                 ),
               ),
-              Expanded(
-                child: GridView.builder(
-                  padding: const EdgeInsets.all(8),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    childAspectRatio: 1.5,
-                    crossAxisSpacing: 8,
-                    mainAxisSpacing: 8,
+              // Filter Chips
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Row(
+                  children: [
+                    FilterChip(
+                      label: Text(l10n.all),
+                      selected: _selectedTypeFilter == null,
+                      onSelected: (selected) {
+                        setState(() {
+                          _selectedTypeFilter = null;
+                        });
+                      },
+                    ),
+                    const SizedBox(width: 8),
+                    FilterChip(
+                      label: Text(l10n.income),
+                      selected: _selectedTypeFilter == 'income',
+                      selectedColor: Colors.green.withOpacity(0.3),
+                      onSelected: (selected) {
+                        setState(() {
+                          _selectedTypeFilter = selected ? 'income' : null;
+                        });
+                      },
+                    ),
+                    const SizedBox(width: 8),
+                    FilterChip(
+                      label: Text(l10n.expense),
+                      selected: _selectedTypeFilter == 'expense',
+                      selectedColor: Colors.red.withOpacity(0.3),
+                      onSelected: (selected) {
+                        setState(() {
+                          _selectedTypeFilter = selected ? 'expense' : null;
+                        });
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              if (categories.isEmpty)
+                Expanded(
+                  child: Center(
+                    child: Text(l10n.noCategories),
                   ),
-                  itemCount: categories.length,
-                  itemBuilder: (context, index) {
-                    final category = categories[index];
-                    final displayName = l10n.translateCategoryName(category.id, category.name);
+                )
+              else
+                Expanded(
+                  child: GridView.builder(
+                    padding: const EdgeInsets.all(8),
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      childAspectRatio: 1.5,
+                      crossAxisSpacing: 8,
+                      mainAxisSpacing: 8,
+                    ),
+                    itemCount: categories.length,
+                    itemBuilder: (context, index) {
+                      final category = categories[index];
+                      final displayName = l10n.translateCategoryName(category.id, category.name);
                     return Card(
                       child: InkWell(
                         onLongPress: () => _showActionMenu(context, ref, category),

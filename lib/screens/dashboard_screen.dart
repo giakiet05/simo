@@ -593,9 +593,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 
   Widget _buildLineChart(List<Transaction> transactions, String currency, l10n) {
-    // Group expenses by month
+    // Group income and expenses by month
     final now = DateTime.now();
     final Map<String, double> monthlyExpenses = {};
+    final Map<String, double> monthlyIncome = {};
     final List<String> monthKeys = [];
     final List<String> displayNames = [];
 
@@ -605,20 +606,27 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       monthKeys.add(monthKey);
       displayNames.add(l10n.getMonthName(month.month));
       monthlyExpenses[monthKey] = 0;
+      monthlyIncome[monthKey] = 0;
     }
 
     for (var tx in transactions) {
-      if (tx.type == 'expense') {
-        final monthKey = '${tx.createdAt.year}-${tx.createdAt.month.toString().padLeft(2, '0')}';
+      final monthKey = '${tx.createdAt.year}-${tx.createdAt.month.toString().padLeft(2, '0')}';
 
-        if (monthlyExpenses.containsKey(monthKey)) {
+      if (monthlyExpenses.containsKey(monthKey)) {
+        if (tx.type == 'expense') {
           monthlyExpenses[monthKey] = (monthlyExpenses[monthKey] ?? 0) + tx.amount;
+        } else if (tx.type == 'income') {
+          monthlyIncome[monthKey] = (monthlyIncome[monthKey] ?? 0) + tx.amount;
         }
       }
     }
 
-    final values = monthKeys.map((key) => monthlyExpenses[key] ?? 0).toList();
-    final maxValue = values.isEmpty ? 0 : values.reduce((a, b) => a > b ? a : b);
+    final expenseValues = monthKeys.map((key) => monthlyExpenses[key] ?? 0).toList();
+    final incomeValues = monthKeys.map((key) => monthlyIncome[key] ?? 0).toList();
+
+    final maxExpense = expenseValues.isEmpty ? 0 : expenseValues.reduce((a, b) => a > b ? a : b);
+    final maxIncome = incomeValues.isEmpty ? 0 : incomeValues.reduce((a, b) => a > b ? a : b);
+    final maxValue = maxExpense > maxIncome ? maxExpense : maxIncome;
 
     return Card(
       child: Padding(
@@ -647,7 +655,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   lineBarsData: [
                     LineChartBarData(
                       spots: List.generate(displayNames.length, (index) {
-                        return FlSpot(index.toDouble(), values[index]);
+                        return FlSpot(index.toDouble(), expenseValues[index]);
                       }),
                       isCurved: true,
                       color: Colors.red,
@@ -668,12 +676,36 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         color: Colors.red.withOpacity(0.1),
                       ),
                     ),
+                    LineChartBarData(
+                      spots: List.generate(displayNames.length, (index) {
+                        return FlSpot(index.toDouble(), incomeValues[index]);
+                      }),
+                      isCurved: true,
+                      color: Colors.green,
+                      barWidth: 3,
+                      dotData: FlDotData(
+                        show: true,
+                        getDotPainter: (spot, percent, barData, index) {
+                          return FlDotCirclePainter(
+                            radius: 4,
+                            color: Colors.green,
+                            strokeWidth: 2,
+                            strokeColor: Colors.white,
+                          );
+                        },
+                      ),
+                      belowBarData: BarAreaData(
+                        show: true,
+                        color: Colors.green.withOpacity(0.1),
+                      ),
+                    ),
                   ],
                   titlesData: FlTitlesData(
                     show: true,
                     bottomTitles: AxisTitles(
                       sideTitles: SideTitles(
                         showTitles: true,
+                        interval: 1,
                         getTitlesWidget: (value, meta) {
                           if (value.toInt() >= 0 && value.toInt() < displayNames.length) {
                             return Text(
@@ -707,6 +739,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   ),
                 ),
               ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _buildLegendItem(Colors.green, l10n.income),
+                const SizedBox(width: 16),
+                _buildLegendItem(Colors.red, l10n.expense),
+              ],
             ),
           ],
         ),

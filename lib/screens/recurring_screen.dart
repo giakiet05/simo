@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../providers/recurring_provider.dart';
+import '../providers/transaction_provider.dart';
 import '../providers/category_provider.dart';
 import '../providers/localization_provider.dart';
 import '../models/recurring_config.dart';
@@ -12,6 +13,7 @@ class RecurringScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final recurringAsync = ref.watch(recurringProvider);
+    final categoriesAsync = ref.watch(categoryProvider);
     final l10n = ref.watch(localizationProvider);
 
     return Scaffold(
@@ -19,10 +21,19 @@ class RecurringScreen extends ConsumerWidget {
         title: Text(l10n.recurringTransactions),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         actions: [
-          TextButton.icon(
-            onPressed: () => _showAddDialog(context, ref),
-            icon: const Icon(Icons.add, color: Colors.white),
-            label: Text(l10n.add, style: const TextStyle(color: Colors.white)),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 8.0),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: TextButton.icon(
+                onPressed: () => _showAddDialog(context, ref),
+                icon: const Icon(Icons.add, color: Colors.black),
+                label: Text(l10n.add, style: const TextStyle(color: Colors.black)),
+              ),
+            ),
           ),
         ],
       ),
@@ -36,66 +47,84 @@ class RecurringScreen extends ConsumerWidget {
             );
           }
 
-          return Column(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                color: Colors.blue[50],
-                child: Row(
-                  children: [
-                    const Icon(Icons.info_outline, size: 16, color: Colors.blue),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        l10n.longPressHint,
-                        style: TextStyle(fontSize: 12, color: Colors.blue[900]),
-                      ),
+          return categoriesAsync.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (error, stack) => Center(child: Text('${l10n.error}: $error')),
+            data: (categories) {
+              final categoryMap = {
+                for (var cat in categories)
+                  cat.id: l10n.translateCategoryName(cat.id, cat.name)
+              };
+
+              return Column(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    color: Colors.blue[50],
+                    child: Row(
+                      children: [
+                        const Icon(Icons.info_outline, size: 16, color: Colors.blue),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            l10n.longPressHint,
+                            style: TextStyle(fontSize: 12, color: Colors.blue[900]),
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: ListView.builder(
-                  itemCount: configs.length,
-                  itemBuilder: (context, index) {
-                    final config = configs[index];
-                    return Card(
-                      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      child: ListTile(
-                        leading: Icon(
-                          config.type == 'income'
-                              ? Icons.arrow_downward
-                              : Icons.arrow_upward,
-                          color: config.type == 'income' ? Colors.green : Colors.red,
-                        ),
-                        title: Text(config.name),
-                        subtitle: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '${_formatAmount(config.amount)} - ${_formatFrequency(ref, config)}',
+                  ),
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: configs.length,
+                      itemBuilder: (context, index) {
+                        final config = configs[index];
+                        final categoryName = config.categoryId != null
+                            ? categoryMap[config.categoryId] ?? l10n.noCategory
+                            : l10n.noCategory;
+
+                        return Card(
+                          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          child: ListTile(
+                            leading: Icon(
+                              config.type == 'income'
+                                  ? Icons.arrow_downward
+                                  : Icons.arrow_upward,
+                              color: config.type == 'income' ? Colors.green : Colors.red,
                             ),
-                            Text(
-                              '${l10n.nextRun}: ${DateFormat('dd/MM/yyyy').format(config.nextRun)}',
-                              style: const TextStyle(fontSize: 12),
+                            title: Text(
+                              config.name,
+                              style: const TextStyle(fontWeight: FontWeight.bold),
                             ),
-                          ],
-                        ),
-                        trailing: Switch(
-                          value: config.isActive,
-                          onChanged: (value) {
-                            ref
-                                .read(recurringProvider.notifier)
-                                .toggleActive(config.id, value);
-                          },
-                        ),
-                        onLongPress: () => _showActionMenu(context, ref, config),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(categoryName, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                                Text(_formatAmount(config.amount), style: const TextStyle(fontSize: 14)),
+                                Text(_formatFrequency(ref, config), style: const TextStyle(fontSize: 13)),
+                                Text(
+                                  '${l10n.nextRun}: ${DateFormat('dd/MM/yyyy').format(config.nextRun)}',
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                              ],
+                            ),
+                            trailing: Switch(
+                              value: config.isActive,
+                              onChanged: (value) {
+                                ref
+                                    .read(recurringProvider.notifier)
+                                    .toggleActive(config.id, value);
+                              },
+                            ),
+                            onLongPress: () => _showActionMenu(context, ref, config),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              );
+            },
           );
         },
       ),
@@ -111,6 +140,14 @@ class RecurringScreen extends ConsumerWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            ListTile(
+              leading: const Icon(Icons.play_arrow, color: Colors.green),
+              title: Text(l10n.runNow, style: const TextStyle(color: Colors.green)),
+              onTap: () {
+                Navigator.pop(context);
+                _showRunNowDialog(context, ref, config);
+              },
+            ),
             ListTile(
               leading: const Icon(Icons.edit),
               title: Text(l10n.edit),
@@ -133,42 +170,90 @@ class RecurringScreen extends ConsumerWidget {
     );
   }
 
+  void _showRunNowDialog(BuildContext context, WidgetRef ref, RecurringConfig config) {
+    final l10n = ref.read(localizationProvider);
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(l10n.runNow),
+        content: Text(l10n.runNowConfirm),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(l10n.cancel),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+
+              try {
+                await ref
+                    .read(recurringProvider.notifier)
+                    .triggerRecurringNow(config.id);
+
+                // Refresh transaction provider
+                ref.read(transactionProvider.notifier).loadTransactions();
+
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(l10n.transactionTriggered)),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('${l10n.error}: $e')),
+                  );
+                }
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
+              foregroundColor: Colors.white,
+            ),
+            child: Text(l10n.runNow),
+          ),
+        ],
+      ),
+    );
+  }
+
   String _formatAmount(double amount) {
     return NumberFormat('#,###').format(amount);
   }
 
   String _formatFrequency(WidgetRef ref, RecurringConfig config) {
     final l10n = ref.read(localizationProvider);
-    String freq = config.frequency;
+    String freq;
 
-    String freqTranslated;
+    // Get unit with correct plural form
+    String unit;
     if (config.frequency == 'daily') {
-      freqTranslated = l10n.daily;
+      unit = config.interval == 1 ? l10n.day : l10n.days;
     } else if (config.frequency == 'weekly') {
-      freqTranslated = l10n.weekly;
+      unit = config.interval == 1 ? l10n.week : l10n.weeks;
     } else {
-      freqTranslated = l10n.monthly;
+      unit = config.interval == 1 ? l10n.month : l10n.months;
     }
 
-    if (config.interval > 1) {
-      freq = '${l10n.every} ${config.interval} $freqTranslated';
-    } else {
-      freq = '${l10n.every} $freqTranslated';
-    }
+    // Build frequency string
+    freq = '${l10n.every} ${config.interval} $unit';
 
+    // Add day/weekday info
     if (config.frequency == 'weekly' && config.dayOfWeek != null) {
       final days = [
-        l10n.sunday.substring(0, 3),
-        l10n.monday.substring(0, 3),
-        l10n.tuesday.substring(0, 3),
-        l10n.wednesday.substring(0, 3),
-        l10n.thursday.substring(0, 3),
-        l10n.friday.substring(0, 3),
-        l10n.saturday.substring(0, 3),
+        l10n.sunday,
+        l10n.monday,
+        l10n.tuesday,
+        l10n.wednesday,
+        l10n.thursday,
+        l10n.friday,
+        l10n.saturday,
       ];
-      freq += ' ${l10n.on} ${days[config.dayOfWeek! % 7]}';
+      freq += ' - ${days[config.dayOfWeek! % 7]}';
     } else if (config.frequency == 'monthly' && config.dayOfMonth != null) {
-      freq += ' ${l10n.on} ${l10n.day} ${config.dayOfMonth}';
+      freq += ' - ${l10n.day} ${config.dayOfMonth}';
     }
 
     return freq;
@@ -260,8 +345,19 @@ class _RecurringFormDialogState extends ConsumerState<_RecurringFormDialog> {
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.config?.name ?? '');
-    _amountController =
-        TextEditingController(text: widget.config?.amount.toString() ?? '');
+
+    // Format amount with comma
+    String amountText = '';
+    if (widget.config != null) {
+      final amount = widget.config!.amount;
+      if (amount == amount.toInt()) {
+        amountText = NumberFormat('#,###').format(amount.toInt());
+      } else {
+        amountText = amount.toString();
+      }
+    }
+    _amountController = TextEditingController(text: amountText);
+
     _intervalController =
         TextEditingController(text: widget.config?.interval.toString() ?? '1');
 
@@ -281,6 +377,33 @@ class _RecurringFormDialogState extends ConsumerState<_RecurringFormDialog> {
     _amountController.dispose();
     _intervalController.dispose();
     super.dispose();
+  }
+
+  String _formatAmountForDisplay(double amount) {
+    if (amount == amount.toInt()) {
+      return NumberFormat('#,###').format(amount.toInt());
+    }
+    return NumberFormat('#,###.##').format(amount);
+  }
+
+  void _onAmountChanged(String value) {
+    final cleanValue = value.replaceAll(',', '');
+    final numValue = double.tryParse(cleanValue);
+
+    if (numValue != null) {
+      final formatted = _formatAmountForDisplay(numValue);
+      if (formatted != value) {
+        final cursorPos = _amountController.selection.baseOffset;
+        final oldCommas = value.substring(0, cursorPos).split(',').length - 1;
+
+        _amountController.value = TextEditingValue(
+          text: formatted,
+          selection: TextSelection.collapsed(
+            offset: cursorPos + (formatted.split(',').length - 1 - oldCommas),
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -310,6 +433,7 @@ class _RecurringFormDialogState extends ConsumerState<_RecurringFormDialog> {
                 border: const OutlineInputBorder(),
               ),
               keyboardType: TextInputType.number,
+              onChanged: _onAmountChanged,
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
@@ -377,9 +501,9 @@ class _RecurringFormDialogState extends ConsumerState<_RecurringFormDialog> {
                 border: const OutlineInputBorder(),
               ),
               items: [
-                DropdownMenuItem(value: 'daily', child: Text(l10n.daily)),
-                DropdownMenuItem(value: 'weekly', child: Text(l10n.weekly)),
-                DropdownMenuItem(value: 'monthly', child: Text(l10n.monthly)),
+                DropdownMenuItem(value: 'daily', child: Text(l10n.byDay)),
+                DropdownMenuItem(value: 'weekly', child: Text(l10n.byWeek)),
+                DropdownMenuItem(value: 'monthly', child: Text(l10n.byMonth)),
               ],
               onChanged: (value) {
                 setState(() {
@@ -453,7 +577,8 @@ class _RecurringFormDialogState extends ConsumerState<_RecurringFormDialog> {
           onPressed: () async {
             final l10n = ref.read(localizationProvider);
             final name = _nameController.text.trim();
-            final amount = double.tryParse(_amountController.text.trim());
+            final amountText = _amountController.text.trim().replaceAll(',', '');
+            final amount = double.tryParse(amountText);
 
             if (name.isEmpty || amount == null) {
               ScaffoldMessenger.of(context).showSnackBar(

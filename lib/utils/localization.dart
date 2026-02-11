@@ -22,7 +22,7 @@ class AppLocalizations {
       'expense_by_category': 'Expense by Category',
       'no_data': 'No data',
       'income_vs_expense': 'Income vs Expense',
-      'spending_trend': 'Spending Trend',
+      'spending_trend': 'Income & Expense Trend',
       'select_month': 'Month',
       'select_year': 'Year',
       '3_months': '3 months',
@@ -107,6 +107,9 @@ class AppLocalizations {
       'recurring_deleted': 'Recurring transaction deleted',
       'recurring_created': 'Recurring transaction created',
       'recurring_updated': 'Recurring transaction updated',
+      'run_now': 'Run Now',
+      'run_now_confirm': 'Execute this recurring transaction immediately?',
+      'transaction_triggered': 'Transaction created',
       'name': 'Name',
       'frequency': 'Frequency',
       'interval': 'Interval',
@@ -116,6 +119,14 @@ class AppLocalizations {
       'daily': 'Daily',
       'weekly': 'Weekly',
       'monthly': 'Monthly',
+      'by_day': 'By day',
+      'by_week': 'By week',
+      'by_month': 'By month',
+      'days': 'days',
+      'week': 'week',
+      'weeks': 'weeks',
+      'month': 'month',
+      'months': 'months',
       'every': 'Every',
       'on': 'on',
       'day': 'day',
@@ -135,6 +146,8 @@ class AppLocalizations {
       'settings_saved': 'Settings saved',
       'vietnamese': 'Vietnamese',
       'english': 'English',
+      'about': 'About',
+      'app_description': 'A simple and intuitive personal finance management app.',
 
       // Common
       'cancel': 'Cancel',
@@ -185,7 +198,7 @@ class AppLocalizations {
       'expense_by_category': 'Chi tiêu theo danh mục',
       'no_data': 'Không có dữ liệu',
       'income_vs_expense': 'Thu nhập vs Chi tiêu',
-      'spending_trend': 'Xu hướng chi tiêu',
+      'spending_trend': 'Xu hướng thu nhập và chi tiêu',
       'select_month': 'Tháng',
       'select_year': 'Năm',
       '3_months': '3 tháng',
@@ -270,6 +283,9 @@ class AppLocalizations {
       'recurring_deleted': 'Đã xóa giao dịch định kỳ',
       'recurring_created': 'Đã tạo giao dịch định kỳ',
       'recurring_updated': 'Đã cập nhật giao dịch định kỳ',
+      'run_now': 'Chạy ngay',
+      'run_now_confirm': 'Thực hiện giao dịch định kỳ này ngay lập tức?',
+      'transaction_triggered': 'Đã tạo giao dịch',
       'name': 'Tên',
       'frequency': 'Tần suất',
       'interval': 'Khoảng cách',
@@ -279,6 +295,14 @@ class AppLocalizations {
       'daily': 'Hàng ngày',
       'weekly': 'Hàng tuần',
       'monthly': 'Hàng tháng',
+      'by_day': 'Theo ngày',
+      'by_week': 'Theo tuần',
+      'by_month': 'Theo tháng',
+      'days': 'ngày',
+      'week': 'tuần',
+      'weeks': 'tuần',
+      'month': 'tháng',
+      'months': 'tháng',
       'every': 'Mỗi',
       'on': 'vào',
       'day': 'ngày',
@@ -298,6 +322,8 @@ class AppLocalizations {
       'settings_saved': 'Đã lưu cài đặt',
       'vietnamese': 'Tiếng Việt',
       'english': 'Tiếng Anh',
+      'about': 'Giới thiệu',
+      'app_description': 'Ứng dụng quản lý tài chính cá nhân đơn giản và trực quan.',
 
       // Common
       'cancel': 'Hủy',
@@ -394,6 +420,9 @@ class AppLocalizations {
   String get recurringDeleted => translate('recurring_deleted');
   String get recurringCreated => translate('recurring_created');
   String get recurringUpdated => translate('recurring_updated');
+  String get runNow => translate('run_now');
+  String get runNowConfirm => translate('run_now_confirm');
+  String get transactionTriggered => translate('transaction_triggered');
   String get name => translate('name');
   String get frequency => translate('frequency');
   String get interval => translate('interval');
@@ -403,6 +432,14 @@ class AppLocalizations {
   String get daily => translate('daily');
   String get weekly => translate('weekly');
   String get monthly => translate('monthly');
+  String get byDay => translate('by_day');
+  String get byWeek => translate('by_week');
+  String get byMonth => translate('by_month');
+  String get days => translate('days');
+  String get week => translate('week');
+  String get weeks => translate('weeks');
+  String get month => translate('month');
+  String get months => translate('months');
   String get every => translate('every');
   String get on => translate('on');
   String get day => translate('day');
@@ -421,6 +458,8 @@ class AppLocalizations {
   String get settingsSaved => translate('settings_saved');
   String get vietnamese => translate('vietnamese');
   String get english => translate('english');
+  String get about => translate('about');
+  String get appDescription => translate('app_description');
 
   String get cancel => translate('cancel');
   String get add => translate('add');

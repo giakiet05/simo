@@ -91,12 +91,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             label: l10n.transactions,
           ),
           BottomNavigationBarItem(
-            icon: Transform.scale(
-              scale: 1.4,
-              child: CircleAvatar(
-                radius: 20,
-                backgroundColor: Theme.of(context).colorScheme.primary,
-                child: const Icon(Icons.add, color: Colors.white, size: 22),
+            icon: Transform.translate(
+              offset: const Offset(0, 10),
+              child: Transform.scale(
+                scale: 1.4,
+                child: CircleAvatar(
+                  radius: 20,
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  child: const Icon(Icons.add, color: Colors.white, size: 22),
+                ),
               ),
             ),
             label: '',

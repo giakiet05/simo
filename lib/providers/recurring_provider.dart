@@ -1,9 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/recurring_config.dart';
 import '../repositories/recurring_repository.dart';
+import '../repositories/transaction_repository.dart';
 
 class RecurringNotifier extends StateNotifier<AsyncValue<List<RecurringConfig>>> {
   final RecurringRepository _repository = RecurringRepository();
+  final TransactionRepository _transactionRepository = TransactionRepository();
 
   RecurringNotifier() : super(const AsyncValue.loading()) {
     loadRecurringConfigs();
@@ -92,6 +94,29 @@ class RecurringNotifier extends StateNotifier<AsyncValue<List<RecurringConfig>>>
       await loadRecurringConfigs();
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
+    }
+  }
+
+  Future<void> triggerRecurringNow(String id) async {
+    try {
+      // Get recurring config
+      final configs = await _repository.getAll();
+      final config = configs.firstWhere((c) => c.id == id);
+
+      // Create transaction from recurring config
+      await _transactionRepository.createMultiple([
+        {
+          'categoryId': config.categoryId,
+          'amount': config.amount,
+          'type': config.type,
+          'recurringConfigId': id,
+          'formula': null,
+          'note': config.name,
+        }
+      ]);
+    } catch (e, stack) {
+      state = AsyncValue.error(e, stack);
+      rethrow;
     }
   }
 }

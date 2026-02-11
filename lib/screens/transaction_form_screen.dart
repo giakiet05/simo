@@ -705,6 +705,7 @@ class _CalculatorKeyboardState extends ConsumerState<_CalculatorKeyboard> {
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     backgroundColor: Colors.teal,
+                    foregroundColor: Colors.white,
                   ),
                   child: Text(
                     l10n.done,
@@ -725,8 +726,8 @@ class _CalculatorKeyboardState extends ConsumerState<_CalculatorKeyboard> {
         _buildButton('7'),
         _buildButton('8'),
         _buildButton('9'),
-        _buildButton('DEL'),
         _buildButton('AC'),
+        _buildButton('DEL'),
       ],
     );
   }
@@ -781,13 +782,15 @@ class _CalculatorKeyboardState extends ConsumerState<_CalculatorKeyboard> {
               borderRadius: BorderRadius.circular(8),
             ),
           ),
-          child: Text(
-            btn,
-            style: TextStyle(
-              fontSize: btn.length >= 2 ? 13 : 18,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
+          child: btn == 'DEL'
+              ? const Icon(Icons.backspace_outlined, size: 20)
+              : Text(
+                  btn,
+                  style: TextStyle(
+                    fontSize: btn.length >= 2 ? 13 : 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
         ),
       ),
     );
