@@ -10,7 +10,6 @@ import '../providers/category_provider.dart';
 import '../models/transaction.dart';
 import '../models/category.dart';
 import 'transaction_form_screen.dart';
-import 'settings_screen.dart';
 import 'home_screen.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
@@ -99,19 +98,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       appBar: AppBar(
         title: Text(l10n.dashboard),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const SettingsScreen(),
-                ),
-              );
-            },
-          ),
-        ],
       ),
       body: transactionsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),

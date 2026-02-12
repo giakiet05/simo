@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../providers/settings_provider.dart';
 import '../providers/localization_provider.dart';
-import 'about_screen.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -169,21 +168,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ),
                     child: Text(l10n.save),
                   ),
-                ),
-                const SizedBox(height: 32),
-                const Divider(),
-                ListTile(
-                  leading: const Icon(Icons.info_outline),
-                  title: Text(l10n.about),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const AboutScreen(),
-                      ),
-                    );
-                  },
                 ),
               ],
             ),

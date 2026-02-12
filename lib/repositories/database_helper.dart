@@ -19,7 +19,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 3,
+      version: 5,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -35,8 +35,12 @@ class DatabaseHelper {
     await db.execute('''
       CREATE TABLE categories (
         id $idType,
+        cloud_id TEXT,
         name $textType,
         type $textType,
+        icon TEXT,
+        color TEXT,
+        synced INTEGER DEFAULT 0,
         created_at $textType,
         updated_at $textType
       )
@@ -45,12 +49,14 @@ class DatabaseHelper {
     await db.execute('''
       CREATE TABLE transactions (
         id $idType,
+        cloud_id TEXT,
         category_id TEXT,
         recurring_config_id TEXT,
         amount $realType,
         formula TEXT,
         note TEXT,
         type $textType,
+        synced INTEGER DEFAULT 0,
         created_at $textType,
         updated_at $textType,
         FOREIGN KEY (category_id) REFERENCES categories (id),
@@ -61,6 +67,7 @@ class DatabaseHelper {
     await db.execute('''
       CREATE TABLE recurring_configs (
         id $idType,
+        cloud_id TEXT,
         category_id TEXT,
         name $textType,
         amount $realType,
@@ -71,9 +78,19 @@ class DatabaseHelper {
         day_of_month INTEGER,
         next_run $textType,
         is_active $boolType,
+        synced INTEGER DEFAULT 0,
         created_at $textType,
         updated_at $textType,
         FOREIGN KEY (category_id) REFERENCES categories (id)
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE pending_deletions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        cloud_id $textType,
+        table_name $textType,
+        deleted_at $textType
       )
     ''');
 
@@ -148,6 +165,34 @@ class DatabaseHelper {
       // Drop old table and rename new one
       await db.execute('DROP TABLE categories');
       await db.execute('ALTER TABLE categories_new RENAME TO categories');
+    }
+
+    if (oldVersion < 4) {
+      // Add icon and color columns to categories
+      await db.execute('ALTER TABLE categories ADD COLUMN icon TEXT');
+      await db.execute('ALTER TABLE categories ADD COLUMN color TEXT');
+    }
+
+    if (oldVersion < 5) {
+      // Add sync fields to all tables
+      await db.execute('ALTER TABLE categories ADD COLUMN cloud_id TEXT');
+      await db.execute('ALTER TABLE categories ADD COLUMN synced INTEGER DEFAULT 0');
+
+      await db.execute('ALTER TABLE transactions ADD COLUMN cloud_id TEXT');
+      await db.execute('ALTER TABLE transactions ADD COLUMN synced INTEGER DEFAULT 0');
+
+      await db.execute('ALTER TABLE recurring_configs ADD COLUMN cloud_id TEXT');
+      await db.execute('ALTER TABLE recurring_configs ADD COLUMN synced INTEGER DEFAULT 0');
+
+      // Create pending_deletions table
+      await db.execute('''
+        CREATE TABLE pending_deletions (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          cloud_id TEXT NOT NULL,
+          table_name TEXT NOT NULL,
+          deleted_at TEXT NOT NULL
+        )
+      ''');
     }
   }
 

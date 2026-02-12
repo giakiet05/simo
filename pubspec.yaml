@@ -53,6 +53,12 @@ dependencies:
   # Charts (for statistics)
   fl_chart: ^0.69.2
 
+  # Supabase
+  supabase_flutter: ^2.5.0
+
+  # Environment variables
+  flutter_dotenv: ^5.1.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -87,6 +93,7 @@ flutter:
   # To add assets to your application, add an assets section, like this:
   assets:
     - logo.png
+    - .env
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
