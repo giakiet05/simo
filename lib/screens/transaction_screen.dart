@@ -5,6 +5,8 @@ import '../providers/transaction_provider.dart';
 import '../providers/category_provider.dart';
 import '../providers/localization_provider.dart';
 import '../models/transaction.dart';
+import '../models/category.dart';
+import '../utils/icon_data.dart';
 import 'transaction_form_screen.dart';
 
 class TransactionScreen extends ConsumerStatefulWidget {
@@ -16,13 +18,17 @@ class TransactionScreen extends ConsumerStatefulWidget {
 
 class _TransactionScreenState extends ConsumerState<TransactionScreen> {
   // Filter states
-  String _timeFilter = 'this_month'; // this_month, last_month, last_3_months, custom
+  String _timeFilter = 'all'; // all, this_month, last_month, last_3_months, custom
   String? _typeFilter; // null = all, 'income', 'expense'
   String? _categoryFilter; // null = all, categoryId
   double? _minAmount;
   double? _maxAmount;
   DateTime? _startDate;
   DateTime? _endDate;
+  int? _startMonth;
+  int? _startYear;
+  int? _endMonth;
+  int? _endYear;
 
   int _currentPage = 1;
   final int _limit = 20;
@@ -74,7 +80,9 @@ class _TransactionScreenState extends ConsumerState<TransactionScreen> {
 
     // Time filter
     final now = DateTime.now();
-    if (_timeFilter == 'this_month') {
+    if (_timeFilter == 'all') {
+      // No time filter
+    } else if (_timeFilter == 'this_month') {
       filtered = filtered.where((tx) {
         return tx.createdAt.year == now.year && tx.createdAt.month == now.month;
       }).toList();
@@ -196,54 +204,67 @@ class _TransactionScreenState extends ConsumerState<TransactionScreen> {
                   ),
                 ],
         ),
-        body: transactionsAsync.when(
+        body: categoriesAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, stack) => Center(child: Text('${l10n.error}: $error')),
-        data: (allTransactions) {
-          // Apply filters
-          final filteredTransactions = _applyFilters(allTransactions);
-
-          if (filteredTransactions.isEmpty) {
-            return Center(
-              child: Text(l10n.noTransactions),
-            );
-          }
-
-          // Apply pagination
-          final totalItems = filteredTransactions.length;
-          final endIndex = (_currentPage * _limit).clamp(0, totalItems);
-          final paginatedTransactions = filteredTransactions.take(endIndex).toList();
-          _hasMore = endIndex < totalItems;
-
-          return categoriesAsync.when(
+        data: (categories) {
+          return transactionsAsync.when(
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (error, stack) => Center(child: Text('${l10n.error}: $error')),
-            data: (categories) {
+            data: (allTransactions) {
+              // Apply filters
+              final filteredTransactions = _applyFilters(allTransactions);
+
+              // Apply pagination
+              final totalItems = filteredTransactions.length;
+              final endIndex = (_currentPage * _limit).clamp(0, totalItems);
+              final paginatedTransactions = filteredTransactions.take(endIndex).toList();
+              _hasMore = endIndex < totalItems;
+
               final categoryMap = {
-                for (var cat in categories)
-                  cat.id: l10n.translateCategoryName(cat.id, cat.name)
+                for (var cat in categories) cat.id: cat
               };
 
               return Column(
                 children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    color: Colors.blue[50],
-                    child: Row(
-                      children: [
-                        const Icon(Icons.info_outline, size: 16, color: Colors.blue),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            l10n.longPressHint,
-                            style: TextStyle(fontSize: 12, color: Colors.blue[900]),
+                  if (paginatedTransactions.isNotEmpty)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      color: Colors.blue[50],
+                      child: Row(
+                        children: [
+                          const Icon(Icons.info_outline, size: 16, color: Colors.blue),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              l10n.longPressHint,
+                              style: TextStyle(fontSize: 12, color: Colors.blue[900]),
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
+                  if (categories.isEmpty)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      color: Colors.amber[50],
+                      child: Row(
+                        children: [
+                          const Icon(Icons.warning_amber, size: 16, color: Colors.orange),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              l10n.noCategoriesWarning,
+                              style: TextStyle(fontSize: 12, color: Colors.orange[900]),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   Expanded(
-                    child: ListView.builder(
+                    child: paginatedTransactions.isEmpty
+                        ? Center(child: Text(l10n.noTransactions))
+                        : ListView.builder(
                       controller: _scrollController,
                       itemCount: paginatedTransactions.length + (_hasMore ? 1 : 0),
                       itemBuilder: (context, index) {
@@ -256,11 +277,39 @@ class _TransactionScreenState extends ConsumerState<TransactionScreen> {
                         }
 
                         final transaction = paginatedTransactions[index];
-                        final categoryName =
-                            categoryMap[transaction.categoryId] ?? l10n.noCategory;
+                        final category = categoryMap[transaction.categoryId];
+                        final categoryName = category != null
+                            ? l10n.translateCategoryName(category.id, category.name)
+                            : l10n.noCategory;
                         final isSelected = _selectedTransactionIds.contains(transaction.id);
 
-                        return Card(
+                        // Check if we need to show month header
+                        final showHeader = index == 0 ||
+                          (paginatedTransactions[index - 1].createdAt.month != transaction.createdAt.month ||
+                           paginatedTransactions[index - 1].createdAt.year != transaction.createdAt.year);
+
+                        // Get icon and color
+                        final iconData = category != null
+                            ? (CategoryIconData.getIcon(category.icon) ??
+                                (transaction.type == 'income' ? Icons.arrow_downward : Icons.arrow_upward))
+                            : (transaction.type == 'income' ? Icons.arrow_downward : Icons.arrow_upward);
+
+                        Color backgroundColor;
+                        if (category?.color != null && category!.color!.isNotEmpty) {
+                          try {
+                            backgroundColor = Color(int.parse(category.color!.substring(1), radix: 16) + 0xFF000000);
+                          } catch (e) {
+                            backgroundColor = transaction.type == 'income' ? Colors.green : Colors.red;
+                          }
+                        } else {
+                          backgroundColor = transaction.type == 'income' ? Colors.green : Colors.red;
+                        }
+
+                        final iconColor = ThemeData.estimateBrightnessForColor(backgroundColor) == Brightness.light
+                            ? Colors.black
+                            : Colors.white;
+
+                        final card = Card(
                           margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           color: isSelected ? Colors.blue[50] : null,
                           child: ListTile(
@@ -278,14 +327,11 @@ class _TransactionScreenState extends ConsumerState<TransactionScreen> {
                                     },
                                   )
                                 : CircleAvatar(
-                                    backgroundColor: transaction.type == 'income'
-                                        ? Colors.green
-                                        : Colors.red,
+                                    backgroundColor: backgroundColor,
                                     child: Icon(
-                                      transaction.type == 'income'
-                                          ? Icons.arrow_downward
-                                          : Icons.arrow_upward,
-                                      color: Colors.white,
+                                      iconData,
+                                      color: iconColor,
+                                      size: 20,
                                     ),
                                   ),
                             title: Text(
@@ -338,15 +384,48 @@ class _TransactionScreenState extends ConsumerState<TransactionScreen> {
                                 : () => _showActionMenu(context, ref, transaction),
                           ),
                         );
+
+                        // Return with header if needed
+                        if (showHeader) {
+                          final monthNum = transaction.createdAt.month;
+                          final year = transaction.createdAt.year;
+
+                          final headerText = l10n.locale == 'vi'
+                              ? 'Tháng $monthNum/$year'
+                              : '${l10n.getMonthName(monthNum)} $year';
+
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                margin: const EdgeInsets.only(top: 8),
+                                color: Colors.grey[200],
+                                child: Text(
+                                  headerText,
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black87,
+                                  ),
+                                ),
+                              ),
+                              card,
+                            ],
+                          );
+                        } else {
+                          return card;
+                        }
                       },
-                    ),
+                    )
                   ),
                 ],
               );
             },
           );
         },
-      ),
+        ),
       ),
     );
   }
@@ -359,7 +438,7 @@ class _TransactionScreenState extends ConsumerState<TransactionScreen> {
       context: context,
       isScrollControlled: true,
       builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.7,
+        initialChildSize: 0.75,
         minChildSize: 0.5,
         maxChildSize: 0.9,
         expand: false,
@@ -414,6 +493,7 @@ class _TransactionScreenState extends ConsumerState<TransactionScreen> {
                                   contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                                 ),
                                 items: [
+                                  DropdownMenuItem(value: 'all', child: Text(l10n.all)),
                                   DropdownMenuItem(value: 'this_month', child: Text(l10n.thisMonth)),
                                   DropdownMenuItem(value: 'last_month', child: Text(l10n.lastMonth)),
                                   DropdownMenuItem(value: 'last_3_months', child: Text(l10n.last3Months)),
@@ -426,51 +506,125 @@ class _TransactionScreenState extends ConsumerState<TransactionScreen> {
                                 },
                               ),
 
-                              // Custom Date Range
+                              // Custom Month Range
                               if (_timeFilter == 'custom') ...[
                                 const SizedBox(height: 12),
+                                Text(l10n.fromDate, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                                const SizedBox(height: 8),
                                 Row(
                                   children: [
                                     Expanded(
-                                      child: OutlinedButton.icon(
-                                        icon: const Icon(Icons.calendar_today, size: 16),
-                                        label: Text(_startDate != null
-                                          ? DateFormat('dd/MM/yyyy').format(_startDate!)
-                                          : l10n.fromDate),
-                                        onPressed: () async {
-                                          final date = await showDatePicker(
-                                            context: context,
-                                            initialDate: _startDate ?? DateTime.now(),
-                                            firstDate: DateTime(2000),
-                                            lastDate: DateTime.now(),
+                                      child: DropdownButtonFormField<int>(
+                                        value: _startMonth,
+                                        decoration: InputDecoration(
+                                          labelText: l10n.selectMonth,
+                                          border: const OutlineInputBorder(),
+                                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                        ),
+                                        items: List.generate(12, (index) {
+                                          final monthNum = index + 1;
+                                          return DropdownMenuItem(
+                                            value: monthNum,
+                                            child: Text(l10n.getMonthName(monthNum)),
                                           );
-                                          if (date != null) {
-                                            setModalState(() {
-                                              _startDate = date;
-                                            });
-                                          }
+                                        }),
+                                        onChanged: (value) {
+                                          setModalState(() {
+                                            _startMonth = value;
+                                            if (_startMonth != null && _startYear != null) {
+                                              _startDate = DateTime(_startYear!, _startMonth!, 1);
+                                            }
+                                          });
                                         },
                                       ),
                                     ),
                                     const SizedBox(width: 8),
                                     Expanded(
-                                      child: OutlinedButton.icon(
-                                        icon: const Icon(Icons.calendar_today, size: 16),
-                                        label: Text(_endDate != null
-                                          ? DateFormat('dd/MM/yyyy').format(_endDate!)
-                                          : l10n.toDate),
-                                        onPressed: () async {
-                                          final date = await showDatePicker(
-                                            context: context,
-                                            initialDate: _endDate ?? DateTime.now(),
-                                            firstDate: DateTime(2000),
-                                            lastDate: DateTime.now(),
+                                      child: DropdownButtonFormField<int>(
+                                        value: _startYear,
+                                        decoration: InputDecoration(
+                                          labelText: l10n.selectYear,
+                                          border: const OutlineInputBorder(),
+                                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                        ),
+                                        items: List.generate(10, (index) {
+                                          final year = DateTime.now().year - index;
+                                          return DropdownMenuItem(
+                                            value: year,
+                                            child: Text(year.toString()),
                                           );
-                                          if (date != null) {
-                                            setModalState(() {
-                                              _endDate = date;
-                                            });
-                                          }
+                                        }),
+                                        onChanged: (value) {
+                                          setModalState(() {
+                                            _startYear = value;
+                                            if (_startMonth != null && _startYear != null) {
+                                              _startDate = DateTime(_startYear!, _startMonth!, 1);
+                                            }
+                                          });
+                                        },
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 12),
+                                Text(l10n.toDate, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                                const SizedBox(height: 8),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: DropdownButtonFormField<int>(
+                                        value: _endMonth,
+                                        decoration: InputDecoration(
+                                          labelText: l10n.selectMonth,
+                                          border: const OutlineInputBorder(),
+                                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                        ),
+                                        items: List.generate(12, (index) {
+                                          final monthNum = index + 1;
+                                          return DropdownMenuItem(
+                                            value: monthNum,
+                                            child: Text(l10n.getMonthName(monthNum)),
+                                          );
+                                        }),
+                                        onChanged: (value) {
+                                          setModalState(() {
+                                            _endMonth = value;
+                                            if (_endMonth != null && _endYear != null) {
+                                              // Set to last day of month
+                                              final nextMonth = _endMonth! < 12 ? _endMonth! + 1 : 1;
+                                              final nextYear = _endMonth! < 12 ? _endYear! : _endYear! + 1;
+                                              _endDate = DateTime(nextYear, nextMonth, 1).subtract(const Duration(days: 1));
+                                            }
+                                          });
+                                        },
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: DropdownButtonFormField<int>(
+                                        value: _endYear,
+                                        decoration: InputDecoration(
+                                          labelText: l10n.selectYear,
+                                          border: const OutlineInputBorder(),
+                                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                        ),
+                                        items: List.generate(10, (index) {
+                                          final year = DateTime.now().year - index;
+                                          return DropdownMenuItem(
+                                            value: year,
+                                            child: Text(year.toString()),
+                                          );
+                                        }),
+                                        onChanged: (value) {
+                                          setModalState(() {
+                                            _endYear = value;
+                                            if (_endMonth != null && _endYear != null) {
+                                              // Set to last day of month
+                                              final nextMonth = _endMonth! < 12 ? _endMonth! + 1 : 1;
+                                              final nextYear = _endMonth! < 12 ? _endYear! : _endYear! + 1;
+                                              _endDate = DateTime(nextYear, nextMonth, 1).subtract(const Duration(days: 1));
+                                            }
+                                          });
                                         },
                                       ),
                                     ),
@@ -524,9 +678,48 @@ class _TransactionScreenState extends ConsumerState<TransactionScreen> {
                                 items: [
                                   DropdownMenuItem(value: null, child: Text(l10n.allCategories)),
                                   ...filteredCategories.map((cat) {
+                                    final displayName = l10n.translateCategoryName(cat.id, cat.name);
+
+                                    // Get icon and color
+                                    final iconData = CategoryIconData.getIcon(cat.icon) ??
+                                        (cat.type == 'income' ? Icons.arrow_downward : Icons.arrow_upward);
+
+                                    Color backgroundColor;
+                                    if (cat.color != null && cat.color!.isNotEmpty) {
+                                      try {
+                                        backgroundColor = Color(int.parse(cat.color!.substring(1), radix: 16) + 0xFF000000);
+                                      } catch (e) {
+                                        backgroundColor = cat.type == 'income' ? Colors.green : Colors.red;
+                                      }
+                                    } else {
+                                      backgroundColor = cat.type == 'income' ? Colors.green : Colors.red;
+                                    }
+
+                                    final iconColor = ThemeData.estimateBrightnessForColor(backgroundColor) == Brightness.light
+                                        ? Colors.black
+                                        : Colors.white;
+
                                     return DropdownMenuItem(
                                       value: cat.id,
-                                      child: Text(l10n.translateCategoryName(cat.id, cat.name)),
+                                      child: Row(
+                                        children: [
+                                          Container(
+                                            width: 32,
+                                            height: 32,
+                                            decoration: BoxDecoration(
+                                              color: backgroundColor,
+                                              shape: BoxShape.circle,
+                                            ),
+                                            child: Icon(
+                                              iconData,
+                                              color: iconColor,
+                                              size: 16,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Text(displayName),
+                                        ],
+                                      ),
                                     );
                                   }),
                                 ],
@@ -597,13 +790,17 @@ class _TransactionScreenState extends ConsumerState<TransactionScreen> {
                                 child: OutlinedButton(
                                   onPressed: () {
                                     setModalState(() {
-                                      _timeFilter = 'this_month';
+                                      _timeFilter = 'all';
                                       _typeFilter = null;
                                       _categoryFilter = null;
                                       _minAmount = null;
                                       _maxAmount = null;
                                       _startDate = null;
                                       _endDate = null;
+                                      _startMonth = null;
+                                      _startYear = null;
+                                      _endMonth = null;
+                                      _endYear = null;
                                       _currentPage = 1;
                                     });
                                     setState(() {});

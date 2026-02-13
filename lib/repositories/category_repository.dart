@@ -27,7 +27,7 @@ class CategoryRepository {
     return Category.fromMap(maps.first);
   }
 
-  Future<Category> create(String name, String type) async {
+  Future<Category> create(String name, String type, {String? icon, String? color}) async {
     final db = await DatabaseHelper.instance.database;
     final now = DateTime.now();
 
@@ -35,15 +35,19 @@ class CategoryRepository {
       id: _uuid.v4(),
       name: name,
       type: type,
+      icon: icon,
+      color: color,
       createdAt: now,
       updatedAt: now,
     );
 
-    await db.insert('categories', category.toMap());
+    final categoryMap = category.toMap();
+    categoryMap['synced'] = 0; // Mark as not synced
+    await db.insert('categories', categoryMap);
     return category;
   }
 
-  Future<Category> update(String id, String name, String type) async {
+  Future<Category> update(String id, String name, String type, {String? icon, String? color}) async {
     final db = await DatabaseHelper.instance.database;
     final category = await getById(id);
 
@@ -54,12 +58,16 @@ class CategoryRepository {
     final updated = category.copyWith(
       name: name,
       type: type,
+      icon: icon,
+      color: color,
       updatedAt: DateTime.now(),
     );
 
+    final updatedMap = updated.toMap();
+    updatedMap['synced'] = 0; // Mark as not synced
     await db.update(
       'categories',
-      updated.toMap(),
+      updatedMap,
       where: 'id = ?',
       whereArgs: [id],
     );
@@ -69,16 +77,35 @@ class CategoryRepository {
 
   Future<void> delete(String id) async {
     final db = await DatabaseHelper.instance.database;
-    final category = await getById(id);
+    final now = DateTime.now().toIso8601String();
 
-    if (category == null) {
+    // Get cloud_id before deleting
+    final cats = await db.query(
+      'categories',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+
+    if (cats.isEmpty) {
       throw Exception('Category not found');
     }
 
+    final cloudId = cats.first['cloud_id'] as String?;
+
+    // Delete from local
     await db.delete(
       'categories',
       where: 'id = ?',
       whereArgs: [id],
     );
+
+    // Add to pending_deletions if it has cloud_id
+    if (cloudId != null) {
+      await db.insert('pending_deletions', {
+        'cloud_id': cloudId,
+        'table_name': 'categories',
+        'deleted_at': now,
+      });
+    }
   }
 }

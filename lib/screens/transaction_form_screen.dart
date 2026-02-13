@@ -4,6 +4,7 @@ import '../providers/transaction_provider.dart';
 import '../providers/category_provider.dart';
 import '../providers/localization_provider.dart';
 import '../models/category.dart';
+import '../utils/icon_data.dart';
 import 'home_screen.dart';
 
 class TransactionFormScreen extends ConsumerStatefulWidget {
@@ -115,6 +116,23 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
         data: (categories) {
           return Column(
             children: [
+              if (categories.isEmpty)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  color: Colors.amber[50],
+                  child: Row(
+                    children: [
+                      const Icon(Icons.warning_amber, size: 16, color: Colors.orange),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          l10n.noCategoriesWarning,
+                          style: TextStyle(fontSize: 12, color: Colors.orange[900]),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               Expanded(
                 child: ListView.builder(
                   controller: _scrollController,
@@ -267,9 +285,47 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                 ),
                 ...filteredCategories.map((cat) {
                   final displayName = l10n.translateCategoryName(cat.id, cat.name);
+
+                  // Get icon and color
+                  final iconData = CategoryIconData.getIcon(cat.icon) ??
+                      (cat.type == 'income' ? Icons.arrow_downward : Icons.arrow_upward);
+
+                  Color backgroundColor;
+                  if (cat.color != null && cat.color!.isNotEmpty) {
+                    try {
+                      backgroundColor = Color(int.parse(cat.color!.substring(1), radix: 16) + 0xFF000000);
+                    } catch (e) {
+                      backgroundColor = cat.type == 'income' ? Colors.green : Colors.red;
+                    }
+                  } else {
+                    backgroundColor = cat.type == 'income' ? Colors.green : Colors.red;
+                  }
+
+                  final iconColor = ThemeData.estimateBrightnessForColor(backgroundColor) == Brightness.light
+                      ? Colors.black
+                      : Colors.white;
+
                   return DropdownMenuItem(
                     value: cat.id,
-                    child: Text(displayName),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: backgroundColor,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            iconData,
+                            color: iconColor,
+                            size: 16,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Text(displayName),
+                      ],
+                    ),
                   );
                 }).toList(),
               ],

@@ -9,9 +9,10 @@ import '../providers/localization_provider.dart';
 import '../providers/category_provider.dart';
 import '../models/transaction.dart';
 import '../models/category.dart';
+import '../utils/icon_data.dart';
 import 'transaction_form_screen.dart';
-import 'settings_screen.dart';
 import 'home_screen.dart';
+import 'settings_screen.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -99,19 +100,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       appBar: AppBar(
         title: Text(l10n.dashboard),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const SettingsScreen(),
-                ),
-              );
-            },
-          ),
-        ],
       ),
       body: transactionsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -241,6 +229,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
                         // Budget Progress
                         _buildBudgetCard(
+                          context,
                           budgetUsed,
                           budget,
                           budgetPercent,
@@ -349,19 +338,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 
   Widget _buildBudgetCard(
+    BuildContext context,
     double used,
     double budget,
     double percent,
     String currency,
     l10n,
   ) {
-    Color progressColor = Colors.green;
-    if (percent >= 80 && percent < 100) {
-      progressColor = Colors.orange;
-    } else if (percent >= 100) {
-      progressColor = Colors.red;
-    }
-
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -377,33 +360,66 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            LinearProgressIndicator(
-              value: percent / 100,
-              backgroundColor: Colors.grey[200],
-              color: progressColor,
-              minHeight: 8,
-            ),
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  '${percent.toStringAsFixed(1)}${l10n.percentUsed}',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey[600],
+            if (budget == 0)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    l10n.budgetNotSet,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[600],
+                    ),
                   ),
-                ),
-                Text(
-                  '${_formatAmount(used, currency)} / ${_formatAmount(budget, currency)}',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.grey[800],
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                      );
+                    },
+                    icon: const Icon(Icons.settings, size: 18),
+                    label: Text(l10n.settings),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    ),
                   ),
-                ),
-              ],
-            ),
+                ],
+              )
+            else
+              Column(
+                children: [
+                  LinearProgressIndicator(
+                    value: percent / 100,
+                    backgroundColor: Colors.grey[200],
+                    color: percent >= 100
+                        ? Colors.red
+                        : (percent >= 80 ? Colors.orange : Colors.green),
+                    minHeight: 8,
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        '${percent.toStringAsFixed(1)}${l10n.percentUsed}',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                      Text(
+                        '${_formatAmount(used, currency)} / ${_formatAmount(budget, currency)}',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.grey[800],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
           ],
         ),
       ),
@@ -1028,8 +1044,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     }
 
     final categoryMap = {
-      for (var cat in categories)
-        cat.id: l10n.translateCategoryName(cat.id, cat.name)
+      for (var cat in categories) cat.id: cat
     };
 
     return Card(
@@ -1055,17 +1070,40 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             ),
             const SizedBox(height: 8),
             ...recentTx.map((tx) {
-              final categoryName = categoryMap[tx.categoryId] ?? l10n.noCategory;
+              final category = categoryMap[tx.categoryId];
+              final categoryName = category != null
+                  ? l10n.translateCategoryName(category.id, category.name)
+                  : l10n.noCategory;
+
+              // Get icon and color
+              final iconData = category != null
+                  ? (CategoryIconData.getIcon(category.icon) ??
+                      (tx.type == 'income' ? Icons.arrow_downward : Icons.arrow_upward))
+                  : (tx.type == 'income' ? Icons.arrow_downward : Icons.arrow_upward);
+
+              Color backgroundColor;
+              if (category?.color != null && category!.color!.isNotEmpty) {
+                try {
+                  backgroundColor = Color(int.parse(category.color!.substring(1), radix: 16) + 0xFF000000);
+                } catch (e) {
+                  backgroundColor = tx.type == 'income' ? Colors.green : Colors.red;
+                }
+              } else {
+                backgroundColor = tx.type == 'income' ? Colors.green : Colors.red;
+              }
+
+              final iconColor = ThemeData.estimateBrightnessForColor(backgroundColor) == Brightness.light
+                  ? Colors.black
+                  : Colors.white;
+
               return ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: CircleAvatar(
-                  backgroundColor: tx.type == 'income' ? Colors.green : Colors.red,
+                  backgroundColor: backgroundColor,
                   radius: 20,
                   child: Icon(
-                    tx.type == 'income'
-                        ? Icons.arrow_downward
-                        : Icons.arrow_upward,
-                    color: Colors.white,
+                    iconData,
+                    color: iconColor,
                     size: 20,
                   ),
                 ),

@@ -73,7 +73,9 @@ class RecurringRepository {
       updatedAt: now,
     );
 
-    await db.insert('recurring_configs', config.toMap());
+    final configMap = config.toMap();
+    configMap['synced'] = 0; // Mark as not synced
+    await db.insert('recurring_configs', configMap);
     return config;
   }
 
@@ -125,9 +127,11 @@ class RecurringRepository {
       updatedAt: DateTime.now(),
     );
 
+    final updatedMap = updated.toMap();
+    updatedMap['synced'] = 0; // Mark as not synced
     await db.update(
       'recurring_configs',
-      updated.toMap(),
+      updatedMap,
       where: 'id = ?',
       whereArgs: [id],
     );
@@ -137,18 +141,44 @@ class RecurringRepository {
 
   Future<void> delete(String id) async {
     final db = await DatabaseHelper.instance.database;
-    await db.delete(
+    final now = DateTime.now().toIso8601String();
+
+    // Get cloud_id before deleting
+    final configs = await db.query(
       'recurring_configs',
       where: 'id = ?',
       whereArgs: [id],
     );
+
+    if (configs.isNotEmpty) {
+      final cloudId = configs.first['cloud_id'] as String?;
+
+      // Delete from local
+      await db.delete(
+        'recurring_configs',
+        where: 'id = ?',
+        whereArgs: [id],
+      );
+
+      // Add to pending_deletions if it has cloud_id
+      if (cloudId != null) {
+        await db.insert('pending_deletions', {
+          'cloud_id': cloudId,
+          'table_name': 'recurring_configs',
+          'deleted_at': now,
+        });
+      }
+    }
   }
 
   Future<void> updateNextRun(String id, DateTime nextRun) async {
     final db = await DatabaseHelper.instance.database;
     await db.update(
       'recurring_configs',
-      {'next_run': nextRun.toIso8601String()},
+      {
+        'next_run': nextRun.toIso8601String(),
+        'synced': 0, // Mark as not synced
+      },
       where: 'id = ?',
       whereArgs: [id],
     );

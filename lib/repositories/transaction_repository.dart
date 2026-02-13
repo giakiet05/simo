@@ -96,7 +96,9 @@ class TransactionRepository {
         updatedAt: now,
       );
 
-      await db.insert('transactions', transaction.toMap());
+      final transactionMap = transaction.toMap();
+      transactionMap['synced'] = 0; // Mark as not synced
+      await db.insert('transactions', transactionMap);
       createdTransactions.add(transaction);
     }
 
@@ -127,9 +129,11 @@ class TransactionRepository {
       updatedAt: DateTime.now(),
     );
 
+    final updatedMap = updated.toMap();
+    updatedMap['synced'] = 0; // Mark as not synced
     await db.update(
       'transactions',
-      updated.toMap(),
+      updatedMap,
       where: 'id = ?',
       whereArgs: [id],
     );
@@ -139,13 +143,35 @@ class TransactionRepository {
 
   Future<void> deleteMultiple(List<String> ids) async {
     final db = await DatabaseHelper.instance.database;
+    final now = DateTime.now().toIso8601String();
 
     for (var id in ids) {
-      await db.delete(
+      // Get cloud_id before deleting
+      final txs = await db.query(
         'transactions',
         where: 'id = ?',
         whereArgs: [id],
       );
+
+      if (txs.isNotEmpty) {
+        final cloudId = txs.first['cloud_id'] as String?;
+
+        // Delete from local
+        await db.delete(
+          'transactions',
+          where: 'id = ?',
+          whereArgs: [id],
+        );
+
+        // Add to pending_deletions if it has cloud_id
+        if (cloudId != null) {
+          await db.insert('pending_deletions', {
+            'cloud_id': cloudId,
+            'table_name': 'transactions',
+            'deleted_at': now,
+          });
+        }
+      }
     }
   }
 }
