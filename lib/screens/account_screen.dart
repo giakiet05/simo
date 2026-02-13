@@ -12,6 +12,7 @@ import 'login_screen.dart';
 import 'recurring_screen.dart';
 import 'settings_screen.dart';
 import 'about_screen.dart';
+import 'change_password_screen.dart';
 
 class AccountScreen extends ConsumerStatefulWidget {
   const AccountScreen({super.key});
@@ -216,6 +217,17 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const RecurringScreen()),
+              );
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.vpn_key),
+            title: Text(l10n.changePassword),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ChangePasswordScreen()),
               );
             },
           ),

@@ -162,10 +162,12 @@ class AppLocalizations {
       'sync_failed': 'Sync failed',
       'logout': 'Logout',
       'logout_confirm':
-          'Are you sure you want to logout?\n\nData will be synced to cloud before logout.',
+          'Are you sure you want to logout?\n\nData will be synced to cloud before logout.\n\nNote: Internet connection is required for next login.',
       'syncing_data': 'Syncing data...',
       'logout_error': 'Logout error',
       'loading_data': 'Loading data...',
+      'internet_required_for_login':
+          'Note: Internet connection is required for login',
 
       // Auth
       'email': 'Email',
@@ -177,6 +179,24 @@ class AppLocalizations {
       'register_to_sync': 'Register to sync data across multiple devices',
       'confirm_password': 'Confirm Password',
       'app_tagline': 'Simple Money Management',
+      'forgot_password': 'Forgot Password?',
+      'reset_password': 'Reset Password',
+      'reset_password_instruction':
+          'Enter your email to receive password reset instructions',
+      'send_reset_link': 'Send Reset Link',
+      'reset_link_sent':
+          'Password reset link sent!\n\nPlease check your email.',
+      'change_password': 'Change Password',
+      'current_password': 'Current Password',
+      'new_password': 'New Password',
+      'confirm_new_password': 'Confirm New Password',
+      'password_changed': 'Password changed successfully',
+      'change_password_failed': 'Failed to change password',
+      'please_enter_current_password': 'Please enter current password',
+      'please_enter_new_password': 'Please enter new password',
+      'new_passwords_not_match': 'New passwords do not match',
+      'new_password_must_be_different':
+          'New password must be different from current password',
 
       // Auth Validation
       'please_enter_email': 'Please enter email',
@@ -400,10 +420,12 @@ class AppLocalizations {
       'sync_failed': 'Đồng bộ thất bại',
       'logout': 'Đăng xuất',
       'logout_confirm':
-          'Bạn có chắc chắn muốn đăng xuất?\n\nDữ liệu sẽ được đồng bộ lên cloud trước khi đăng xuất.',
+          'Bạn có chắc chắn muốn đăng xuất?\n\nDữ liệu sẽ được đồng bộ lên cloud trước khi đăng xuất.\n\nLưu ý: Lần đăng nhập tiếp theo cần có kết nối mạng.',
       'syncing_data': 'Đang đồng bộ dữ liệu...',
       'logout_error': 'Lỗi khi đăng xuất',
       'loading_data': 'Đang tải dữ liệu...',
+      'internet_required_for_login':
+          'Lưu ý: Cần có kết nối mạng để đăng nhập',
 
       // Auth
       'email': 'Email',
@@ -415,6 +437,24 @@ class AppLocalizations {
       'register_to_sync': 'Đăng ký để đồng bộ dữ liệu trên nhiều thiết bị',
       'confirm_password': 'Xác nhận mật khẩu',
       'app_tagline': 'Quản lý tài chính đơn giản',
+      'forgot_password': 'Quên mật khẩu?',
+      'reset_password': 'Đặt lại mật khẩu',
+      'reset_password_instruction':
+          'Nhập email của bạn để nhận hướng dẫn đặt lại mật khẩu',
+      'send_reset_link': 'Gửi liên kết đặt lại',
+      'reset_link_sent':
+          'Đã gửi liên kết đặt lại mật khẩu!\n\nVui lòng kiểm tra email của bạn.',
+      'change_password': 'Đổi mật khẩu',
+      'current_password': 'Mật khẩu hiện tại',
+      'new_password': 'Mật khẩu mới',
+      'confirm_new_password': 'Xác nhận mật khẩu mới',
+      'password_changed': 'Đổi mật khẩu thành công',
+      'change_password_failed': 'Đổi mật khẩu thất bại',
+      'please_enter_current_password': 'Vui lòng nhập mật khẩu hiện tại',
+      'please_enter_new_password': 'Vui lòng nhập mật khẩu mới',
+      'new_passwords_not_match': 'Mật khẩu mới không khớp',
+      'new_password_must_be_different':
+          'Mật khẩu mới phải khác với mật khẩu hiện tại',
 
       // Auth Validation
       'please_enter_email': 'Vui lòng nhập email',
@@ -596,6 +636,7 @@ class AppLocalizations {
   String get syncingData => translate('syncing_data');
   String get logoutError => translate('logout_error');
   String get loadingData => translate('loading_data');
+  String get internetRequiredForLogin => translate('internet_required_for_login');
 
   String get email => translate('email');
   String get password => translate('password');
@@ -606,6 +647,21 @@ class AppLocalizations {
   String get registerToSync => translate('register_to_sync');
   String get confirmPassword => translate('confirm_password');
   String get appTagline => translate('app_tagline');
+  String get forgotPassword => translate('forgot_password');
+  String get resetPassword => translate('reset_password');
+  String get resetPasswordInstruction => translate('reset_password_instruction');
+  String get sendResetLink => translate('send_reset_link');
+  String get resetLinkSent => translate('reset_link_sent');
+  String get changePassword => translate('change_password');
+  String get currentPassword => translate('current_password');
+  String get newPassword => translate('new_password');
+  String get confirmNewPassword => translate('confirm_new_password');
+  String get passwordChanged => translate('password_changed');
+  String get changePasswordFailed => translate('change_password_failed');
+  String get pleaseEnterCurrentPassword => translate('please_enter_current_password');
+  String get pleaseEnterNewPassword => translate('please_enter_new_password');
+  String get newPasswordsNotMatch => translate('new_passwords_not_match');
+  String get newPasswordMustBeDifferent => translate('new_password_must_be_different');
 
   String get pleaseEnterEmail => translate('please_enter_email');
   String get invalidEmail => translate('invalid_email');
