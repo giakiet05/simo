@@ -37,20 +37,14 @@ class RecurringScreen extends ConsumerWidget {
           ),
         ],
       ),
-      body: recurringAsync.when(
+      body: categoriesAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, stack) => Center(child: Text('${l10n.error}: $error')),
-        data: (configs) {
-          if (configs.isEmpty) {
-            return Center(
-              child: Text(l10n.noRecurring),
-            );
-          }
-
-          return categoriesAsync.when(
+        data: (categories) {
+          return recurringAsync.when(
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (error, stack) => Center(child: Text('${l10n.error}: $error')),
-            data: (categories) {
+            data: (configs) {
               final categoryMap = {
                 for (var cat in categories)
                   cat.id: l10n.translateCategoryName(cat.id, cat.name)
@@ -58,24 +52,44 @@ class RecurringScreen extends ConsumerWidget {
 
               return Column(
                 children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    color: Colors.blue[50],
-                    child: Row(
-                      children: [
-                        const Icon(Icons.info_outline, size: 16, color: Colors.blue),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            l10n.longPressHint,
-                            style: TextStyle(fontSize: 12, color: Colors.blue[900]),
+                  if (configs.isNotEmpty)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      color: Colors.blue[50],
+                      child: Row(
+                        children: [
+                          const Icon(Icons.info_outline, size: 16, color: Colors.blue),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              l10n.longPressHint,
+                              style: TextStyle(fontSize: 12, color: Colors.blue[900]),
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
+                  if (categories.isEmpty)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      color: Colors.amber[50],
+                      child: Row(
+                        children: [
+                          const Icon(Icons.warning_amber, size: 16, color: Colors.orange),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              l10n.noCategoriesWarning,
+                              style: TextStyle(fontSize: 12, color: Colors.orange[900]),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   Expanded(
-                    child: ListView.builder(
+                    child: configs.isEmpty
+                        ? Center(child: Text(l10n.noRecurring))
+                        : ListView.builder(
                       itemCount: configs.length,
                       itemBuilder: (context, index) {
                         final config = configs[index];

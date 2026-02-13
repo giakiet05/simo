@@ -7,6 +7,7 @@ import '../providers/category_provider.dart';
 import '../providers/transaction_provider.dart';
 import '../providers/recurring_provider.dart';
 import '../providers/settings_provider.dart';
+import '../providers/localization_provider.dart';
 import 'login_screen.dart';
 import 'recurring_screen.dart';
 import 'settings_screen.dart';
@@ -30,9 +31,10 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
       await syncService.sync();
 
       if (mounted) {
+        final l10n = ref.read(localizationProvider);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Đồng bộ thành công'),
+          SnackBar(
+            content: Text(l10n.syncSuccess),
             backgroundColor: Colors.green,
           ),
         );
@@ -44,9 +46,10 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
       }
     } catch (e) {
       if (mounted) {
+        final l10n = ref.read(localizationProvider);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Đồng bộ thất bại: ${e.toString()}'),
+            content: Text('${l10n.syncFailed}: ${e.toString()}'),
             backgroundColor: Colors.red,
           ),
         );
@@ -59,19 +62,20 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
   }
 
   Future<void> _logout(BuildContext context) async {
+    final l10n = ref.read(localizationProvider);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Đăng xuất'),
-        content: const Text('Bạn có chắc chắn muốn đăng xuất?\n\nDữ liệu sẽ được đồng bộ lên cloud trước khi đăng xuất.'),
+        title: Text(l10n.logout),
+        content: Text(l10n.logoutConfirm),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Hủy'),
+            child: Text(l10n.cancel),
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Đăng xuất'),
+            child: Text(l10n.logout),
           ),
         ],
       ),
@@ -86,12 +90,12 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
       barrierDismissible: false,
       builder: (context) => PopScope(
         canPop: false,
-        child: const AlertDialog(
+        child: AlertDialog(
           content: Row(
             children: [
-              CircularProgressIndicator(),
-              SizedBox(width: 16),
-              Text('Đang đồng bộ dữ liệu...'),
+              const CircularProgressIndicator(),
+              const SizedBox(width: 16),
+              Text(l10n.syncingData),
             ],
           ),
         ),
@@ -142,9 +146,10 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
         // Close loading dialog
         Navigator.of(context).pop();
 
+        final l10n = ref.read(localizationProvider);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Lỗi khi đăng xuất: ${e.toString()}'),
+            content: Text('${l10n.logoutError}: ${e.toString()}'),
             backgroundColor: Colors.red,
           ),
         );
@@ -155,11 +160,12 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
   @override
   Widget build(BuildContext context) {
     final user = supabase.auth.currentUser;
-    final email = user?.email ?? 'Chưa đăng nhập';
+    final email = user?.email ?? '';
+    final l10n = ref.watch(localizationProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Tài khoản'),
+        title: Text(l10n.account),
       ),
       body: ListView(
         children: [
@@ -194,7 +200,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.sync),
-              label: Text(_isSyncing ? 'Đang đồng bộ...' : 'Đồng bộ dữ liệu'),
+              label: Text(_isSyncing ? l10n.syncing : l10n.syncData),
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 12),
               ),
@@ -204,7 +210,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
           const Divider(),
           ListTile(
             leading: const Icon(Icons.repeat),
-            title: const Text('Giao dịch định kỳ'),
+            title: Text(l10n.recurringTransactions),
             trailing: const Icon(Icons.chevron_right),
             onTap: () {
               Navigator.push(
@@ -215,7 +221,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
           ),
           ListTile(
             leading: const Icon(Icons.settings),
-            title: const Text('Cài đặt'),
+            title: Text(l10n.settings),
             trailing: const Icon(Icons.chevron_right),
             onTap: () {
               Navigator.push(
@@ -226,7 +232,7 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
           ),
           ListTile(
             leading: const Icon(Icons.info),
-            title: const Text('Về ứng dụng'),
+            title: Text(l10n.about),
             trailing: const Icon(Icons.chevron_right),
             onTap: () {
               Navigator.push(
@@ -238,9 +244,9 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
           const Divider(),
           ListTile(
             leading: const Icon(Icons.logout, color: Colors.red),
-            title: const Text(
-              'Đăng xuất',
-              style: TextStyle(color: Colors.red),
+            title: Text(
+              l10n.logout,
+              style: const TextStyle(color: Colors.red),
             ),
             onTap: () => _logout(context),
           ),

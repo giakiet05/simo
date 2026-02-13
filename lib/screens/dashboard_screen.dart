@@ -11,6 +11,7 @@ import '../models/transaction.dart';
 import '../models/category.dart';
 import 'transaction_form_screen.dart';
 import 'home_screen.dart';
+import 'settings_screen.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -227,6 +228,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
                         // Budget Progress
                         _buildBudgetCard(
+                          context,
                           budgetUsed,
                           budget,
                           budgetPercent,
@@ -335,19 +337,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 
   Widget _buildBudgetCard(
+    BuildContext context,
     double used,
     double budget,
     double percent,
     String currency,
     l10n,
   ) {
-    Color progressColor = Colors.green;
-    if (percent >= 80 && percent < 100) {
-      progressColor = Colors.orange;
-    } else if (percent >= 100) {
-      progressColor = Colors.red;
-    }
-
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -363,33 +359,66 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            LinearProgressIndicator(
-              value: percent / 100,
-              backgroundColor: Colors.grey[200],
-              color: progressColor,
-              minHeight: 8,
-            ),
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  '${percent.toStringAsFixed(1)}${l10n.percentUsed}',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey[600],
+            if (budget == 0)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    l10n.budgetNotSet,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey[600],
+                    ),
                   ),
-                ),
-                Text(
-                  '${_formatAmount(used, currency)} / ${_formatAmount(budget, currency)}',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.grey[800],
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                      );
+                    },
+                    icon: const Icon(Icons.settings, size: 18),
+                    label: Text(l10n.settings),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    ),
                   ),
-                ),
-              ],
-            ),
+                ],
+              )
+            else
+              Column(
+                children: [
+                  LinearProgressIndicator(
+                    value: percent / 100,
+                    backgroundColor: Colors.grey[200],
+                    color: percent >= 100
+                        ? Colors.red
+                        : (percent >= 80 ? Colors.orange : Colors.green),
+                    minHeight: 8,
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        '${percent.toStringAsFixed(1)}${l10n.percentUsed}',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                      Text(
+                        '${_formatAmount(used, currency)} / ${_formatAmount(budget, currency)}',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.grey[800],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
           ],
         ),
       ),

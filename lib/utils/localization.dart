@@ -12,6 +12,7 @@ class AppLocalizations {
       'income': 'Income',
       'expense': 'Expense',
       'monthly_budget': 'Monthly Budget',
+      'budget_not_set': 'Budget not set',
       'percent_used': '% used',
       'total_transactions': 'Transactions',
       'current_month': 'Current Month',
@@ -42,7 +43,7 @@ class AppLocalizations {
       'dec': 'Dec',
 
       // Transactions
-      'no_transactions': 'No transactions yet. Add one!',
+      'no_transactions': 'No transactions yet',
       'add_transaction': 'Add Transaction',
       'add_more': 'Add New Transaction',
       'save_all': 'Save',
@@ -53,7 +54,8 @@ class AppLocalizations {
       'note': 'Note',
       'no_category': 'No category',
       'delete_transaction': 'Delete Transaction',
-      'delete_transaction_confirm': 'Are you sure you want to delete this transaction?',
+      'delete_transaction_confirm':
+          'Are you sure you want to delete this transaction?',
       'transaction_deleted': 'Transaction deleted',
       'transaction_created': 'Transactions created',
       'fill_all_fields': 'Please fill amount for all items',
@@ -87,7 +89,9 @@ class AppLocalizations {
       'select_multiple': 'Select Multiple',
 
       // Categories
-      'no_categories': 'No categories yet. Add one!',
+      'no_categories': 'No categories yet',
+      'no_categories_warning':
+          'No categories yet. Please create categories to get started.',
       'add_category': 'Add Category',
       'edit_category': 'Edit Category',
       'delete_category': 'Delete Category',
@@ -99,7 +103,7 @@ class AppLocalizations {
 
       // Recurring
       'recurring_transactions': 'Recurring Transactions',
-      'no_recurring': 'No recurring transactions yet. Add one!',
+      'no_recurring': 'No recurring transactions yet',
       'add_recurring': 'Add Recurring',
       'edit_recurring': 'Edit Recurring',
       'delete_recurring': 'Delete Recurring Transaction',
@@ -147,7 +151,66 @@ class AppLocalizations {
       'vietnamese': 'Vietnamese',
       'english': 'English',
       'about': 'About',
-      'app_description': 'A simple and intuitive personal finance management app.',
+      'app_description':
+          'A simple and intuitive personal finance management app.',
+
+      // Account
+      'account': 'Account',
+      'sync_data': 'Sync Data',
+      'syncing': 'Syncing...',
+      'sync_success': 'Sync successful',
+      'sync_failed': 'Sync failed',
+      'logout': 'Logout',
+      'logout_confirm':
+          'Are you sure you want to logout?\n\nData will be synced to cloud before logout.',
+      'syncing_data': 'Syncing data...',
+      'logout_error': 'Logout error',
+      'loading_data': 'Loading data...',
+
+      // Auth
+      'email': 'Email',
+      'password': 'Password',
+      'login': 'Login',
+      'register': 'Register',
+      'dont_have_account': 'Don\'t have an account?',
+      'create_new_account': 'Create New Account',
+      'register_to_sync': 'Register to sync data across multiple devices',
+      'confirm_password': 'Confirm Password',
+      'app_tagline': 'Simple Money Management',
+
+      // Auth Validation
+      'please_enter_email': 'Please enter email',
+      'invalid_email': 'Invalid email',
+      'please_enter_password': 'Please enter password',
+      'password_min_6': 'Password must be at least 6 characters',
+      'password_min_8': 'Password must be at least 8 characters',
+      'password_helper':
+          'Minimum 8 characters, with uppercase, lowercase, number and special character',
+      'password_need_uppercase':
+          'Password must have at least 1 uppercase letter',
+      'password_need_lowercase':
+          'Password must have at least 1 lowercase letter',
+      'password_need_number': 'Password must have at least 1 number',
+      'password_need_special':
+          'Password must have at least 1 special character',
+      'please_confirm_password': 'Please confirm password',
+      'passwords_not_match': 'Passwords do not match',
+
+      // Auth Errors
+      'login_failed': 'Login failed',
+      'invalid_credentials': 'Invalid email or password',
+      'email_not_confirmed':
+          'Please confirm your email before logging in.\nCheck your inbox.',
+      'network_error': 'Network error. Please check your internet connection.',
+      'register_failed': 'Registration failed',
+      'email_already_registered':
+          'This email is already registered.\nPlease use another email or login.',
+      'password_too_weak':
+          'Password is too weak.\nPlease use a stronger password.',
+      'system_error': 'System error.\nPlease try again later.',
+      'register_success_confirm':
+          'Registration successful!\n\nPlease check your email to confirm your account before logging in.',
+      'register_success': 'Registration successful! You can login now.',
 
       // Common
       'cancel': 'Cancel',
@@ -187,7 +250,8 @@ class AppLocalizations {
       // Dashboard
       'income': 'Thu nhập',
       'expense': 'Chi tiêu',
-      'monthly_budget': 'Ngân sách tháng',
+      'monthly_budget': 'Giới hạn tháng',
+      'budget_not_set': 'Chưa đặt giới hạn',
       'percent_used': '% đã dùng',
       'total_transactions': 'Giao dịch',
       'current_month': 'Tháng hiện tại',
@@ -218,7 +282,7 @@ class AppLocalizations {
       'dec': 'Thg 12',
 
       // Transactions
-      'no_transactions': 'Chưa có giao dịch nào. Thêm ngay!',
+      'no_transactions': 'Chưa có giao dịch',
       'add_transaction': 'Thêm giao dịch',
       'add_more': 'Thêm giao dịch mới',
       'save_all': 'Lưu',
@@ -263,7 +327,9 @@ class AppLocalizations {
       'select_multiple': 'Chọn nhiều',
 
       // Categories
-      'no_categories': 'Chưa có danh mục nào. Thêm ngay!',
+      'no_categories': 'Chưa có danh mục',
+      'no_categories_warning':
+          'Chưa có danh mục nào. Hãy tạo các danh mục của bạn.',
       'add_category': 'Thêm danh mục',
       'edit_category': 'Sửa danh mục',
       'delete_category': 'Xóa danh mục',
@@ -275,7 +341,7 @@ class AppLocalizations {
 
       // Recurring
       'recurring_transactions': 'Giao dịch định kỳ',
-      'no_recurring': 'Chưa có giao dịch định kỳ nào. Thêm ngay!',
+      'no_recurring': 'Chưa có giao dịch định kỳ',
       'add_recurring': 'Thêm định kỳ',
       'edit_recurring': 'Sửa định kỳ',
       'delete_recurring': 'Xóa giao dịch định kỳ',
@@ -315,7 +381,7 @@ class AppLocalizations {
       'saturday': 'Thứ 7',
 
       // Settings
-      'monthly_budget_setting': 'Ngân sách tháng',
+      'monthly_budget_setting': 'Giới hạn tháng',
       'currency': 'Tiền tệ',
       'language': 'Ngôn ngữ',
       'save': 'Lưu',
@@ -323,7 +389,63 @@ class AppLocalizations {
       'vietnamese': 'Tiếng Việt',
       'english': 'Tiếng Anh',
       'about': 'Giới thiệu',
-      'app_description': 'Ứng dụng quản lý tài chính cá nhân đơn giản và trực quan.',
+      'app_description':
+          'Ứng dụng quản lý tài chính cá nhân đơn giản và trực quan.',
+
+      // Account
+      'account': 'Tài khoản',
+      'sync_data': 'Đồng bộ dữ liệu',
+      'syncing': 'Đang đồng bộ...',
+      'sync_success': 'Đồng bộ thành công',
+      'sync_failed': 'Đồng bộ thất bại',
+      'logout': 'Đăng xuất',
+      'logout_confirm':
+          'Bạn có chắc chắn muốn đăng xuất?\n\nDữ liệu sẽ được đồng bộ lên cloud trước khi đăng xuất.',
+      'syncing_data': 'Đang đồng bộ dữ liệu...',
+      'logout_error': 'Lỗi khi đăng xuất',
+      'loading_data': 'Đang tải dữ liệu...',
+
+      // Auth
+      'email': 'Email',
+      'password': 'Mật khẩu',
+      'login': 'Đăng nhập',
+      'register': 'Đăng ký',
+      'dont_have_account': 'Chưa có tài khoản?',
+      'create_new_account': 'Tạo tài khoản mới',
+      'register_to_sync': 'Đăng ký để đồng bộ dữ liệu trên nhiều thiết bị',
+      'confirm_password': 'Xác nhận mật khẩu',
+      'app_tagline': 'Quản lý tài chính đơn giản',
+
+      // Auth Validation
+      'please_enter_email': 'Vui lòng nhập email',
+      'invalid_email': 'Email không hợp lệ',
+      'please_enter_password': 'Vui lòng nhập mật khẩu',
+      'password_min_6': 'Mật khẩu phải có ít nhất 6 ký tự',
+      'password_min_8': 'Mật khẩu phải có ít nhất 8 ký tự',
+      'password_helper':
+          'Tối thiểu 8 ký tự, có chữ hoa, chữ thường, số và ký tự đặc biệt',
+      'password_need_uppercase': 'Mật khẩu phải có ít nhất 1 chữ hoa',
+      'password_need_lowercase': 'Mật khẩu phải có ít nhất 1 chữ thường',
+      'password_need_number': 'Mật khẩu phải có ít nhất 1 chữ số',
+      'password_need_special': 'Mật khẩu phải có ít nhất 1 ký tự đặc biệt',
+      'please_confirm_password': 'Vui lòng xác nhận mật khẩu',
+      'passwords_not_match': 'Mật khẩu không khớp',
+
+      // Auth Errors
+      'login_failed': 'Đăng nhập thất bại',
+      'invalid_credentials': 'Email hoặc mật khẩu không đúng',
+      'email_not_confirmed':
+          'Vui lòng xác nhận email trước khi đăng nhập.\nKiểm tra hộp thư của bạn.',
+      'network_error': 'Lỗi kết nối mạng. Vui lòng kiểm tra internet.',
+      'register_failed': 'Đăng ký thất bại',
+      'email_already_registered':
+          'Email này đã được đăng ký.\nVui lòng sử dụng email khác hoặc đăng nhập.',
+      'password_too_weak':
+          'Mật khẩu quá yếu.\nVui lòng sử dụng mật khẩu mạnh hơn.',
+      'system_error': 'Lỗi hệ thống.\nVui lòng thử lại sau.',
+      'register_success_confirm':
+          'Đăng ký thành công!\n\nVui lòng kiểm tra email để xác nhận tài khoản trước khi đăng nhập.',
+      'register_success': 'Đăng ký thành công! Bạn có thể đăng nhập ngay.',
 
       // Common
       'cancel': 'Hủy',
@@ -371,6 +493,7 @@ class AppLocalizations {
   String get income => translate('income');
   String get expense => translate('expense');
   String get monthlyBudget => translate('monthly_budget');
+  String get budgetNotSet => translate('budget_not_set');
   String get percentUsed => translate('percent_used');
   String get totalTransactions => translate('total_transactions');
   String get currentMonth => translate('current_month');
@@ -396,12 +519,14 @@ class AppLocalizations {
   String get note => translate('note');
   String get noCategory => translate('no_category');
   String get deleteTransaction => translate('delete_transaction');
-  String get deleteTransactionConfirm => translate('delete_transaction_confirm');
+  String get deleteTransactionConfirm =>
+      translate('delete_transaction_confirm');
   String get transactionDeleted => translate('transaction_deleted');
   String get transactionCreated => translate('transaction_created');
   String get fillAllFields => translate('fill_all_fields');
 
   String get noCategories => translate('no_categories');
+  String get noCategoriesWarning => translate('no_categories_warning');
   String get addCategory => translate('add_category');
   String get editCategory => translate('edit_category');
   String get deleteCategory => translate('delete_category');
@@ -461,6 +586,51 @@ class AppLocalizations {
   String get about => translate('about');
   String get appDescription => translate('app_description');
 
+  String get account => translate('account');
+  String get syncData => translate('sync_data');
+  String get syncing => translate('syncing');
+  String get syncSuccess => translate('sync_success');
+  String get syncFailed => translate('sync_failed');
+  String get logout => translate('logout');
+  String get logoutConfirm => translate('logout_confirm');
+  String get syncingData => translate('syncing_data');
+  String get logoutError => translate('logout_error');
+  String get loadingData => translate('loading_data');
+
+  String get email => translate('email');
+  String get password => translate('password');
+  String get login => translate('login');
+  String get register => translate('register');
+  String get dontHaveAccount => translate('dont_have_account');
+  String get createNewAccount => translate('create_new_account');
+  String get registerToSync => translate('register_to_sync');
+  String get confirmPassword => translate('confirm_password');
+  String get appTagline => translate('app_tagline');
+
+  String get pleaseEnterEmail => translate('please_enter_email');
+  String get invalidEmail => translate('invalid_email');
+  String get pleaseEnterPassword => translate('please_enter_password');
+  String get passwordMin6 => translate('password_min_6');
+  String get passwordMin8 => translate('password_min_8');
+  String get passwordHelper => translate('password_helper');
+  String get passwordNeedUppercase => translate('password_need_uppercase');
+  String get passwordNeedLowercase => translate('password_need_lowercase');
+  String get passwordNeedNumber => translate('password_need_number');
+  String get passwordNeedSpecial => translate('password_need_special');
+  String get pleaseConfirmPassword => translate('please_confirm_password');
+  String get passwordsNotMatch => translate('passwords_not_match');
+
+  String get loginFailed => translate('login_failed');
+  String get invalidCredentials => translate('invalid_credentials');
+  String get emailNotConfirmed => translate('email_not_confirmed');
+  String get networkError => translate('network_error');
+  String get registerFailed => translate('register_failed');
+  String get emailAlreadyRegistered => translate('email_already_registered');
+  String get passwordTooWeak => translate('password_too_weak');
+  String get systemError => translate('system_error');
+  String get registerSuccessConfirm => translate('register_success_confirm');
+  String get registerSuccess => translate('register_success');
+
   String get cancel => translate('cancel');
   String get add => translate('add');
   String get edit => translate('edit');
@@ -515,8 +685,20 @@ class AppLocalizations {
 
   // Get month name by number (1-12)
   String getMonthName(int month) {
-    final monthKeys = ['jan', 'feb', 'mar', 'apr', 'may', 'jun',
-                       'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+    final monthKeys = [
+      'jan',
+      'feb',
+      'mar',
+      'apr',
+      'may',
+      'jun',
+      'jul',
+      'aug',
+      'sep',
+      'oct',
+      'nov',
+      'dec',
+    ];
     if (month >= 1 && month <= 12) {
       return translate(monthKeys[month - 1]);
     }

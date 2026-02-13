@@ -196,29 +196,23 @@ class _TransactionScreenState extends ConsumerState<TransactionScreen> {
                   ),
                 ],
         ),
-        body: transactionsAsync.when(
+        body: categoriesAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, stack) => Center(child: Text('${l10n.error}: $error')),
-        data: (allTransactions) {
-          // Apply filters
-          final filteredTransactions = _applyFilters(allTransactions);
-
-          if (filteredTransactions.isEmpty) {
-            return Center(
-              child: Text(l10n.noTransactions),
-            );
-          }
-
-          // Apply pagination
-          final totalItems = filteredTransactions.length;
-          final endIndex = (_currentPage * _limit).clamp(0, totalItems);
-          final paginatedTransactions = filteredTransactions.take(endIndex).toList();
-          _hasMore = endIndex < totalItems;
-
-          return categoriesAsync.when(
+        data: (categories) {
+          return transactionsAsync.when(
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (error, stack) => Center(child: Text('${l10n.error}: $error')),
-            data: (categories) {
+            data: (allTransactions) {
+              // Apply filters
+              final filteredTransactions = _applyFilters(allTransactions);
+
+              // Apply pagination
+              final totalItems = filteredTransactions.length;
+              final endIndex = (_currentPage * _limit).clamp(0, totalItems);
+              final paginatedTransactions = filteredTransactions.take(endIndex).toList();
+              _hasMore = endIndex < totalItems;
+
               final categoryMap = {
                 for (var cat in categories)
                   cat.id: l10n.translateCategoryName(cat.id, cat.name)
@@ -226,24 +220,44 @@ class _TransactionScreenState extends ConsumerState<TransactionScreen> {
 
               return Column(
                 children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    color: Colors.blue[50],
-                    child: Row(
-                      children: [
-                        const Icon(Icons.info_outline, size: 16, color: Colors.blue),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            l10n.longPressHint,
-                            style: TextStyle(fontSize: 12, color: Colors.blue[900]),
+                  if (paginatedTransactions.isNotEmpty)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      color: Colors.blue[50],
+                      child: Row(
+                        children: [
+                          const Icon(Icons.info_outline, size: 16, color: Colors.blue),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              l10n.longPressHint,
+                              style: TextStyle(fontSize: 12, color: Colors.blue[900]),
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
+                  if (categories.isEmpty)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      color: Colors.amber[50],
+                      child: Row(
+                        children: [
+                          const Icon(Icons.warning_amber, size: 16, color: Colors.orange),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              l10n.noCategoriesWarning,
+                              style: TextStyle(fontSize: 12, color: Colors.orange[900]),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   Expanded(
-                    child: ListView.builder(
+                    child: paginatedTransactions.isEmpty
+                        ? Center(child: Text(l10n.noTransactions))
+                        : ListView.builder(
                       controller: _scrollController,
                       itemCount: paginatedTransactions.length + (_hasMore ? 1 : 0),
                       itemBuilder: (context, index) {
@@ -339,14 +353,14 @@ class _TransactionScreenState extends ConsumerState<TransactionScreen> {
                           ),
                         );
                       },
-                    ),
+                    )
                   ),
                 ],
               );
             },
           );
         },
-      ),
+        ),
       ),
     );
   }

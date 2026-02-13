@@ -19,7 +19,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 5,
+      version: 6,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -93,32 +93,6 @@ class DatabaseHelper {
         deleted_at $textType
       )
     ''');
-
-    // Insert default categories
-    final defaultCategories = [
-      {'id': 'cat_salary', 'name': 'Salary', 'type': 'income'},
-      {'id': 'cat_bonus', 'name': 'Bonus', 'type': 'income'},
-      {'id': 'cat_investment', 'name': 'Investment', 'type': 'income'},
-      {'id': 'cat_other_income', 'name': 'Other Income', 'type': 'income'},
-      {'id': 'cat_food', 'name': 'Food & Dining', 'type': 'expense'},
-      {'id': 'cat_transport', 'name': 'Transportation', 'type': 'expense'},
-      {'id': 'cat_shopping', 'name': 'Shopping', 'type': 'expense'},
-      {'id': 'cat_entertainment', 'name': 'Entertainment', 'type': 'expense'},
-      {'id': 'cat_bills', 'name': 'Bills & Utilities', 'type': 'expense'},
-      {'id': 'cat_healthcare', 'name': 'Healthcare', 'type': 'expense'},
-      {'id': 'cat_other_expense', 'name': 'Other', 'type': 'expense'},
-    ];
-
-    final now = DateTime.now().toIso8601String();
-    for (var category in defaultCategories) {
-      await db.insert('categories', {
-        'id': category['id'],
-        'name': category['name'],
-        'type': category['type'],
-        'created_at': now,
-        'updated_at': now,
-      });
-    }
   }
 
   Future<void> _upgradeDB(Database db, int oldVersion, int newVersion) async {
@@ -193,6 +167,40 @@ class DatabaseHelper {
           deleted_at TEXT NOT NULL
         )
       ''');
+    }
+
+    if (oldVersion < 6) {
+      // Remove default categories (id starts with 'cat_')
+      print('[DB] Migration v6: Removing default categories');
+
+      // Get all default categories
+      final defaultCats = await db.query(
+        'categories',
+        where: "id LIKE 'cat_%'",
+      );
+
+      print('[DB] Found ${defaultCats.length} default categories to remove');
+
+      // Mark them for deletion on cloud
+      final now = DateTime.now().toIso8601String();
+      for (var cat in defaultCats) {
+        final cloudId = cat['cloud_id'] as String?;
+        if (cloudId != null) {
+          await db.insert('pending_deletions', {
+            'cloud_id': cloudId,
+            'table_name': 'categories',
+            'deleted_at': now,
+          });
+        }
+      }
+
+      // Delete from local
+      final deletedCount = await db.delete(
+        'categories',
+        where: "id LIKE 'cat_%'",
+      );
+
+      print('[DB] Deleted $deletedCount default categories from local');
     }
   }
 

@@ -3,17 +3,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../utils/supabase.dart';
 import '../utils/sync_service.dart';
 import '../repositories/database_helper.dart';
+import '../providers/localization_provider.dart';
 import 'register_screen.dart';
 import 'home_screen.dart';
 
-class LoginScreen extends StatefulWidget {
+class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -27,60 +28,6 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  Future<void> _ensureDefaultCategoriesForNewUser() async {
-    final userId = supabase.auth.currentUser?.id;
-    if (userId == null) return;
-
-    // Check if user has any data on cloud (categories OR transactions)
-    final cloudCategories = await supabase
-        .from('categories')
-        .select('id')
-        .eq('user_id', userId)
-        .limit(1);
-
-    final cloudTransactions = await supabase
-        .from('transactions')
-        .select('id')
-        .eq('user_id', userId)
-        .limit(1);
-
-    // Only create default categories if user is TRULY NEW (no categories AND no transactions)
-    if (cloudCategories.isEmpty && cloudTransactions.isEmpty) {
-      // First login - create default categories
-      print('[LOGIN] New user detected, creating default categories...');
-
-      final db = await DatabaseHelper.instance.database;
-      final defaultCategories = [
-        {'id': 'cat_salary', 'name': 'Salary', 'type': 'income'},
-        {'id': 'cat_bonus', 'name': 'Bonus', 'type': 'income'},
-        {'id': 'cat_investment', 'name': 'Investment', 'type': 'income'},
-        {'id': 'cat_other_income', 'name': 'Other Income', 'type': 'income'},
-        {'id': 'cat_food', 'name': 'Food & Dining', 'type': 'expense'},
-        {'id': 'cat_transport', 'name': 'Transportation', 'type': 'expense'},
-        {'id': 'cat_shopping', 'name': 'Shopping', 'type': 'expense'},
-        {'id': 'cat_entertainment', 'name': 'Entertainment', 'type': 'expense'},
-        {'id': 'cat_bills', 'name': 'Bills & Utilities', 'type': 'expense'},
-        {'id': 'cat_healthcare', 'name': 'Healthcare', 'type': 'expense'},
-        {'id': 'cat_other_expense', 'name': 'Other', 'type': 'expense'},
-      ];
-
-      final now = DateTime.now().toIso8601String();
-      for (var category in defaultCategories) {
-        await db.insert('categories', {
-          'id': category['id'],
-          'name': category['name'],
-          'type': category['type'],
-          'synced': 0, // Mark as not synced to trigger PUSH
-          'created_at': now,
-          'updated_at': now,
-        });
-      }
-
-      print('[LOGIN] Created ${defaultCategories.length} default categories');
-    } else {
-      print('[LOGIN] Existing user (has data on cloud), skipping default categories');
-    }
-  }
 
   Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
@@ -115,9 +62,6 @@ class _LoginScreenState extends State<LoginScreen> {
           final localCats = await db.query('categories');
           print('[LOGIN] Local categories before sync: ${localCats.length}');
 
-          // Check and create default categories for new users
-          await _ensureDefaultCategoriesForNewUser();
-
           final syncService = SyncService();
           await syncService.sync();
           print('[LOGIN] Sync completed successfully');
@@ -137,20 +81,21 @@ class _LoginScreenState extends State<LoginScreen> {
       });
     } catch (e) {
       if (mounted) {
-        String errorMessage = 'Đăng nhập thất bại';
+        final l10n = ref.read(localizationProvider);
+        String errorMessage = l10n.loginFailed;
 
         final errorStr = e.toString().toLowerCase();
         if (errorStr.contains('invalid login credentials') ||
             errorStr.contains('invalid_credentials')) {
-          errorMessage = 'Email hoặc mật khẩu không đúng';
+          errorMessage = l10n.invalidCredentials;
         } else if (errorStr.contains('email not confirmed') ||
                    errorStr.contains('email_not_confirmed')) {
-          errorMessage = 'Vui lòng xác nhận email trước khi đăng nhập.\nKiểm tra hộp thư của bạn.';
+          errorMessage = l10n.emailNotConfirmed;
         } else if (errorStr.contains('network') ||
                    errorStr.contains('fetch')) {
-          errorMessage = 'Lỗi kết nối mạng. Vui lòng kiểm tra internet.';
+          errorMessage = l10n.networkError;
         } else {
-          errorMessage = 'Đăng nhập thất bại: ${e.toString()}';
+          errorMessage = '${l10n.loginFailed}: ${e.toString()}';
         }
 
         ScaffoldMessenger.of(context).showSnackBar(
@@ -170,6 +115,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = ref.watch(localizationProvider);
+
     return Scaffold(
       body: SafeArea(
         child: Center(
@@ -195,10 +142,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  const Text(
-                    'Quản lý tài chính đơn giản',
+                  Text(
+                    l10n.appTagline,
                     textAlign: TextAlign.center,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 16,
                       color: Colors.grey,
                     ),
@@ -207,17 +154,17 @@ class _LoginScreenState extends State<LoginScreen> {
                   TextFormField(
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
-                    decoration: const InputDecoration(
-                      labelText: 'Email',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.email),
+                    decoration: InputDecoration(
+                      labelText: l10n.email,
+                      border: const OutlineInputBorder(),
+                      prefixIcon: const Icon(Icons.email),
                     ),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
-                        return 'Vui lòng nhập email';
+                        return l10n.pleaseEnterEmail;
                       }
                       if (!value.contains('@')) {
-                        return 'Email không hợp lệ';
+                        return l10n.invalidEmail;
                       }
                       return null;
                     },
@@ -227,7 +174,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     controller: _passwordController,
                     obscureText: _obscurePassword,
                     decoration: InputDecoration(
-                      labelText: 'Mật khẩu',
+                      labelText: l10n.password,
                       border: const OutlineInputBorder(),
                       prefixIcon: const Icon(Icons.lock),
                       suffixIcon: IconButton(
@@ -245,10 +192,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
-                        return 'Vui lòng nhập mật khẩu';
+                        return l10n.pleaseEnterPassword;
                       }
                       if (value.length < 6) {
-                        return 'Mật khẩu phải có ít nhất 6 ký tự';
+                        return l10n.passwordMin6;
                       }
                       return null;
                     },
@@ -258,23 +205,28 @@ class _LoginScreenState extends State<LoginScreen> {
                     onPressed: _isLoading ? null : _login,
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 16),
+                      backgroundColor: Colors.teal,
+                      foregroundColor: Colors.white,
                     ),
                     child: _isLoading
                         ? const SizedBox(
                             height: 20,
                             width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
                           )
-                        : const Text(
-                            'Đăng nhập',
-                            style: TextStyle(fontSize: 16),
+                        : Text(
+                            l10n.login,
+                            style: const TextStyle(fontSize: 16),
                           ),
                   ),
                   const SizedBox(height: 16),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Text('Chưa có tài khoản?'),
+                      Text(l10n.dontHaveAccount),
                       TextButton(
                         onPressed: () {
                           Navigator.of(context).push(
@@ -283,7 +235,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           );
                         },
-                        child: const Text('Đăng ký'),
+                        child: Text(l10n.register),
                       ),
                     ],
                   ),

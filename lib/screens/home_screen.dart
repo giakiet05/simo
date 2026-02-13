@@ -147,7 +147,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
                 BottomNavigationBarItem(
                   icon: const Icon(Icons.person),
-                  label: 'Tài khoản',
+                  label: l10n.account,
                 ),
               ],
             ),
@@ -156,18 +156,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           if (_isInitialLoading)
             Container(
               color: Colors.black54,
-              child: const Center(
+              child: Center(
                 child: Card(
                   child: Padding(
-                    padding: EdgeInsets.all(24.0),
+                    padding: const EdgeInsets.all(24.0),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        CircularProgressIndicator(),
-                        SizedBox(height: 16),
+                        const CircularProgressIndicator(),
+                        const SizedBox(height: 16),
                         Text(
-                          'Đang tải dữ liệu...',
-                          style: TextStyle(fontSize: 16),
+                          l10n.loadingData,
+                          style: const TextStyle(fontSize: 16),
                         ),
                       ],
                     ),

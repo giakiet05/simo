@@ -115,6 +115,23 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
         data: (categories) {
           return Column(
             children: [
+              if (categories.isEmpty)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  color: Colors.amber[50],
+                  child: Row(
+                    children: [
+                      const Icon(Icons.warning_amber, size: 16, color: Colors.orange),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          l10n.noCategoriesWarning,
+                          style: TextStyle(fontSize: 12, color: Colors.orange[900]),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               Expanded(
                 child: ListView.builder(
                   controller: _scrollController,
