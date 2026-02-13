@@ -152,6 +152,27 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                   ),
                   const SizedBox(height: 48),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.blue[50],
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.blue[200]!),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.info_outline, size: 16, color: Colors.blue[700]),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            l10n.internetRequiredForLogin,
+                            style: TextStyle(fontSize: 12, color: Colors.blue[900]),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
                   TextFormField(
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
@@ -212,27 +233,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         );
                       },
                       child: Text(l10n.forgotPassword),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.blue[50],
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.blue[200]!),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.info_outline, size: 16, color: Colors.blue[700]),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            l10n.internetRequiredForLogin,
-                            style: TextStyle(fontSize: 12, color: Colors.blue[900]),
-                          ),
-                        ),
-                      ],
                     ),
                   ),
                   const SizedBox(height: 24),

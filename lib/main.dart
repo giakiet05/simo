@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:io';
 import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
+import 'screens/reset_password_handler_screen.dart';
 import 'utils/recurring_service.dart';
 import 'utils/supabase.dart';
 
@@ -65,6 +66,11 @@ class _MyAppState extends State<MyApp> {
         navigatorKey.currentState?.pushAndRemoveUntil(
           MaterialPageRoute(builder: (_) => HomeScreen(key: homeScreenKey)),
           (route) => false,
+        );
+      } else if (event == AuthChangeEvent.passwordRecovery) {
+        // Navigate to reset password screen when user clicks reset link
+        navigatorKey.currentState?.push(
+          MaterialPageRoute(builder: (_) => const ResetPasswordHandlerScreen()),
         );
       }
     });

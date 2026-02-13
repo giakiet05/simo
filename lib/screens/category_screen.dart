@@ -3,6 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/category_provider.dart';
 import '../providers/localization_provider.dart';
 import '../models/category.dart';
+import '../utils/icon_data.dart';
+import '../widgets/icon_picker_dialog.dart';
+import '../widgets/color_picker_dialog.dart';
 
 class CategoryScreen extends ConsumerStatefulWidget {
   const CategoryScreen({super.key});
@@ -124,7 +127,7 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                     padding: const EdgeInsets.all(8),
                     gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 2,
-                      childAspectRatio: 1.5,
+                      childAspectRatio: 1.3,
                       crossAxisSpacing: 8,
                       mainAxisSpacing: 8,
                     ),
@@ -132,37 +135,89 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                     itemBuilder: (context, index) {
                       final category = categories[index];
                       final displayName = l10n.translateCategoryName(category.id, category.name);
+
+                      // Get icon and color
+                      final iconData = CategoryIconData.getIcon(category.icon) ??
+                          (category.type == 'income' ? Icons.arrow_downward : Icons.arrow_upward);
+
+                      Color backgroundColor;
+                      if (category.color != null && category.color!.isNotEmpty) {
+                        try {
+                          backgroundColor = Color(int.parse(category.color!.substring(1), radix: 16) + 0xFF000000);
+                        } catch (e) {
+                          backgroundColor = category.type == 'income' ? Colors.green : Colors.red;
+                        }
+                      } else {
+                        backgroundColor = category.type == 'income' ? Colors.green : Colors.red;
+                      }
+
+                      // Determine icon color based on background brightness
+                      final iconColor = ThemeData.estimateBrightnessForColor(backgroundColor) == Brightness.light
+                          ? Colors.black
+                          : Colors.white;
+
                     return Card(
                       child: InkWell(
                         onLongPress: () => _showActionMenu(context, ref, category),
                         child: Padding(
-                          padding: const EdgeInsets.all(12),
+                          padding: const EdgeInsets.all(8),
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(
-                                category.type == 'income'
-                                    ? Icons.arrow_downward
-                                    : Icons.arrow_upward,
-                                color: category.type == 'income' ? Colors.green : Colors.red,
-                                size: 32,
+                              // Icon with badge
+                              Stack(
+                                clipBehavior: Clip.none,
+                                children: [
+                                  // Icon circle
+                                  Container(
+                                    width: 48,
+                                    height: 48,
+                                    decoration: BoxDecoration(
+                                      color: backgroundColor,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Icon(
+                                      iconData,
+                                      color: iconColor,
+                                      size: 24,
+                                    ),
+                                  ),
+                                  // Badge
+                                  Positioned(
+                                    top: -2,
+                                    right: -2,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(3),
+                                      decoration: BoxDecoration(
+                                        color: category.type == 'income' ? Colors.green : Colors.red,
+                                        shape: BoxShape.circle,
+                                        border: Border.all(color: Colors.white, width: 2),
+                                      ),
+                                      child: Icon(
+                                        category.type == 'income' ? Icons.arrow_downward : Icons.arrow_upward,
+                                        color: Colors.white,
+                                        size: 10,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
-                              const SizedBox(height: 8),
+                              const SizedBox(height: 6),
                               Text(
                                 displayName,
                                 style: const TextStyle(
                                   fontWeight: FontWeight.bold,
-                                  fontSize: 14,
+                                  fontSize: 13,
                                 ),
                                 textAlign: TextAlign.center,
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                               ),
-                              const SizedBox(height: 4),
+                              const SizedBox(height: 2),
                               Text(
                                 category.type == 'income' ? l10n.income : l10n.expense,
                                 style: TextStyle(
-                                  fontSize: 12,
+                                  fontSize: 11,
                                   color: Colors.grey[600],
                                 ),
                               ),
@@ -216,78 +271,207 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
     final controller = TextEditingController();
     final l10n = ref.read(localizationProvider);
     String selectedType = 'expense';
+    String? selectedIcon;
+    String? selectedColor;
 
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          title: Text(l10n.addCategory),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: controller,
-                decoration: InputDecoration(
-                  labelText: l10n.categoryName,
-                  border: const OutlineInputBorder(),
-                ),
-                autofocus: true,
-              ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                value: selectedType,
-                decoration: InputDecoration(
-                  labelText: l10n.type,
-                  border: const OutlineInputBorder(),
-                ),
-                items: [
-                  DropdownMenuItem(value: 'income', child: Text(l10n.income)),
-                  DropdownMenuItem(value: 'expense', child: Text(l10n.expense)),
-                ],
-                onChanged: (value) {
-                  setState(() {
-                    selectedType = value!;
-                  });
-                },
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text(l10n.cancel),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                final name = controller.text.trim();
-                if (name.isEmpty) return;
+        builder: (context, setState) {
+          // Get preview colors
+          Color previewColor;
+          if (selectedColor != null && selectedColor!.isNotEmpty) {
+            try {
+              previewColor = Color(int.parse(selectedColor!.substring(1), radix: 16) + 0xFF000000);
+            } catch (e) {
+              previewColor = selectedType == 'income' ? Colors.green : Colors.red;
+            }
+          } else {
+            previewColor = selectedType == 'income' ? Colors.green : Colors.red;
+          }
 
-                try {
-                  await ref
-                      .read(categoryProvider.notifier)
-                      .createCategory(name, selectedType);
-                  if (context.mounted) {
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text(l10n.categoryAdded)),
-                    );
-                  }
-                } catch (e) {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('${l10n.error}: $e')),
-                    );
-                  }
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).colorScheme.primary,
-                foregroundColor: Colors.white,
+          final iconColor = ThemeData.estimateBrightnessForColor(previewColor) == Brightness.light
+              ? Colors.black
+              : Colors.white;
+
+          final previewIcon = CategoryIconData.getIcon(selectedIcon) ??
+              (selectedType == 'income' ? Icons.arrow_downward : Icons.arrow_upward);
+
+          return Dialog(
+            child: Container(
+              constraints: const BoxConstraints(
+                maxWidth: 500,
+                maxHeight: 600,
               ),
-              child: Text(l10n.add),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Title
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 16, 24, 12),
+                    child: Text(
+                      l10n.addCategory,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  // Content
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          TextField(
+                            controller: controller,
+                            decoration: InputDecoration(
+                              labelText: l10n.categoryName,
+                              border: const OutlineInputBorder(),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                            ),
+                            autofocus: true,
+                          ),
+                          const SizedBox(height: 12),
+                          DropdownButtonFormField<String>(
+                            value: selectedType,
+                            decoration: InputDecoration(
+                              labelText: l10n.type,
+                              border: const OutlineInputBorder(),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                            ),
+                            items: [
+                              DropdownMenuItem(value: 'income', child: Text(l10n.income)),
+                              DropdownMenuItem(value: 'expense', child: Text(l10n.expense)),
+                            ],
+                            onChanged: (value) {
+                              setState(() {
+                                selectedType = value!;
+                              });
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          // Icon & Color section
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: Colors.grey[300]!),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Column(
+                              children: [
+                                // Preview
+                                Container(
+                                  width: 60,
+                                  height: 60,
+                                  decoration: BoxDecoration(
+                                    color: previewColor,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    previewIcon,
+                                    color: iconColor,
+                                    size: 30,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                // Buttons
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                  children: [
+                                    OutlinedButton.icon(
+                                      onPressed: () async {
+                                        final result = await showDialog<String>(
+                                          context: context,
+                                          builder: (context) => IconPickerDialog(
+                                            selectedIcon: selectedIcon,
+                                            categoryType: selectedType,
+                                          ),
+                                        );
+                                        if (result != null) {
+                                          setState(() {
+                                            selectedIcon = result;
+                                          });
+                                        }
+                                      },
+                                      icon: const Icon(Icons.interests),
+                                      label: const Text('Icon'),
+                                    ),
+                                    OutlinedButton.icon(
+                                      onPressed: () async {
+                                        final result = await showDialog<String>(
+                                          context: context,
+                                          builder: (context) => ColorPickerDialog(
+                                            selectedColor: selectedColor,
+                                          ),
+                                        );
+                                        if (result != null) {
+                                          setState(() {
+                                            selectedColor = result;
+                                          });
+                                        }
+                                      },
+                                      icon: const Icon(Icons.palette),
+                                      label: const Text('Màu'),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  // Actions
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 4, 24, 12),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: Text(l10n.cancel),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton(
+                          onPressed: () async {
+                            final name = controller.text.trim();
+                            if (name.isEmpty) return;
+
+                            try {
+                              await ref
+                                  .read(categoryProvider.notifier)
+                                  .createCategory(name, selectedType, icon: selectedIcon, color: selectedColor);
+                              if (context.mounted) {
+                                Navigator.pop(context);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text(l10n.categoryAdded)),
+                                );
+                              }
+                            } catch (e) {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('${l10n.error}: $e')),
+                                );
+                              }
+                            }
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Theme.of(context).colorScheme.primary,
+                            foregroundColor: Colors.white,
+                          ),
+                          child: Text(l10n.add),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -297,78 +481,207 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
     final displayName = l10n.translateCategoryName(category.id, category.name);
     final controller = TextEditingController(text: displayName);
     String selectedType = category.type;
+    String? selectedIcon = category.icon;
+    String? selectedColor = category.color;
 
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          title: Text(l10n.editCategory),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: controller,
-                decoration: InputDecoration(
-                  labelText: l10n.categoryName,
-                  border: const OutlineInputBorder(),
-                ),
-                autofocus: true,
-              ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                value: selectedType,
-                decoration: InputDecoration(
-                  labelText: l10n.type,
-                  border: const OutlineInputBorder(),
-                ),
-                items: [
-                  DropdownMenuItem(value: 'income', child: Text(l10n.income)),
-                  DropdownMenuItem(value: 'expense', child: Text(l10n.expense)),
-                ],
-                onChanged: (value) {
-                  setState(() {
-                    selectedType = value!;
-                  });
-                },
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text(l10n.cancel),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                final name = controller.text.trim();
-                if (name.isEmpty) return;
+        builder: (context, setState) {
+          // Get preview colors
+          Color previewColor;
+          if (selectedColor != null && selectedColor!.isNotEmpty) {
+            try {
+              previewColor = Color(int.parse(selectedColor!.substring(1), radix: 16) + 0xFF000000);
+            } catch (e) {
+              previewColor = selectedType == 'income' ? Colors.green : Colors.red;
+            }
+          } else {
+            previewColor = selectedType == 'income' ? Colors.green : Colors.red;
+          }
 
-                try {
-                  await ref
-                      .read(categoryProvider.notifier)
-                      .updateCategory(category.id, name, selectedType);
-                  if (context.mounted) {
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text(l10n.categoryUpdated)),
-                    );
-                  }
-                } catch (e) {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('${l10n.error}: $e')),
-                    );
-                  }
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).colorScheme.primary,
-                foregroundColor: Colors.white,
+          final iconColor = ThemeData.estimateBrightnessForColor(previewColor) == Brightness.light
+              ? Colors.black
+              : Colors.white;
+
+          final previewIcon = CategoryIconData.getIcon(selectedIcon) ??
+              (selectedType == 'income' ? Icons.arrow_downward : Icons.arrow_upward);
+
+          return Dialog(
+            child: Container(
+              constraints: const BoxConstraints(
+                maxWidth: 500,
+                maxHeight: 600,
               ),
-              child: Text(l10n.save),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Title
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 16, 24, 12),
+                    child: Text(
+                      l10n.editCategory,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  // Content
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          TextField(
+                            controller: controller,
+                            decoration: InputDecoration(
+                              labelText: l10n.categoryName,
+                              border: const OutlineInputBorder(),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                            ),
+                            autofocus: true,
+                          ),
+                          const SizedBox(height: 12),
+                          DropdownButtonFormField<String>(
+                            value: selectedType,
+                            decoration: InputDecoration(
+                              labelText: l10n.type,
+                              border: const OutlineInputBorder(),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                            ),
+                            items: [
+                              DropdownMenuItem(value: 'income', child: Text(l10n.income)),
+                              DropdownMenuItem(value: 'expense', child: Text(l10n.expense)),
+                            ],
+                            onChanged: (value) {
+                              setState(() {
+                                selectedType = value!;
+                              });
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          // Icon & Color section
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: Colors.grey[300]!),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Column(
+                              children: [
+                                // Preview
+                                Container(
+                                  width: 60,
+                                  height: 60,
+                                  decoration: BoxDecoration(
+                                    color: previewColor,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    previewIcon,
+                                    color: iconColor,
+                                    size: 30,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                // Buttons
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                  children: [
+                                    OutlinedButton.icon(
+                                      onPressed: () async {
+                                        final result = await showDialog<String>(
+                                          context: context,
+                                          builder: (context) => IconPickerDialog(
+                                            selectedIcon: selectedIcon,
+                                            categoryType: selectedType,
+                                          ),
+                                        );
+                                        if (result != null) {
+                                          setState(() {
+                                            selectedIcon = result;
+                                          });
+                                        }
+                                      },
+                                      icon: const Icon(Icons.interests),
+                                      label: const Text('Icon'),
+                                    ),
+                                    OutlinedButton.icon(
+                                      onPressed: () async {
+                                        final result = await showDialog<String>(
+                                          context: context,
+                                          builder: (context) => ColorPickerDialog(
+                                            selectedColor: selectedColor,
+                                          ),
+                                        );
+                                        if (result != null) {
+                                          setState(() {
+                                            selectedColor = result;
+                                          });
+                                        }
+                                      },
+                                      icon: const Icon(Icons.palette),
+                                      label: const Text('Màu'),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  // Actions
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 4, 24, 12),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: Text(l10n.cancel),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton(
+                          onPressed: () async {
+                            final name = controller.text.trim();
+                            if (name.isEmpty) return;
+
+                            try {
+                              await ref
+                                  .read(categoryProvider.notifier)
+                                  .updateCategory(category.id, name, selectedType, icon: selectedIcon, color: selectedColor);
+                              if (context.mounted) {
+                                Navigator.pop(context);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text(l10n.categoryUpdated)),
+                                );
+                              }
+                            } catch (e) {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('${l10n.error}: $e')),
+                                );
+                              }
+                            }
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Theme.of(context).colorScheme.primary,
+                            foregroundColor: Colors.white,
+                          ),
+                          child: Text(l10n.save),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }

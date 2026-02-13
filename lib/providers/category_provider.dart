@@ -23,26 +23,26 @@ class CategoryNotifier extends StateNotifier<AsyncValue<List<Category>>> {
     }
   }
 
-  Future<void> createCategory(String name, String type) async {
+  Future<void> createCategory(String name, String type, {String? icon, String? color}) async {
     if (name.trim().isEmpty) {
       throw Exception('Category name cannot be empty');
     }
 
     try {
-      await _repository.create(name.trim(), type);
+      await _repository.create(name.trim(), type, icon: icon, color: color);
       await loadCategories();
     } catch (error) {
       rethrow;
     }
   }
 
-  Future<void> updateCategory(String id, String name, String type) async {
+  Future<void> updateCategory(String id, String name, String type, {String? icon, String? color}) async {
     if (name.trim().isEmpty) {
       throw Exception('Category name cannot be empty');
     }
 
     try {
-      await _repository.update(id, name.trim(), type);
+      await _repository.update(id, name.trim(), type, icon: icon, color: color);
       await loadCategories();
     } catch (error) {
       rethrow;

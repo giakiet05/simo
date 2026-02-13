@@ -9,6 +9,7 @@ import '../providers/localization_provider.dart';
 import '../providers/category_provider.dart';
 import '../models/transaction.dart';
 import '../models/category.dart';
+import '../utils/icon_data.dart';
 import 'transaction_form_screen.dart';
 import 'home_screen.dart';
 import 'settings_screen.dart';
@@ -1043,8 +1044,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     }
 
     final categoryMap = {
-      for (var cat in categories)
-        cat.id: l10n.translateCategoryName(cat.id, cat.name)
+      for (var cat in categories) cat.id: cat
     };
 
     return Card(
@@ -1070,17 +1070,40 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             ),
             const SizedBox(height: 8),
             ...recentTx.map((tx) {
-              final categoryName = categoryMap[tx.categoryId] ?? l10n.noCategory;
+              final category = categoryMap[tx.categoryId];
+              final categoryName = category != null
+                  ? l10n.translateCategoryName(category.id, category.name)
+                  : l10n.noCategory;
+
+              // Get icon and color
+              final iconData = category != null
+                  ? (CategoryIconData.getIcon(category.icon) ??
+                      (tx.type == 'income' ? Icons.arrow_downward : Icons.arrow_upward))
+                  : (tx.type == 'income' ? Icons.arrow_downward : Icons.arrow_upward);
+
+              Color backgroundColor;
+              if (category?.color != null && category!.color!.isNotEmpty) {
+                try {
+                  backgroundColor = Color(int.parse(category.color!.substring(1), radix: 16) + 0xFF000000);
+                } catch (e) {
+                  backgroundColor = tx.type == 'income' ? Colors.green : Colors.red;
+                }
+              } else {
+                backgroundColor = tx.type == 'income' ? Colors.green : Colors.red;
+              }
+
+              final iconColor = ThemeData.estimateBrightnessForColor(backgroundColor) == Brightness.light
+                  ? Colors.black
+                  : Colors.white;
+
               return ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: CircleAvatar(
-                  backgroundColor: tx.type == 'income' ? Colors.green : Colors.red,
+                  backgroundColor: backgroundColor,
                   radius: 20,
                   child: Icon(
-                    tx.type == 'income'
-                        ? Icons.arrow_downward
-                        : Icons.arrow_upward,
-                    color: Colors.white,
+                    iconData,
+                    color: iconColor,
                     size: 20,
                   ),
                 ),
