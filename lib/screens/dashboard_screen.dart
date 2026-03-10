@@ -10,6 +10,11 @@ import '../providers/category_provider.dart';
 import '../models/transaction.dart';
 import '../models/category.dart';
 import '../utils/icon_data.dart';
+import '../services/currency_service.dart';
+import '../services/rewarded_ad_service.dart';
+import '../config/ads_config.dart';
+import '../providers/ad_free_provider.dart';
+import '../widgets/banner_ad_widget.dart';
 import 'transaction_form_screen.dart';
 import 'home_screen.dart';
 import 'settings_screen.dart';
@@ -31,6 +36,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   void initState() {
     super.initState();
     _loadChartTimeRanges();
+    if (AdsConfig.adsEnabled) {
+      RewardedAdService.loadRewardedAd();
+    }
   }
 
   Future<void> _loadChartTimeRanges() async {
@@ -89,6 +97,60 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     return l10n.getMonthName(month);
   }
 
+  Widget _buildAdIcon(bool isAdFree) {
+    if (isAdFree) {
+      // Ad-free: vòng tròn + "AD" + gạch chéo (màu xanh)
+      return Stack(
+        alignment: Alignment.center,
+        children: [
+          Container(
+            width: 24,
+            height: 24,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.green, width: 2),
+            ),
+            child: const Center(
+              child: Text(
+                'AD',
+                style: TextStyle(
+                  fontSize: 8,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.green,
+                ),
+              ),
+            ),
+          ),
+          const Icon(
+            Icons.block,
+            color: Colors.green,
+            size: 32,
+          ),
+        ],
+      );
+    } else {
+      // Có ads: vòng tròn + "AD" (màu xám)
+      return Container(
+        width: 28,
+        height: 28,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.grey[700]!, width: 2),
+        ),
+        child: Center(
+          child: Text(
+            'AD',
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey[700],
+            ),
+          ),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final transactionsAsync = ref.watch(transactionProvider);
@@ -100,6 +162,19 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       appBar: AppBar(
         title: Text(l10n.dashboard),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        actions: [
+          if (AdsConfig.adsEnabled)
+            Consumer(
+              builder: (context, ref, child) {
+                final isAdFree = ref.watch(adFreeProvider);
+                return IconButton(
+                  icon: _buildAdIcon(isAdFree),
+                  tooltip: isAdFree ? l10n.adFreeActive : l10n.watchAdRemoveAds,
+                  onPressed: () => _showRewardedAdDialog(context, ref),
+                );
+              },
+            ),
+        ],
       ),
       body: transactionsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -147,113 +222,121 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 loading: () => const Center(child: CircularProgressIndicator()),
                 error: (error, stack) => Center(child: Text('Error: $error')),
                 data: (categories) {
-                  return SingleChildScrollView(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Month/Year Selector
-                        Row(
-                          children: [
-                            Expanded(
-                              child: DropdownButtonFormField<int>(
-                                value: _selectedMonth,
-                                decoration: InputDecoration(
-                                  labelText: l10n.selectMonth,
-                                  border: const OutlineInputBorder(),
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 8,
+                  return Column(
+                    children: [
+                      Expanded(
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Month/Year Selector
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: DropdownButtonFormField<int>(
+                                      value: _selectedMonth,
+                                      decoration: InputDecoration(
+                                        labelText: l10n.selectMonth,
+                                        border: const OutlineInputBorder(),
+                                        contentPadding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 8,
+                                        ),
+                                      ),
+                                      items: availableMonths.map((month) {
+                                        return DropdownMenuItem(
+                                          value: month,
+                                          child: Text(_getMonthName(month, l10n)),
+                                        );
+                                      }).toList(),
+                                      onChanged: (value) {
+                                        setState(() {
+                                          _selectedMonth = value!;
+                                        });
+                                      },
+                                    ),
                                   ),
-                                ),
-                                items: availableMonths.map((month) {
-                                  return DropdownMenuItem(
-                                    value: month,
-                                    child: Text(_getMonthName(month, l10n)),
-                                  );
-                                }).toList(),
-                                onChanged: (value) {
-                                  setState(() {
-                                    _selectedMonth = value!;
-                                  });
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: DropdownButtonFormField<int>(
-                                value: _selectedYear,
-                                decoration: InputDecoration(
-                                  labelText: l10n.selectYear,
-                                  border: const OutlineInputBorder(),
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 8,
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: DropdownButtonFormField<int>(
+                                      value: _selectedYear,
+                                      decoration: InputDecoration(
+                                        labelText: l10n.selectYear,
+                                        border: const OutlineInputBorder(),
+                                        contentPadding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 8,
+                                        ),
+                                      ),
+                                      items: availableYears.map((year) {
+                                        return DropdownMenuItem(
+                                          value: year,
+                                          child: Text(year.toString()),
+                                        );
+                                      }).toList(),
+                                      onChanged: (value) {
+                                        setState(() {
+                                          _selectedYear = value!;
+                                          // Update available months for new year
+                                          final newMonths = _getAvailableMonths(allTransactions, _selectedYear);
+                                          if (!newMonths.contains(_selectedMonth)) {
+                                            _selectedMonth = newMonths.last;
+                                          }
+                                        });
+                                      },
+                                    ),
                                   ),
-                                ),
-                                items: availableYears.map((year) {
-                                  return DropdownMenuItem(
-                                    value: year,
-                                    child: Text(year.toString()),
-                                  );
-                                }).toList(),
-                                onChanged: (value) {
-                                  setState(() {
-                                    _selectedYear = value!;
-                                    // Update available months for new year
-                                    final newMonths = _getAvailableMonths(allTransactions, _selectedYear);
-                                    if (!newMonths.contains(_selectedMonth)) {
-                                      _selectedMonth = newMonths.last;
-                                    }
-                                  });
-                                },
+                                ],
                               ),
-                            ),
-                          ],
+                              const SizedBox(height: 16),
+
+                              // Balance Card
+                              _buildBalanceCard(balance, currency, l10n),
+                              const SizedBox(height: 16),
+
+                              // Income & Expense Cards
+                              _buildSummaryCards(
+                                totalIncome,
+                                totalExpense,
+                                balance,
+                                currency,
+                                l10n,
+                              ),
+                              const SizedBox(height: 24),
+
+                              // Budget Progress
+                              _buildBudgetCard(
+                                context,
+                                budgetUsed,
+                                budget,
+                                budgetPercent,
+                                currency,
+                                l10n,
+                              ),
+                              const SizedBox(height: 24),
+
+                              // Bar Chart (uses all transactions)
+                              _buildBarChart(allTransactions, currency, l10n),
+                              const SizedBox(height: 24),
+
+                              // Line Chart (uses all transactions)
+                              _buildLineChart(allTransactions, currency, l10n),
+                              const SizedBox(height: 24),
+
+                              // Pie Charts (filtered by selected month)
+                              _buildPieCharts(transactions, categories, currency, l10n),
+                              const SizedBox(height: 24),
+
+                              // Recent Transactions (filtered by selected month)
+                              _buildRecentTransactions(context, ref, transactions, categories, currency, l10n),
+                            ],
+                          ),
                         ),
-                        const SizedBox(height: 16),
-
-                        // Balance Card
-                        _buildBalanceCard(balance, currency, l10n),
-                        const SizedBox(height: 16),
-
-                        // Income & Expense Cards
-                        _buildSummaryCards(
-                          totalIncome,
-                          totalExpense,
-                          balance,
-                          currency,
-                          l10n,
-                        ),
-                        const SizedBox(height: 24),
-
-                        // Budget Progress
-                        _buildBudgetCard(
-                          context,
-                          budgetUsed,
-                          budget,
-                          budgetPercent,
-                          currency,
-                          l10n,
-                        ),
-                        const SizedBox(height: 24),
-
-                        // Bar Chart (uses all transactions)
-                        _buildBarChart(allTransactions, currency, l10n),
-                        const SizedBox(height: 24),
-
-                        // Line Chart (uses all transactions)
-                        _buildLineChart(allTransactions, currency, l10n),
-                        const SizedBox(height: 24),
-
-                        // Pie Charts (filtered by selected month)
-                        _buildPieCharts(transactions, categories, currency, l10n),
-                        const SizedBox(height: 24),
-
-                        // Recent Transactions (filtered by selected month)
-                        _buildRecentTransactions(context, ref, transactions, categories, currency, l10n),
-                      ],
-                    ),
+                      ),
+                      // Banner Ad - sticky at bottom
+                      const BannerAdWidget(key: ValueKey('dashboard_banner_ad')),
+                    ],
                   );
                 },
               );
@@ -1132,10 +1215,113 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 
   String _formatAmount(double amount, String currency) {
-    if (currency == 'VND') {
-      return '${NumberFormat('#,###').format(amount)} đ';
+    final symbol = CurrencyService.getSymbol(currency);
+
+    // Format based on typical decimal places for currency
+    // Most Asian currencies (VND, JPY, KRW, IDR) don't use decimals
+    final noDecimalCurrencies = ['VND', 'JPY', 'KRW', 'IDR'];
+
+    if (noDecimalCurrencies.contains(currency)) {
+      return '${NumberFormat('#,###').format(amount)} $symbol';
     } else {
-      return '\$${NumberFormat('#,###.##').format(amount)}';
+      return '$symbol${NumberFormat('#,###.##').format(amount)}';
+    }
+  }
+
+  Future<void> _showRewardedAdDialog(BuildContext context, WidgetRef ref) async {
+    final l10n = ref.read(localizationProvider);
+
+    // Check if already ad-free
+    final isAdFree = ref.read(adFreeProvider);
+    if (isAdFree) {
+      final remaining = await RewardedAdService.getRemainingAdFreeTime();
+      if (remaining != null && context.mounted) {
+        final hours = remaining.inHours;
+        final minutes = remaining.inMinutes.remainder(60);
+        final seconds = remaining.inSeconds.remainder(60);
+
+        String timeText;
+        if (hours > 0) {
+          timeText = '$hours ${l10n.hours} $minutes ${l10n.minutes}';
+        } else if (minutes > 0) {
+          timeText = '$minutes ${l10n.minutes} $seconds ${l10n.seconds}';
+        } else {
+          timeText = '$seconds ${l10n.seconds}';
+        }
+
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text(l10n.adFreeActive),
+            content: Text('${l10n.adFreeStatus} $timeText'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+      }
+      return;
+    }
+
+    // Format duration for display
+    String durationText;
+    if (AdsConfig.adFreeDurationSeconds >= 3600) {
+      final hours = AdsConfig.adFreeDurationSeconds ~/ 3600;
+      durationText = '$hours ${l10n.hours}';
+    } else if (AdsConfig.adFreeDurationSeconds >= 60) {
+      final minutes = AdsConfig.adFreeDurationSeconds ~/ 60;
+      durationText = '$minutes ${l10n.minutes}';
+    } else {
+      durationText = '${AdsConfig.adFreeDurationSeconds} ${l10n.seconds}';
+    }
+
+    // Show confirmation dialog
+    if (context.mounted) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(l10n.removeAdsTitle),
+          content: Text('${l10n.watchAdPrompt} $durationText?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(l10n.cancel),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+              ),
+              child: Text(l10n.watchAdButton),
+            ),
+          ],
+        ),
+      );
+
+      if (confirmed == true && context.mounted) {
+        await RewardedAdService.showRewardedAd(
+          onUserEarnedReward: () async {
+            // Use provider to grant ad-free time
+            await ref.read(adFreeProvider.notifier).grantAdFreeTime();
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('${l10n.adFreeGranted} $durationText!'),
+                  backgroundColor: Colors.green,
+                ),
+              );
+            }
+          },
+          onAdDismissed: () {
+            // Refresh provider status
+            ref.read(adFreeProvider.notifier).refresh();
+          },
+        );
+      }
     }
   }
 }

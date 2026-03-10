@@ -5,9 +5,12 @@ import '../providers/recurring_provider.dart';
 import '../providers/transaction_provider.dart';
 import '../providers/category_provider.dart';
 import '../providers/localization_provider.dart';
+import '../providers/settings_provider.dart';
 import '../models/recurring_config.dart';
 import '../models/category.dart';
 import '../utils/icon_data.dart';
+import '../services/currency_service.dart';
+import '../widgets/banner_ad_widget.dart';
 
 class RecurringScreen extends ConsumerWidget {
   const RecurringScreen({super.key});
@@ -16,6 +19,7 @@ class RecurringScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final recurringAsync = ref.watch(recurringProvider);
     final categoriesAsync = ref.watch(categoryProvider);
+    final settingsAsync = ref.watch(settingsProvider);
     final l10n = ref.watch(localizationProvider);
 
     return Scaffold(
@@ -135,17 +139,21 @@ class RecurringScreen extends ConsumerWidget {
                               config.name,
                               style: const TextStyle(fontWeight: FontWeight.bold),
                             ),
-                            subtitle: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(categoryName, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
-                                Text(_formatAmount(config.amount), style: const TextStyle(fontSize: 14)),
-                                Text(_formatFrequency(ref, config), style: const TextStyle(fontSize: 13)),
-                                Text(
-                                  '${l10n.nextRun}: ${DateFormat('dd/MM/yyyy').format(config.nextRun)}',
-                                  style: const TextStyle(fontSize: 12),
-                                ),
-                              ],
+                            subtitle: settingsAsync.when(
+                              loading: () => const SizedBox.shrink(),
+                              error: (_, __) => const SizedBox.shrink(),
+                              data: (settings) => Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(categoryName, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                                  Text(_formatAmount(config.amount, settings.currency), style: const TextStyle(fontSize: 14)),
+                                  Text(_formatFrequency(ref, config), style: const TextStyle(fontSize: 13)),
+                                  Text(
+                                    '${l10n.nextRun}: ${DateFormat('dd/MM/yyyy').format(config.nextRun)}',
+                                    style: const TextStyle(fontSize: 12),
+                                  ),
+                                ],
+                              ),
                             ),
                             trailing: Switch(
                               value: config.isActive,
@@ -161,6 +169,7 @@ class RecurringScreen extends ConsumerWidget {
                       },
                     ),
                   ),
+                  const BannerAdWidget(key: ValueKey('recurring_banner_ad')),
                 ],
               );
             },
@@ -258,8 +267,9 @@ class RecurringScreen extends ConsumerWidget {
     );
   }
 
-  String _formatAmount(double amount) {
-    return NumberFormat('#,###').format(amount);
+  String _formatAmount(double amount, String currency) {
+    final symbol = CurrencyService.getSymbol(currency);
+    return '${NumberFormat('#,###').format(amount)} $symbol';
   }
 
   String _formatFrequency(WidgetRef ref, RecurringConfig config) {

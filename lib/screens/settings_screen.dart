@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../providers/settings_provider.dart';
 import '../providers/localization_provider.dart';
+import '../services/currency_service.dart';
+import '../widgets/banner_ad_widget.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -71,107 +73,123 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             _initialized = true;
           }
 
-          return SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                Text(
-                  l10n.monthlyBudgetSetting,
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: _budgetController,
-                  keyboardType: TextInputType.number,
-                  decoration: InputDecoration(
-                    border: const OutlineInputBorder(),
-                    hintText: l10n.monthlyBudgetSetting,
-                  ),
-                  onChanged: _onBudgetChanged,
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  l10n.currency,
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
-                DropdownButtonFormField<String>(
-                  value: _selectedCurrency,
-                  decoration: const InputDecoration(
-                    border: OutlineInputBorder(),
-                  ),
-                  items: const [
-                    DropdownMenuItem(value: 'VND', child: Text('VND')),
-                    DropdownMenuItem(value: 'USD', child: Text('USD')),
-                  ],
-                  onChanged: (value) {
-                    if (value != null) {
-                      setState(() {
-                        _selectedCurrency = value;
-                      });
-                    }
-                  },
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  l10n.language,
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
-                DropdownButtonFormField<String>(
-                  value: _selectedLanguage,
-                  decoration: const InputDecoration(
-                    border: OutlineInputBorder(),
-                  ),
-                  items: [
-                    DropdownMenuItem(value: 'vi', child: Text(l10n.vietnamese)),
-                    DropdownMenuItem(value: 'en', child: Text(l10n.english)),
-                  ],
-                  onChanged: (value) {
-                    if (value != null) {
-                      setState(() {
-                        _selectedLanguage = value;
-                      });
-                    }
-                  },
-                ),
-                const SizedBox(height: 32),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () async {
-                      final cleanText = _budgetController.text.replaceAll(',', '');
-                      final budget = double.tryParse(cleanText) ?? 0.0;
-
-                      await ref
-                          .read(settingsProvider.notifier)
-                          .updateBudget(budget);
-                      await ref
-                          .read(settingsProvider.notifier)
-                          .updateCurrency(_selectedCurrency);
-                      await ref
-                          .read(settingsProvider.notifier)
-                          .updateLanguage(_selectedLanguage);
-
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                              content: Text(l10n.settingsSaved)),
-                        );
-                      }
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(context).colorScheme.primary,
-                      foregroundColor: Colors.white,
+          return Column(
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                    Text(
+                      l10n.monthlyBudgetSetting,
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
-                    child: Text(l10n.save),
-                  ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _budgetController,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        border: const OutlineInputBorder(),
+                        hintText: l10n.monthlyBudgetSetting,
+                        prefixIcon: const Icon(Icons.account_balance_wallet),
+                      ),
+                      onChanged: _onBudgetChanged,
+                    ),
+                    const SizedBox(height: 24),
+                    Text(
+                      l10n.currency,
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<String>(
+                      value: _selectedCurrency,
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.currency_exchange),
+                      ),
+                      items: CurrencyService.supportedCurrencies.map((currency) {
+                        return DropdownMenuItem<String>(
+                          value: currency['code'],
+                          child: Text(
+                            '${currency['code']} - ${currency['symbol']} - ${currency['name']}',
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        if (value != null) {
+                          setState(() {
+                            _selectedCurrency = value;
+                          });
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 24),
+                    Text(
+                      l10n.language,
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<String>(
+                      value: _selectedLanguage,
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.language),
+                      ),
+                      items: [
+                        DropdownMenuItem(value: 'vi', child: Text(l10n.vietnamese)),
+                        DropdownMenuItem(value: 'en', child: Text(l10n.english)),
+                        DropdownMenuItem(value: 'zh', child: Text(l10n.chinese)),
+                      ],
+                      onChanged: (value) {
+                        if (value != null) {
+                          setState(() {
+                            _selectedLanguage = value;
+                          });
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 32),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: () async {
+                          final cleanText = _budgetController.text.replaceAll(',', '');
+                          final budget = double.tryParse(cleanText) ?? 0.0;
+
+                          await ref
+                              .read(settingsProvider.notifier)
+                              .updateBudget(budget);
+                          await ref
+                              .read(settingsProvider.notifier)
+                              .updateCurrency(_selectedCurrency);
+                          await ref
+                              .read(settingsProvider.notifier)
+                              .updateLanguage(_selectedLanguage);
+
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                  content: Text(l10n.settingsSaved)),
+                            );
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Theme.of(context).colorScheme.primary,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                        ),
+                        icon: const Icon(Icons.save),
+                        label: Text(l10n.save),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
-          ),
+            // Banner Ad - sticky at bottom
+            const BannerAdWidget(key: ValueKey('settings_banner_ad')),
+          ],
           );
         },
       ),

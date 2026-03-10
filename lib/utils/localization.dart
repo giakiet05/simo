@@ -150,6 +150,7 @@ class AppLocalizations {
       'settings_saved': 'Settings saved',
       'vietnamese': 'Vietnamese',
       'english': 'English',
+      'chinese': 'Chinese',
       'about': 'About',
       'app_description':
           'A simple and intuitive personal finance management app.',
@@ -245,6 +246,13 @@ class AppLocalizations {
       'please_enter_amount': 'Please enter an amount',
       'amount_cannot_negative': 'Amount cannot be negative',
       'invalid_formula': 'Invalid formula',
+      'currency_converter': 'Currency Converter',
+      'currency_converter_hint': 'Convert foreign currency to your main currency',
+      'select_currency': 'Select Currency',
+      'please_enter_amount_first': 'Please enter amount first',
+      'invalid_amount': 'Invalid amount',
+      'cannot_load_settings': 'Cannot load settings',
+      'failed_to_fetch_rate': 'Failed to fetch exchange rate',
 
       // Default Categories
       'cat_salary': 'Salary',
@@ -258,6 +266,281 @@ class AppLocalizations {
       'cat_bills': 'Bills & Utilities',
       'cat_healthcare': 'Healthcare',
       'cat_other_expense': 'Other',
+
+      // Ad-Free
+      'watch_ad_remove_ads': 'Watch ad to remove ads',
+      'ad_free_active': 'Ad-Free Active',
+      'remove_ads_title': 'Remove Ads',
+      'watch_ad_prompt': 'Watch a video ad to remove all ads for',
+      'ad_free_status': 'You are ad-free for',
+      'watch_ad_button': 'Watch Ad',
+      'ad_free_granted': 'Ad-free for',
+      'hours': 'hours',
+      'minutes': 'minutes',
+      'seconds': 'seconds',
+    },
+    'zh': {
+      // Navigation
+      'dashboard': '仪表板',
+      'transactions': '交易',
+      'categories': '类别',
+      'recurring': '定期',
+      'settings': '设置',
+
+      // Dashboard
+      'income': '收入',
+      'expense': '支出',
+      'monthly_budget': '月度预算',
+      'budget_not_set': '未设置预算',
+      'percent_used': '% 已用',
+      'total_transactions': '交易',
+      'current_month': '本月',
+      'balance': '余额',
+      'recent_transactions': '最近交易',
+      'view_all': '查看全部',
+      'income_by_category': '按类别分类的收入',
+      'expense_by_category': '按类别分类的支出',
+      'no_data': '无数据',
+      'income_vs_expense': '收入 vs 支出',
+      'spending_trend': '收入与支出趋势',
+      'select_month': '月份',
+      'select_year': '年份',
+      '3_months': '3 个月',
+      '6_months': '6 个月',
+      '1_year': '1 年',
+      'jan': '1月',
+      'feb': '2月',
+      'mar': '3月',
+      'apr': '4月',
+      'may': '5月',
+      'jun': '6月',
+      'jul': '7月',
+      'aug': '8月',
+      'sep': '9月',
+      'oct': '10月',
+      'nov': '11月',
+      'dec': '12月',
+
+      // Transactions
+      'no_transactions': '还没有交易',
+      'add_transaction': '添加交易',
+      'add_more': '添加新交易',
+      'save_all': '保存',
+      'type': '类型',
+      'amount': '金额',
+      'formula': '公式',
+      'category': '类别',
+      'note': '备注',
+      'no_category': '无类别',
+      'delete_transaction': '删除交易',
+      'delete_transaction_confirm': '您确定要删除此交易吗？',
+      'transaction_deleted': '交易已删除',
+      'transaction_created': '交易已创建',
+      'fill_all_fields': '请填写所有项目的金额',
+      'item': '项目',
+      'transaction': '交易',
+      'optional': '可选',
+      'income_plus': '收入 (+)',
+      'expense_minus': '支出 (-)',
+      'long_press_hint': '长按项目以获取更多选项',
+
+      // Filter
+      'filter': '筛选',
+      'filter_transactions': '筛选交易',
+      'time': '时间',
+      'all': '全部',
+      'this_month': '本月',
+      'last_month': '上月',
+      'last_3_months': '最近 3 个月',
+      'custom_range': '自定义范围',
+      'all_types': '所有类型',
+      'all_categories': '所有类别',
+      'amount_range': '金额范围',
+      'min_amount': '最小金额',
+      'max_amount': '最大金额',
+      'clear_all': '清除全部',
+      'apply': '应用',
+      'from_date': '起始日期',
+      'to_date': '结束日期',
+      'active_filters': '活动筛选',
+      'load_more': '加载更多',
+      'select_multiple': '选择多个',
+
+      // Categories
+      'no_categories': '还没有类别',
+      'no_categories_warning': '还没有类别。请创建类别以开始使用。',
+      'add_category': '添加类别',
+      'edit_category': '编辑类别',
+      'delete_category': '删除类别',
+      'category_name': '类别名称',
+      'delete_category_confirm': '您确定要删除',
+      'category_added': '类别已添加',
+      'category_updated': '类别已更新',
+      'category_deleted': '类别已删除',
+
+      // Recurring
+      'recurring_transactions': '定期交易',
+      'no_recurring': '还没有定期交易',
+      'add_recurring': '添加定期',
+      'edit_recurring': '编辑定期',
+      'delete_recurring': '删除定期交易',
+      'delete_recurring_confirm': '您确定要删除',
+      'recurring_deleted': '定期交易已删除',
+      'recurring_created': '定期交易已创建',
+      'recurring_updated': '定期交易已更新',
+      'run_now': '立即运行',
+      'run_now_confirm': '立即执行此定期交易？',
+      'transaction_triggered': '交易已创建',
+      'name': '名称',
+      'frequency': '频率',
+      'interval': '间隔',
+      'day_of_week': '星期几',
+      'day_of_month': '每月第几天 (1-31)',
+      'next_run': '下次运行',
+      'daily': '每日',
+      'weekly': '每周',
+      'monthly': '每月',
+      'by_day': '按天',
+      'by_week': '按周',
+      'by_month': '按月',
+      'days': '天',
+      'week': '周',
+      'weeks': '周',
+      'month': '月',
+      'months': '月',
+      'every': '每',
+      'on': '在',
+      'day': '天',
+      'sunday': '星期日',
+      'monday': '星期一',
+      'tuesday': '星期二',
+      'wednesday': '星期三',
+      'thursday': '星期四',
+      'friday': '星期五',
+      'saturday': '星期六',
+
+      // Settings
+      'monthly_budget_setting': '月度预算',
+      'currency': '货币',
+      'language': '语言',
+      'save': '保存',
+      'settings_saved': '设置已保存',
+      'vietnamese': '越南语',
+      'english': '英语',
+      'chinese': '中文',
+      'about': '关于',
+      'app_description': '一个简单直观的个人财务管理应用。',
+
+      // Account
+      'account': '账户',
+      'sync_data': '同步数据',
+      'syncing': '同步中...',
+      'sync_success': '同步成功',
+      'sync_failed': '同步失败',
+      'logout': '登出',
+      'logout_confirm': '您确定要登出吗？\n\n数据将在登出前同步到云端。\n\n注意：下次登录需要互联网连接。',
+      'syncing_data': '正在同步数据...',
+      'logout_error': '登出错误',
+      'loading_data': '加载数据中...',
+      'internet_required_for_login': '注意：登录需要互联网连接',
+
+      // Auth
+      'email': '电子邮件',
+      'password': '密码',
+      'login': '登录',
+      'register': '注册',
+      'dont_have_account': '还没有账户？',
+      'create_new_account': '创建新账户',
+      'register_to_sync': '注册以在多个设备间同步数据',
+      'confirm_password': '确认密码',
+      'app_tagline': '简单的资金管理',
+      'forgot_password': '忘记密码？',
+      'reset_password': '重置密码',
+      'reset_password_instruction': '输入您的电子邮件以接收密码重置说明',
+      'send_reset_link': '发送重置链接',
+      'reset_link_sent': '密码重置链接已发送！\n\n请检查您的电子邮件。',
+      'change_password': '更改密码',
+      'current_password': '当前密码',
+      'new_password': '新密码',
+      'confirm_new_password': '确认新密码',
+      'password_changed': '密码更改成功',
+      'change_password_failed': '密码更改失败',
+      'please_enter_current_password': '请输入当前密码',
+      'please_enter_new_password': '请输入新密码',
+      'new_passwords_not_match': '新密码不匹配',
+      'new_password_must_be_different': '新密码必须与当前密码不同',
+
+      // Auth Validation
+      'please_enter_email': '请输入电子邮件',
+      'invalid_email': '无效的电子邮件',
+      'please_enter_password': '请输入密码',
+      'password_min_6': '密码必须至少 6 个字符',
+      'password_min_8': '密码必须至少 8 个字符',
+      'password_helper': '至少 8 个字符，包含大写、小写、数字和特殊字符',
+      'password_need_uppercase': '密码必须至少包含 1 个大写字母',
+      'password_need_lowercase': '密码必须至少包含 1 个小写字母',
+      'password_need_number': '密码必须至少包含 1 个数字',
+      'password_need_special': '密码必须至少包含 1 个特殊字符',
+      'please_confirm_password': '请确认密码',
+      'passwords_not_match': '密码不匹配',
+
+      // Auth Errors
+      'login_failed': '登录失败',
+      'invalid_credentials': '无效的电子邮件或密码',
+      'email_not_confirmed': '请在登录前确认您的电子邮件。\n请检查您的收件箱。',
+      'network_error': '网络错误。请检查您的互联网连接。',
+      'register_failed': '注册失败',
+      'email_already_registered': '此电子邮件已被注册。\n请使用其他电子邮件或登录。',
+      'password_too_weak': '密码太弱。\n请使用更强的密码。',
+      'system_error': '系统错误。\n请稍后重试。',
+      'register_success_confirm': '注册成功！\n\n请在登录前检查您的电子邮件以确认您的账户。',
+      'register_success': '注册成功！您现在可以登录了。',
+
+      // Common
+      'cancel': '取消',
+      'add': '添加',
+      'edit': '编辑',
+      'delete': '删除',
+      'error': '错误',
+      'category_optional': '类别（可选）',
+      'done': '完成',
+
+      // Calculator
+      'please_enter_amount': '请输入金额',
+      'amount_cannot_negative': '金额不能为负',
+      'invalid_formula': '无效的公式',
+      'currency_converter': '货币转换器',
+      'currency_converter_hint': '输入外币，转换为主货币',
+      'select_currency': '选择货币',
+      'please_enter_amount_first': '请先输入金额',
+      'invalid_amount': '无效金额',
+      'cannot_load_settings': '无法加载设置',
+      'failed_to_fetch_rate': '无法获取汇率',
+
+      // Default Categories
+      'cat_salary': '工资',
+      'cat_bonus': '奖金',
+      'cat_investment': '投资',
+      'cat_other_income': '其他收入',
+      'cat_food': '餐饮',
+      'cat_transport': '交通',
+      'cat_shopping': '购物',
+      'cat_entertainment': '娱乐',
+      'cat_bills': '账单与公用事业',
+      'cat_healthcare': '医疗',
+      'cat_other_expense': '其他',
+
+      // Ad-Free
+      'watch_ad_remove_ads': '观看广告以移除广告',
+      'ad_free_active': '无广告已激活',
+      'remove_ads_title': '移除广告',
+      'watch_ad_prompt': '观看视频广告以移除所有广告',
+      'ad_free_status': '您的无广告时间还有',
+      'watch_ad_button': '观看广告',
+      'ad_free_granted': '无广告时长',
+      'hours': '小时',
+      'minutes': '分钟',
+      'seconds': '秒',
     },
     'vi': {
       // Navigation
@@ -408,6 +691,7 @@ class AppLocalizations {
       'settings_saved': 'Đã lưu cài đặt',
       'vietnamese': 'Tiếng Việt',
       'english': 'Tiếng Anh',
+      'chinese': 'Tiếng Trung',
       'about': 'Giới thiệu',
       'app_description':
           'Ứng dụng quản lý tài chính cá nhân đơn giản và trực quan.',
@@ -500,6 +784,13 @@ class AppLocalizations {
       'please_enter_amount': 'Vui lòng nhập số tiền',
       'amount_cannot_negative': 'Số tiền không thể âm',
       'invalid_formula': 'Công thức không hợp lệ',
+      'currency_converter': 'Chuyển đổi tiền tệ',
+      'currency_converter_hint': 'Nhập ngoại tệ, chuyển sang tiền chính',
+      'select_currency': 'Chọn đơn vị tiền tệ',
+      'please_enter_amount_first': 'Vui lòng nhập số tiền trước',
+      'invalid_amount': 'Số tiền không hợp lệ',
+      'cannot_load_settings': 'Không thể tải cài đặt',
+      'failed_to_fetch_rate': 'Không thể lấy tỷ giá',
 
       // Default Categories
       'cat_salary': 'Lương',
@@ -513,6 +804,18 @@ class AppLocalizations {
       'cat_bills': 'Hóa đơn & Tiện ích',
       'cat_healthcare': 'Y tế',
       'cat_other_expense': 'Khác',
+
+      // Ad-Free
+      'watch_ad_remove_ads': 'Xem quảng cáo để tắt ads',
+      'ad_free_active': 'Đang tắt ads',
+      'remove_ads_title': 'Tắt quảng cáo',
+      'watch_ad_prompt': 'Xem video quảng cáo để tắt toàn bộ ads trong',
+      'ad_free_status': 'Còn lại',
+      'watch_ad_button': 'Xem quảng cáo',
+      'ad_free_granted': 'Tắt ads trong',
+      'hours': 'giờ',
+      'minutes': 'phút',
+      'seconds': 'giây',
     },
   };
 
@@ -623,6 +926,7 @@ class AppLocalizations {
   String get settingsSaved => translate('settings_saved');
   String get vietnamese => translate('vietnamese');
   String get english => translate('english');
+  String get chinese => translate('chinese');
   String get about => translate('about');
   String get appDescription => translate('app_description');
 
@@ -698,6 +1002,13 @@ class AppLocalizations {
   String get pleaseEnterAmount => translate('please_enter_amount');
   String get amountCannotNegative => translate('amount_cannot_negative');
   String get invalidFormula => translate('invalid_formula');
+  String get currencyConverter => translate('currency_converter');
+  String get currencyConverterHint => translate('currency_converter_hint');
+  String get selectCurrency => translate('select_currency');
+  String get pleaseEnterAmountFirst => translate('please_enter_amount_first');
+  String get invalidAmount => translate('invalid_amount');
+  String get cannotLoadSettings => translate('cannot_load_settings');
+  String get failedToFetchRate => translate('failed_to_fetch_rate');
 
   String get item => translate('item');
   String get transaction => translate('transaction');
@@ -730,6 +1041,18 @@ class AppLocalizations {
   String get activeFilters => translate('active_filters');
   String get loadMore => translate('load_more');
   String get selectMultiple => translate('select_multiple');
+
+  // Ad-Free
+  String get watchAdRemoveAds => translate('watch_ad_remove_ads');
+  String get adFreeActive => translate('ad_free_active');
+  String get removeAdsTitle => translate('remove_ads_title');
+  String get watchAdPrompt => translate('watch_ad_prompt');
+  String get adFreeStatus => translate('ad_free_status');
+  String get watchAdButton => translate('watch_ad_button');
+  String get adFreeGranted => translate('ad_free_granted');
+  String get hours => translate('hours');
+  String get minutes => translate('minutes');
+  String get seconds => translate('seconds');
 
   // Translate default category name by ID
   String translateCategoryName(String categoryId, String defaultName) {

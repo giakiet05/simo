@@ -6,6 +6,7 @@ import '../models/category.dart';
 import '../utils/icon_data.dart';
 import '../widgets/icon_picker_dialog.dart';
 import '../widgets/color_picker_dialog.dart';
+import '../widgets/banner_ad_widget.dart';
 
 class CategoryScreen extends ConsumerStatefulWidget {
   const CategoryScreen({super.key});
@@ -229,6 +230,7 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                   },
                 ),
               ),
+              const BannerAdWidget(key: ValueKey('category_banner_ad')),
             ],
           );
         },

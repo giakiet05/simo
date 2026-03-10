@@ -8,6 +8,7 @@ import '../providers/transaction_provider.dart';
 import '../providers/recurring_provider.dart';
 import '../providers/settings_provider.dart';
 import '../providers/localization_provider.dart';
+import '../widgets/banner_ad_widget.dart';
 import 'login_screen.dart';
 import 'recurring_screen.dart';
 import 'settings_screen.dart';
@@ -168,100 +169,108 @@ class _AccountScreenState extends ConsumerState<AccountScreen> {
       appBar: AppBar(
         title: Text(l10n.account),
       ),
-      body: ListView(
+      body: Column(
         children: [
-          const SizedBox(height: 16),
-          CircleAvatar(
-            radius: 50,
-            backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-            child: Icon(
-              Icons.person,
-              size: 50,
-              color: Theme.of(context).colorScheme.onPrimaryContainer,
+          Expanded(
+            child: ListView(
+              children: [
+                const SizedBox(height: 16),
+                CircleAvatar(
+                  radius: 50,
+                  backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                  child: Icon(
+                    Icons.person,
+                    size: 50,
+                    color: Theme.of(context).colorScheme.onPrimaryContainer,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  email,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: ElevatedButton.icon(
+                    onPressed: _isSyncing ? null : _sync,
+                    icon: _isSyncing
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.sync),
+                    label: Text(_isSyncing ? l10n.syncing : l10n.syncData),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Divider(),
+                ListTile(
+                  leading: const Icon(Icons.repeat),
+                  title: Text(l10n.recurringTransactions),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const RecurringScreen()),
+                    );
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.vpn_key),
+                  title: Text(l10n.changePassword),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const ChangePasswordScreen()),
+                    );
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.settings),
+                  title: Text(l10n.settings),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                    );
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.info),
+                  title: Text(l10n.about),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const AboutScreen()),
+                    );
+                  },
+                ),
+                const Divider(),
+                ListTile(
+                  leading: const Icon(Icons.logout, color: Colors.red),
+                  title: Text(
+                    l10n.logout,
+                    style: const TextStyle(color: Colors.red),
+                  ),
+                  onTap: () => _logout(context),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 16),
-          Text(
-            email,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 24),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: ElevatedButton.icon(
-              onPressed: _isSyncing ? null : _sync,
-              icon: _isSyncing
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.sync),
-              label: Text(_isSyncing ? l10n.syncing : l10n.syncData),
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          const Divider(),
-          ListTile(
-            leading: const Icon(Icons.repeat),
-            title: Text(l10n.recurringTransactions),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const RecurringScreen()),
-              );
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.vpn_key),
-            title: Text(l10n.changePassword),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const ChangePasswordScreen()),
-              );
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.settings),
-            title: Text(l10n.settings),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const SettingsScreen()),
-              );
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.info),
-            title: Text(l10n.about),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const AboutScreen()),
-              );
-            },
-          ),
-          const Divider(),
-          ListTile(
-            leading: const Icon(Icons.logout, color: Colors.red),
-            title: Text(
-              l10n.logout,
-              style: const TextStyle(color: Colors.red),
-            ),
-            onTap: () => _logout(context),
-          ),
+          // Banner Ad - sticky at bottom
+          const BannerAdWidget(key: ValueKey('account_banner_ad')),
         ],
       ),
     );
