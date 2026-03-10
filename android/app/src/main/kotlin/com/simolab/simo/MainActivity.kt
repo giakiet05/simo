@@ -1,4 +1,4 @@
-package com.example.simo
+package com.simolab.simo
 
 import io.flutter.embedding.android.FlutterActivity
 

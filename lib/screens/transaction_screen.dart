@@ -4,9 +4,12 @@ import 'package:intl/intl.dart';
 import '../providers/transaction_provider.dart';
 import '../providers/category_provider.dart';
 import '../providers/localization_provider.dart';
+import '../providers/settings_provider.dart';
 import '../models/transaction.dart';
 import '../models/category.dart';
 import '../utils/icon_data.dart';
+import '../services/currency_service.dart';
+import '../widgets/banner_ad_widget.dart';
 import 'transaction_form_screen.dart';
 
 class TransactionScreen extends ConsumerStatefulWidget {
@@ -128,6 +131,7 @@ class _TransactionScreenState extends ConsumerState<TransactionScreen> {
   Widget build(BuildContext context) {
     final transactionsAsync = ref.watch(transactionProvider);
     final categoriesAsync = ref.watch(categoryProvider);
+    final settingsAsync = ref.watch(settingsProvider);
     final l10n = ref.watch(localizationProvider);
 
     final filterCount = _getActiveFilterCount();
@@ -358,15 +362,23 @@ class _TransactionScreenState extends ConsumerState<TransactionScreen> {
                                   ),
                               ],
                             ),
-                            trailing: Text(
-                              '${transaction.type == 'income' ? '+' : '-'}${NumberFormat('#,###').format(transaction.amount)}',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: transaction.type == 'income'
-                                    ? Colors.green
-                                    : Colors.red,
-                              ),
+                            trailing: settingsAsync.when(
+                              loading: () => const SizedBox.shrink(),
+                              error: (_, __) => const SizedBox.shrink(),
+                              data: (settings) {
+                                final symbol = CurrencyService.getSymbol(settings.currency);
+                                final formattedAmount = NumberFormat('#,###').format(transaction.amount);
+                                return Text(
+                                  '${transaction.type == 'income' ? '+' : '-'}$formattedAmount $symbol',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: transaction.type == 'income'
+                                        ? Colors.green
+                                        : Colors.red,
+                                  ),
+                                );
+                              },
                             ),
                             onTap: _isSelectionMode
                                 ? () {
@@ -420,6 +432,7 @@ class _TransactionScreenState extends ConsumerState<TransactionScreen> {
                       },
                     )
                   ),
+                  const BannerAdWidget(key: ValueKey('transaction_banner_ad')),
                 ],
               );
             },

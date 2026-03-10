@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/transaction_provider.dart';
 import '../providers/category_provider.dart';
 import '../providers/localization_provider.dart';
+import '../providers/settings_provider.dart';
 import '../models/category.dart';
 import '../utils/icon_data.dart';
+import '../services/currency_service.dart';
 import 'home_screen.dart';
 
 class TransactionFormScreen extends ConsumerStatefulWidget {
@@ -72,7 +74,12 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     if (amount == amount.toInt()) {
       result = amount.toInt().toString();
     } else {
-      result = amount.toString();
+      // For very small numbers (exchange rates), preserve precision
+      if (amount.abs() < 0.01) {
+        result = amount.toStringAsFixed(8).replaceAll(RegExp(r'0+$'), '').replaceAll(RegExp(r'\.$'), '');
+      } else {
+        result = amount.toString();
+      }
     }
 
     // Add comma separator
@@ -194,11 +201,14 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     );
   }
 
-  void _showCalculatorKeyboard(BuildContext context, TextEditingController controller) {
+  void _showCalculatorKeyboard(BuildContext context, TextEditingController amountController, TextEditingController noteController) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      builder: (context) => _CalculatorKeyboard(controller: controller),
+      builder: (context) => _CalculatorKeyboard(
+        amountController: amountController,
+        noteController: noteController,
+      ),
     );
   }
 
@@ -264,7 +274,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
               controller: item.amountController,
               readOnly: true,
               showCursor: true,
-              onTap: () => _showCalculatorKeyboard(context, item.amountController),
+              onTap: () => _showCalculatorKeyboard(context, item.amountController, item.noteController),
               decoration: InputDecoration(
                 labelText: l10n.amount,
                 border: const OutlineInputBorder(),
@@ -521,9 +531,13 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
 }
 
 class _CalculatorKeyboard extends ConsumerStatefulWidget {
-  final TextEditingController controller;
+  final TextEditingController amountController;
+  final TextEditingController noteController;
 
-  const _CalculatorKeyboard({required this.controller});
+  const _CalculatorKeyboard({
+    required this.amountController,
+    required this.noteController,
+  });
 
   @override
   ConsumerState<_CalculatorKeyboard> createState() => _CalculatorKeyboardState();
@@ -535,12 +549,13 @@ class _CalculatorKeyboardState extends ConsumerState<_CalculatorKeyboard> {
   String _previewResult = '';
   String _errorMessage = '';
   String _lastValidFormula = ''; // Track formula trước khi bấm =
+  double? _originalAmountBeforeConversion; // Track original amount for currency conversion
 
   @override
   void initState() {
     super.initState();
     // Remove comma từ controller text để tính toán
-    _currentFormula = widget.controller.text.replaceAll(',', '');
+    _currentFormula = widget.amountController.text.replaceAll(',', '');
     _lastValidFormula = _currentFormula;
     _updatePreview();
   }
@@ -563,6 +578,14 @@ class _CalculatorKeyboardState extends ConsumerState<_CalculatorKeyboard> {
     if (num == num.toInt()) {
       return num.toInt().toString();
     }
+
+    // For very small numbers (exchange rates), use more decimal places
+    if (num.abs() < 0.01) {
+      // Use up to 8 decimal places for small numbers, remove trailing zeros
+      return num.toStringAsFixed(8).replaceAll(RegExp(r'\.?0+$'), '');
+    }
+
+    // For normal numbers, use 2 decimal places
     return num.toStringAsFixed(2).replaceAll(RegExp(r'\.?0+$'), '');
   }
 
@@ -571,7 +594,12 @@ class _CalculatorKeyboardState extends ConsumerState<_CalculatorKeyboard> {
     if (amount == amount.toInt()) {
       result = amount.toInt().toString();
     } else {
-      result = amount.toString();
+      // For very small numbers (exchange rates), preserve precision
+      if (amount.abs() < 0.01) {
+        result = amount.toStringAsFixed(8).replaceAll(RegExp(r'0+$'), '').replaceAll(RegExp(r'\.$'), '');
+      } else {
+        result = amount.toString();
+      }
     }
 
     // Add comma separator
@@ -692,6 +720,8 @@ class _CalculatorKeyboardState extends ConsumerState<_CalculatorKeyboard> {
                     ],
                   ),
                 ),
+              _buildConvertButton(),
+              const SizedBox(height: 8),
               _buildRow1(),
               const SizedBox(height: 6),
               _buildRow2(),
@@ -748,7 +778,7 @@ class _CalculatorKeyboardState extends ConsumerState<_CalculatorKeyboard> {
                       });
 
                       // Lưu formula đã format
-                      widget.controller.text = formattedForSave;
+                      widget.amountController.text = formattedForSave;
                     } catch (e) {
                       setState(() {
                         _errorMessage = l10n.invalidFormula;
@@ -771,6 +801,158 @@ class _CalculatorKeyboardState extends ConsumerState<_CalculatorKeyboard> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _handleCurrencyConversion() async {
+    final l10n = ref.read(localizationProvider);
+
+    if (_currentFormula.isEmpty) {
+      setState(() {
+        _errorMessage = l10n.pleaseEnterAmountFirst;
+      });
+      return;
+    }
+
+    double foreignAmount;
+    try {
+      // If already converted before, use the original amount
+      // Otherwise calculate from current formula
+      if (_originalAmountBeforeConversion != null) {
+        foreignAmount = _originalAmountBeforeConversion!;
+        print('Using original amount: $foreignAmount (for re-conversion)');
+      } else {
+        final formulaToEvaluate = _currentFormula.replaceAll('ANS', _ansValue);
+        foreignAmount = _evaluateFormula(formulaToEvaluate);
+        // Save original amount for potential re-conversion
+        _originalAmountBeforeConversion = foreignAmount;
+        print('Saving original amount: $foreignAmount');
+      }
+    } catch (e) {
+      setState(() {
+        _errorMessage = l10n.invalidAmount;
+      });
+      return;
+    }
+
+    final settingsAsync = ref.read(settingsProvider);
+    final settings = settingsAsync.value;
+    if (settings == null) {
+      setState(() {
+        _errorMessage = l10n.cannotLoadSettings;
+      });
+      return;
+    }
+
+    final mainCurrency = settings.currency;
+
+    final selectedCurrency = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(l10n.selectCurrency),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: CurrencyService.supportedCurrencies.length,
+            itemBuilder: (context, index) {
+              final currency = CurrencyService.supportedCurrencies[index];
+              final code = currency['code']!;
+
+              if (code == mainCurrency) {
+                return const SizedBox.shrink();
+              }
+
+              return ListTile(
+                title: Text('${currency['code']} - ${currency['name']}'),
+                subtitle: Text(currency['symbol']!),
+                onTap: () => Navigator.pop(context, code),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+
+    if (selectedCurrency == null) return;
+
+    setState(() {
+      _errorMessage = '';
+    });
+
+    try {
+      final currencyService = CurrencyService();
+      print('Converting $foreignAmount $selectedCurrency to $mainCurrency');
+
+      // IMPORTANT: Convert FROM foreign currency TO main currency
+      final rate = await currencyService.getRate(
+        from: selectedCurrency,
+        to: mainCurrency,
+      );
+
+      print('Conversion rate $selectedCurrency->$mainCurrency: $rate');
+
+      setState(() {
+        // Formula: foreignAmount * rate = mainCurrencyAmount
+        // Example: 100 USD * 25920 = 2,592,000 VND
+        _currentFormula = '${_formatNumber(foreignAmount)}*${_formatNumber(rate)}';
+        _updatePreview();
+
+        final currentNote = widget.noteController.text.trim();
+        final conversionNote = '$selectedCurrency->$mainCurrency';
+
+        if (currentNote.isEmpty) {
+          widget.noteController.text = conversionNote;
+        } else if (!currentNote.contains(conversionNote)) {
+          widget.noteController.text = '$currentNote ($conversionNote)';
+        }
+      });
+    } catch (e, stackTrace) {
+      print('Currency conversion error: $e');
+      print('Stack trace: $stackTrace');
+      setState(() {
+        _errorMessage = '${l10n.failedToFetchRate}: $e';
+      });
+    }
+  }
+
+  Widget _buildConvertButton() {
+    final l10n = ref.watch(localizationProvider);
+
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton(
+        onPressed: () => _handleCurrencyConversion(),
+        style: ElevatedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+          backgroundColor: Colors.green[600],
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.currency_exchange, size: 18),
+            const SizedBox(width: 8),
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l10n.currencyConverter,
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                ),
+                Text(
+                  l10n.currencyConverterHint,
+                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.normal),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );
@@ -873,6 +1055,7 @@ class _CalculatorKeyboardState extends ConsumerState<_CalculatorKeyboard> {
       if (btn == 'AC') {
         _currentFormula = '';
         _previewResult = '';
+        _originalAmountBeforeConversion = null; // Clear conversion tracking
       } else if (btn == 'DEL') {
         if (_currentFormula.isNotEmpty) {
           if (_currentFormula.endsWith('ANS')) {
@@ -919,8 +1102,16 @@ class _CalculatorKeyboardState extends ConsumerState<_CalculatorKeyboard> {
         }
       } else if (btn == '000') {
         _currentFormula += '000';
+        // Clear conversion tracking when user manually edits amount
+        if (_originalAmountBeforeConversion != null) {
+          _originalAmountBeforeConversion = null;
+        }
       } else {
         _currentFormula += btn;
+        // Clear conversion tracking when user manually types numbers
+        if (RegExp(r'^[0-9.]$').hasMatch(btn) && _originalAmountBeforeConversion != null) {
+          _originalAmountBeforeConversion = null;
+        }
       }
 
       // Update _lastValidFormula nếu có toán tử
