@@ -57,23 +57,6 @@ class RecurringScreen extends ConsumerWidget {
 
               return Column(
                 children: [
-                  if (configs.isNotEmpty)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      color: Colors.blue[50],
-                      child: Row(
-                        children: [
-                          const Icon(Icons.info_outline, size: 16, color: Colors.blue),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              l10n.longPressHint,
-                              style: TextStyle(fontSize: 12, color: Colors.blue[900]),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
                   if (categories.isEmpty)
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -163,7 +146,7 @@ class RecurringScreen extends ConsumerWidget {
                                     .toggleActive(config.id, value);
                               },
                             ),
-                            onLongPress: () => _showActionMenu(context, ref, config),
+                            onTap: () => _showActionMenu(context, ref, config),
                           ),
                         );
                       },

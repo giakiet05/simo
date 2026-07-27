@@ -1,11 +1,10 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 class CurrencyService {
   static const String _cacheKey = 'cached_exchange_rates';
   static const String _cacheTimeKey = 'cached_rates_timestamp';
-  static const Duration _cacheDuration = Duration(hours: 6); // Match backend update frequency
+  static const Duration _cacheDuration = Duration(hours: 24);
 
   // Top 20 currencies
   static const List<Map<String, String>> supportedCurrencies = [
@@ -34,93 +33,16 @@ class CurrencyService {
     {'code': 'RUB', 'name': 'Russian Ruble', 'symbol': '₽'},
   ];
 
-  /// Fetch latest exchange rates from Supabase
+  /// Fetch latest exchange rates (Always using fallback as Supabase is removed)
   Future<Map<String, double>> fetchExchangeRates({String base = 'USD'}) async {
-    try {
-      print('Fetching exchange rates from Supabase for base: $base');
-
-      // Fetch from Supabase
-      final response = await Supabase.instance.client
-          .from('exchange_rates')
-          .select('rates, updated_at')
-          .eq('base_currency', 'USD')
-          .maybeSingle();
-
-      if (response == null) {
-        print('No exchange rates found in Supabase, using fallback');
-        return _getFallbackRates(base);
-      }
-
-      final ratesData = response['rates'] as Map<String, dynamic>;
-      final updatedAt = DateTime.parse(response['updated_at'] as String);
-
-      print('Rates fetched from Supabase, updated at: $updatedAt');
-      print('Number of currencies in response: ${ratesData.length}');
-      print('Currency codes: ${ratesData.keys.toList()}');
-
-      // Convert USD-based rates to requested base
-      final usdRates = <String, double>{};
-
-      // IMPORTANT: Add USD itself to the rates
-      usdRates['USD'] = 1.0;
-
-      ratesData.forEach((currency, rate) {
-        usdRates[currency] = (rate as num).toDouble();
-      });
-
-      print('USD rates loaded: ${usdRates.keys.length} currencies');
-
-      // Convert to requested base currency
-      Map<String, double> rates;
-      if (base == 'USD') {
-        rates = usdRates;
-      } else {
-        final baseRate = usdRates[base];
-        if (baseRate == null) {
-          print('Base currency $base not found in rates, using fallback');
-          return _getFallbackRates(base);
-        }
-
-        print('Converting from USD-based to $base-based rates (baseRate: $baseRate)');
-
-        rates = {};
-        usdRates.forEach((currency, rate) {
-          rates[currency] = rate / baseRate;
-        });
-
-        print('Converted rates for $base base: ${rates.keys.length} currencies');
-      }
-
-      // Cache the rates
-      await _cacheRates(rates, base);
-
-      return rates;
-    } catch (e) {
-      print('Error fetching exchange rates from Supabase: $e');
-      print('Stack trace: ${StackTrace.current}');
-      // Return cached rates if available
-      return await _getCachedRates(base) ?? _getFallbackRates(base);
-    }
+    print('Using fallback exchange rates for base: $base');
+    final rates = _getFallbackRates(base);
+    await _cacheRates(rates, base);
+    return rates;
   }
 
   /// Get exchange rates (cached or fetch new)
   Future<Map<String, double>> getExchangeRates({String base = 'USD'}) async {
-    // TEMPORARY: Clear old cache to force refetch with new code
-    // TODO: Remove this after first run
-    final prefs = await SharedPreferences.getInstance();
-    final cacheVersion = prefs.getInt('cache_version') ?? 0;
-    if (cacheVersion < 3) {
-      print('Clearing old cache (version $cacheVersion)...');
-      // Clear all old cache keys
-      final keys = prefs.getKeys();
-      for (final key in keys) {
-        if (key.startsWith('cached_exchange_rates') || key.startsWith('cached_rates_timestamp')) {
-          await prefs.remove(key);
-        }
-      }
-      await prefs.setInt('cache_version', 3);
-    }
-
     // Check cache first (base-specific)
     final cached = await _getCachedRates(base);
     final cacheTime = await _getCacheTimestamp(base);
@@ -130,22 +52,11 @@ class CurrencyService {
       final cacheAge = now.difference(cacheTime);
 
       if (cacheAge < _cacheDuration) {
-        print('Using cached exchange rates for base $base (age: ${cacheAge.inHours}h)');
-        print('Cached rates currencies: ${cached.keys.toList()}');
-        print('Cached rates count: ${cached.length}');
-
-        // If cache doesn't have enough currencies, refetch
-        if (cached.length < 20) {
-          print('Cache incomplete (${cached.length} currencies), refetching...');
-          return await fetchExchangeRates(base: base);
-        }
-
         return cached;
       }
     }
 
     // Cache expired or not available, fetch new
-    print('Fetching fresh exchange rates for base $base...');
     return await fetchExchangeRates(base: base);
   }
 

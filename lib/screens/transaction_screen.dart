@@ -231,23 +231,6 @@ class _TransactionScreenState extends ConsumerState<TransactionScreen> {
 
               return Column(
                 children: [
-                  if (paginatedTransactions.isNotEmpty)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      color: Colors.blue[50],
-                      child: Row(
-                        children: [
-                          const Icon(Icons.info_outline, size: 16, color: Colors.blue),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              l10n.longPressHint,
-                              style: TextStyle(fontSize: 12, color: Colors.blue[900]),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
                   if (categories.isEmpty)
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -390,10 +373,15 @@ class _TransactionScreenState extends ConsumerState<TransactionScreen> {
                                       }
                                     });
                                   }
-                                : null,
+                                : () => _showActionMenu(context, ref, transaction),
                             onLongPress: _isSelectionMode
                                 ? null
-                                : () => _showActionMenu(context, ref, transaction),
+                                : () {
+                                    setState(() {
+                                      _isSelectionMode = true;
+                                      _selectedTransactionIds.add(transaction.id);
+                                    });
+                                  },
                           ),
                         );
 

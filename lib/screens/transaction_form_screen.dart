@@ -961,9 +961,9 @@ class _CalculatorKeyboardState extends ConsumerState<_CalculatorKeyboard> {
   Widget _buildRow1() {
     return Row(
       children: [
-        _buildButton('7'),
-        _buildButton('8'),
-        _buildButton('9'),
+        _buildButton('1'),
+        _buildButton('2'),
+        _buildButton('3'),
         _buildButton('AC'),
         _buildButton('DEL'),
       ],
@@ -985,9 +985,9 @@ class _CalculatorKeyboardState extends ConsumerState<_CalculatorKeyboard> {
   Widget _buildRow3() {
     return Row(
       children: [
-        _buildButton('1'),
-        _buildButton('2'),
-        _buildButton('3'),
+        _buildButton('7'),
+        _buildButton('8'),
+        _buildButton('9'),
         _buildButton('+'),
         _buildButton('-'),
       ],

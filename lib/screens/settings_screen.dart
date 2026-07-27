@@ -5,6 +5,8 @@ import '../providers/settings_provider.dart';
 import '../providers/localization_provider.dart';
 import '../services/currency_service.dart';
 import '../widgets/banner_ad_widget.dart';
+import 'recurring_screen.dart';
+import 'about_screen.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -182,6 +184,35 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         icon: const Icon(Icons.save),
                         label: Text(l10n.save),
                       ),
+                    ),
+                    const SizedBox(height: 32),
+                    const Divider(),
+                    const SizedBox(height: 8),
+                    ListTile(
+                      leading: const Icon(Icons.repeat),
+                      title: Text(l10n.recurringTransactions),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const RecurringScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.info_outline),
+                      title: Text(l10n.about),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const AboutScreen(),
+                          ),
+                        );
+                      },
                     ),
                   ],
                 ),

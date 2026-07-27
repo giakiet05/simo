@@ -110,10 +110,8 @@ class MockDataGenerator {
             'id': _uuid.v4(),
             'category_id': categoryId,
             'amount': amount,
-            'type': 'income',
             'created_at': date.toIso8601String(),
             'updated_at': date.toIso8601String(),
-            'synced': 0,
           });
         } catch (e) {
           print('Lỗi tạo income transaction: $e');
@@ -150,10 +148,8 @@ class MockDataGenerator {
             'category_id': categoryId,
             'amount': amount,
             'type': 'expense',
-            'note': notes,
             'created_at': date.toIso8601String(),
             'updated_at': date.toIso8601String(),
-            'synced': 0,
           });
         } catch (e) {
           print('Lỗi tạo expense transaction: $e');

@@ -41,9 +41,7 @@ class CategoryRepository {
       updatedAt: now,
     );
 
-    final categoryMap = category.toMap();
-    categoryMap['synced'] = 0; // Mark as not synced
-    await db.insert('categories', categoryMap);
+    await db.insert('categories', category.toMap());
     return category;
   }
 
@@ -63,11 +61,9 @@ class CategoryRepository {
       updatedAt: DateTime.now(),
     );
 
-    final updatedMap = updated.toMap();
-    updatedMap['synced'] = 0; // Mark as not synced
     await db.update(
       'categories',
-      updatedMap,
+      updated.toMap(),
       where: 'id = ?',
       whereArgs: [id],
     );
@@ -77,35 +73,15 @@ class CategoryRepository {
 
   Future<void> delete(String id) async {
     final db = await DatabaseHelper.instance.database;
-    final now = DateTime.now().toIso8601String();
 
-    // Get cloud_id before deleting
-    final cats = await db.query(
+    final deletedCount = await db.delete(
       'categories',
       where: 'id = ?',
       whereArgs: [id],
     );
 
-    if (cats.isEmpty) {
+    if (deletedCount == 0) {
       throw Exception('Category not found');
-    }
-
-    final cloudId = cats.first['cloud_id'] as String?;
-
-    // Delete from local
-    await db.delete(
-      'categories',
-      where: 'id = ?',
-      whereArgs: [id],
-    );
-
-    // Add to pending_deletions if it has cloud_id
-    if (cloudId != null) {
-      await db.insert('pending_deletions', {
-        'cloud_id': cloudId,
-        'table_name': 'categories',
-        'deleted_at': now,
-      });
     }
   }
 }

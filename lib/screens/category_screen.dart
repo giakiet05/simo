@@ -61,22 +61,6 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
 
           return Column(
             children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                color: Colors.blue[50],
-                child: Row(
-                  children: [
-                    const Icon(Icons.info_outline, size: 16, color: Colors.blue),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        l10n.longPressHint,
-                        style: TextStyle(fontSize: 12, color: Colors.blue[900]),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
               // Filter Chips
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -159,7 +143,7 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
 
                     return Card(
                       child: InkWell(
-                        onLongPress: () => _showActionMenu(context, ref, category),
+                        onTap: () => _showActionMenu(context, ref, category),
                         child: Padding(
                           padding: const EdgeInsets.all(8),
                           child: Column(
