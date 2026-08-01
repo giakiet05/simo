@@ -56,5 +56,9 @@
 			</array>
 		</dict>
 	</array>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>App cần nhận diện giọng nói để ghi lại giao dịch.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>App cần sử dụng micro để nghe lệnh giọng nói.</string>
 </dict>
 </plist>

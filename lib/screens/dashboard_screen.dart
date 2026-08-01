@@ -18,6 +18,7 @@ import '../widgets/banner_ad_widget.dart';
 import 'transaction_form_screen.dart';
 import 'home_screen.dart';
 import 'settings_screen.dart';
+import '../widgets/voice_record_sheet.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -343,6 +344,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             },
           );
         },
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const TransactionFormScreen()),
+          );
+        },
+        child: const Icon(Icons.add),
       ),
     );
   }

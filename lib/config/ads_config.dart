@@ -7,7 +7,7 @@ class AdsConfig {
   // Check if ads are enabled via build-time environment variable
   static const bool _enableAdsEnv = bool.fromEnvironment(
     'ENABLE_ADS',
-    defaultValue: true, // Default: có ads
+    defaultValue: false, // Tắt ads mặc định
   );
 
   /// Whether ads are enabled in this build

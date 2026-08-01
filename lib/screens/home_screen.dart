@@ -11,6 +11,8 @@ import 'category_screen.dart';
 import 'settings_screen.dart';
 import 'transaction_form_screen.dart';
 
+import '../widgets/voice_record_sheet.dart';
+
 // Global key to access HomeScreen state from anywhere
 final GlobalKey<_HomeScreenState> homeScreenKey = GlobalKey<_HomeScreenState>();
 
@@ -48,10 +50,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   void _onItemTapped(int index) {
     if (index == 2) {
-      // + button in the middle - open transaction form
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => const TransactionFormScreen()),
+      showModalBottomSheet(
+        context: context,
+        backgroundColor: Colors.transparent,
+        builder: (context) => const VoiceRecordSheet(),
       );
       return;
     }
@@ -110,7 +112,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   child: CircleAvatar(
                     radius: 20,
                     backgroundColor: Theme.of(context).colorScheme.primary,
-                    child: const Icon(Icons.add, color: Colors.white, size: 22),
+                    child: const Icon(Icons.mic, color: Colors.white, size: 22),
                   ),
                 ),
               ),
