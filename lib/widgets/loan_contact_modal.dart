@@ -5,8 +5,9 @@ import '../providers/loan_provider.dart';
 
 class LoanContactModal extends ConsumerStatefulWidget {
   final LoanContact? editContact;
+  final String? initialType;
 
-  const LoanContactModal({super.key, this.editContact});
+  const LoanContactModal({super.key, this.editContact, this.initialType});
 
   @override
   ConsumerState<LoanContactModal> createState() => _LoanContactModalState();
@@ -20,6 +21,7 @@ class _LoanContactModalState extends ConsumerState<LoanContactModal> {
   @override
   void initState() {
     super.initState();
+    _type = widget.initialType ?? 'borrowed';
     if (widget.editContact != null) {
       _nameController.text = widget.editContact!.contactName;
       _type = widget.editContact!.type;
@@ -71,21 +73,22 @@ class _LoanContactModalState extends ConsumerState<LoanContactModal> {
                 style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold), 
                 textAlign: TextAlign.center
               ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                value: _type,
-                decoration: const InputDecoration(border: OutlineInputBorder(), labelText: 'Loại'),
-                items: const [
-                  DropdownMenuItem(value: 'borrowed', child: Text('Nợ')),
-                  DropdownMenuItem(value: 'lent', child: Text('Cho vay')),
-                ],
-                onChanged: widget.editContact != null && (widget.editContact!.totalAmount > 0 || widget.editContact!.remainingAmount > 0)
-                  ? null // Disable type change if there are transactions
-                  : (val) {
-                      if (val != null) setState(() => _type = val);
-                    },
-              ),
-              const SizedBox(height: 16),
+              if (widget.editContact != null) ...[
+                DropdownButtonFormField<String>(
+                  value: _type,
+                  decoration: const InputDecoration(border: OutlineInputBorder(), labelText: 'Loại'),
+                  items: const [
+                    DropdownMenuItem(value: 'borrowed', child: Text('Nợ')),
+                    DropdownMenuItem(value: 'lent', child: Text('Cho vay')),
+                  ],
+                  onChanged: (widget.editContact!.totalAmount > 0 || widget.editContact!.remainingAmount > 0)
+                    ? null
+                    : (val) {
+                        if (val != null) setState(() => _type = val);
+                      },
+                ),
+                const SizedBox(height: 16),
+              ],
               TextFormField(
                 controller: _nameController,
                 decoration: const InputDecoration(border: OutlineInputBorder(), labelText: 'Tên người giao dịch'),
@@ -94,6 +97,10 @@ class _LoanContactModalState extends ConsumerState<LoanContactModal> {
               const SizedBox(height: 24),
               ElevatedButton(
                 onPressed: _save,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.teal,
+                  foregroundColor: Colors.white,
+                ),
                 child: const Text('Lưu'),
               ),
             ],

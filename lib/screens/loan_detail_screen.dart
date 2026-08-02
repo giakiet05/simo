@@ -111,17 +111,6 @@ class _LoanDetailScreenState extends ConsumerState<LoanDetailScreen> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.checklist),
-              title: const Text('Chọn nhiều'),
-              onTap: () {
-                Navigator.pop(context);
-                setState(() {
-                  _isSelectionMode = true;
-                  _selectedTransactionIds.add(tx.id);
-                });
-              },
-            ),
-            ListTile(
               leading: const Icon(Icons.delete, color: Colors.red),
               title: const Text('Xóa', style: TextStyle(color: Colors.red)),
               onTap: () async {
@@ -130,6 +119,17 @@ class _LoanDetailScreenState extends ConsumerState<LoanDetailScreen> {
                   _selectedTransactionIds.add(tx.id);
                 });
                 await _deleteSelected(currentContact, [tx]);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.check_box),
+              title: const Text('Chọn nhiều'),
+              onTap: () {
+                Navigator.pop(context);
+                setState(() {
+                  _isSelectionMode = true;
+                  _selectedTransactionIds.add(tx.id);
+                });
               },
             ),
           ],
@@ -141,7 +141,7 @@ class _LoanDetailScreenState extends ConsumerState<LoanDetailScreen> {
   void _showContactMenu(LoanContact currentContact) {
     showModalBottomSheet(
       context: context,
-      builder: (context) => SafeArea(
+      builder: (sheetContext) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -149,7 +149,7 @@ class _LoanDetailScreenState extends ConsumerState<LoanDetailScreen> {
               leading: const Icon(Icons.edit),
               title: const Text('Sửa người giao dịch'),
               onTap: () {
-                Navigator.pop(context);
+                Navigator.pop(sheetContext);
                 showModalBottomSheet(
                   context: context,
                   isScrollControlled: true,
@@ -161,16 +161,16 @@ class _LoanDetailScreenState extends ConsumerState<LoanDetailScreen> {
               leading: const Icon(Icons.delete, color: Colors.red),
               title: const Text('Xóa người giao dịch', style: TextStyle(color: Colors.red)),
               onTap: () async {
-                Navigator.pop(context);
+                Navigator.pop(sheetContext);
                 final confirmed = await showDialog<bool>(
                   context: context,
-                  builder: (context) => AlertDialog(
+                  builder: (dialogContext) => AlertDialog(
                     title: const Text('Xóa người giao dịch'),
                     content: const Text('Bạn có chắc muốn xóa người này? Toàn bộ giao dịch nợ liên quan cũng sẽ bị xóa.'),
                     actions: [
-                      TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Hủy')),
+                      TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Hủy')),
                       TextButton(
-                        onPressed: () => Navigator.pop(context, true),
+                        onPressed: () => Navigator.pop(dialogContext, true),
                         child: const Text('Xóa', style: TextStyle(color: Colors.red)),
                       ),
                     ],
@@ -276,7 +276,7 @@ class _LoanDetailScreenState extends ConsumerState<LoanDetailScreen> {
                       Expanded(
                         child: ElevatedButton.icon(
                           icon: const Icon(Icons.remove),
-                          label: Text(currentContact.type == 'borrowed' ? 'Trả tiền' : 'Thu tiền'),
+                          label: Text(currentContact.type == 'borrowed' ? 'Trả' : 'Thu'),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.green,
                             foregroundColor: Colors.white,
@@ -289,7 +289,7 @@ class _LoanDetailScreenState extends ConsumerState<LoanDetailScreen> {
                       Expanded(
                         child: ElevatedButton.icon(
                           icon: const Icon(Icons.add),
-                          label: Text(currentContact.type == 'borrowed' ? 'Vay thêm' : 'Cho vay thêm'),
+                          label: Text(currentContact.type == 'borrowed' ? 'Vay' : 'Cho vay'),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.red,
                             foregroundColor: Colors.white,
@@ -335,7 +335,7 @@ class _LoanDetailScreenState extends ConsumerState<LoanDetailScreen> {
                                   child: Icon(isPositive ? Icons.add : Icons.remove, 
                                              color: isPositive ? Colors.red : Colors.green),
                                 ),
-                            title: Text(tx.note.isEmpty ? (isPositive ? (currentContact.type == 'borrowed' ? 'Vay thêm' : 'Cho vay thêm') : (currentContact.type == 'borrowed' ? 'Trả tiền' : 'Thu tiền')) : tx.note),
+                            title: Text(tx.note.isEmpty ? (isPositive ? (currentContact.type == 'borrowed' ? 'Vay' : 'Cho vay') : (currentContact.type == 'borrowed' ? 'Trả' : 'Thu')) : tx.note),
                             subtitle: Text(
                               isPositive && tx.dueDate != null
                                   ? 'Hẹn trả: ${DateFormat('dd/MM/yyyy').format(tx.dueDate!)}\nNgày: ${DateFormat('dd/MM/yyyy').format(tx.date)}'

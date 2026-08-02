@@ -132,12 +132,17 @@ class _LoanTransactionModalState extends ConsumerState<LoanTransactionModal> {
           ? (isRepay ? 'expense' : 'income')
           : (isRepay ? 'income' : 'expense');
       
+      final defaultPrefix = (isRepay ? (widget.contact.type == 'borrowed' ? 'Trả cho ' : 'Thu từ ') : (widget.contact.type == 'borrowed' ? 'Vay từ ' : 'Cho vay ')) + widget.contact.contactName;
       final noteText = _noteController.text.isNotEmpty 
-          ? _noteController.text 
-          : (isRepay ? (widget.contact.type == 'borrowed' ? 'Trả tiền cho ' : 'Thu tiền từ ') : (widget.contact.type == 'borrowed' ? 'Vay thêm từ ' : 'Cho vay thêm ')) + widget.contact.contactName;
+          ? '$defaultPrefix - ${_noteController.text}' 
+          : defaultPrefix;
+
+      final categoryId = widget.contact.type == 'borrowed' 
+          ? (isRepay ? 'sys_loan_repay' : 'sys_loan_borrow')
+          : (isRepay ? 'sys_loan_collect' : 'sys_loan_lend');
 
       await ref.read(transactionProvider.notifier).createTransactions([{
-        'categoryId': mainTxType == 'income' ? 'cat_other_income' : 'cat_other_expense',
+        'categoryId': categoryId,
         'amount': amount,
         'type': mainTxType,
         'note': noteText,

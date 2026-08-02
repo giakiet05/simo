@@ -1,3 +1,4 @@
+import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
 import '../models/category.dart';
 import 'database_helper.dart';
@@ -5,11 +6,33 @@ import 'database_helper.dart';
 class CategoryRepository {
   final _uuid = const Uuid();
 
+  Future<void> _ensureSystemCategories(Database db) async {
+    final sysCats = [
+      {'id': 'sys_loan_borrow', 'name': 'Nợ', 'type': 'income', 'icon': 'account_balance_wallet', 'color': '#FF4CAF50'},
+      {'id': 'sys_loan_repay', 'name': 'Trả nợ', 'type': 'expense', 'icon': 'money_off', 'color': '#FFF44336'},
+      {'id': 'sys_loan_lend', 'name': 'Cho vay', 'type': 'expense', 'icon': 'account_balance_wallet', 'color': '#FFF44336'},
+      {'id': 'sys_loan_collect', 'name': 'Thu tiền vay', 'type': 'income', 'icon': 'attach_money', 'color': '#FF4CAF50'},
+    ];
+    for (var cat in sysCats) {
+      final existing = await db.query('categories', where: 'id = ?', whereArgs: [cat['id']]);
+      if (existing.isEmpty) {
+        final now = DateTime.now().toIso8601String();
+        await db.insert('categories', {
+          ...cat,
+          'created_at': now,
+          'updated_at': now,
+        });
+      }
+    }
+  }
+
   Future<List<Category>> getAll() async {
     final db = await DatabaseHelper.instance.database;
+    await _ensureSystemCategories(db);
+    
     final maps = await db.query(
       'categories',
-      orderBy: "CASE WHEN type = 'income' THEN 0 ELSE 1 END, name ASC",
+      orderBy: "CASE WHEN id LIKE 'sys_%' THEN 0 ELSE 1 END, CASE WHEN type = 'income' THEN 0 ELSE 1 END, name ASC",
     );
 
     return maps.map((map) => Category.fromMap(map)).toList();

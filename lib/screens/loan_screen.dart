@@ -28,15 +28,20 @@ class _LoanScreenState extends ConsumerState<LoanScreen> {
           title: Text(l10n.locale == 'vi' ? 'Sổ Nợ' : 'Loans'),
           backgroundColor: Theme.of(context).colorScheme.inversePrimary,
           actions: [
-            IconButton(
-              icon: const Icon(Icons.person_add),
-              onPressed: () {
-                showModalBottomSheet(
-                  context: context,
-                  isScrollControlled: true,
-                  builder: (context) => const LoanContactModal(),
-                );
-              },
+            Builder(
+              builder: (ctx) => IconButton(
+                icon: const Icon(Icons.person_add),
+                onPressed: () {
+                  final tabIndex = DefaultTabController.of(ctx).index;
+                  showModalBottomSheet(
+                    context: context,
+                    isScrollControlled: true,
+                    builder: (context) => LoanContactModal(
+                      initialType: tabIndex == 0 ? 'borrowed' : 'lent',
+                    ),
+                  );
+                },
+              ),
             ),
           ],
           bottom: TabBar(

@@ -224,6 +224,7 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
 
   void _showActionMenu(BuildContext context, WidgetRef ref, Category category) {
     final l10n = ref.read(localizationProvider);
+    final isSystem = category.id.startsWith('sys_');
 
     showModalBottomSheet(
       context: context,
@@ -233,20 +234,21 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
           children: [
             ListTile(
               leading: const Icon(Icons.edit),
-              title: Text(l10n.edit),
+              title: Text(isSystem ? 'Sửa Icon/Màu (Hệ thống)' : l10n.edit),
               onTap: () {
                 Navigator.pop(context);
                 _showEditDialog(context, ref, category);
               },
             ),
-            ListTile(
-              leading: const Icon(Icons.delete, color: Colors.red),
-              title: Text(l10n.delete, style: const TextStyle(color: Colors.red)),
-              onTap: () {
-                Navigator.pop(context);
-                _showDeleteDialog(context, ref, category);
-              },
-            ),
+            if (!isSystem)
+              ListTile(
+                leading: const Icon(Icons.delete, color: Colors.red),
+                title: Text(l10n.delete, style: const TextStyle(color: Colors.red)),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showDeleteDialog(context, ref, category);
+                },
+              ),
           ],
         ),
       ),
@@ -469,6 +471,7 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
     String selectedType = category.type;
     String? selectedIcon = category.icon;
     String? selectedColor = category.color;
+    final isSystem = category.id.startsWith('sys_');
 
     showDialog(
       context: context,
@@ -523,31 +526,36 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                           TextField(
                             controller: controller,
                             decoration: InputDecoration(
-                              labelText: l10n.categoryName,
+                              labelText: isSystem ? 'Tên danh mục (Hệ thống)' : l10n.categoryName,
                               border: const OutlineInputBorder(),
                               contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                              filled: isSystem,
+                              fillColor: isSystem ? Colors.grey[200] : null,
                             ),
-                            autofocus: true,
+                            autofocus: !isSystem,
+                            enabled: !isSystem,
                           ),
                           const SizedBox(height: 12),
-                          DropdownButtonFormField<String>(
-                            value: selectedType,
-                            decoration: InputDecoration(
-                              labelText: l10n.type,
-                              border: const OutlineInputBorder(),
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                          if (!isSystem) ...[
+                            DropdownButtonFormField<String>(
+                              value: selectedType,
+                              decoration: InputDecoration(
+                                labelText: l10n.type,
+                                border: const OutlineInputBorder(),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                              ),
+                              items: [
+                                DropdownMenuItem(value: 'income', child: Text(l10n.income)),
+                                DropdownMenuItem(value: 'expense', child: Text(l10n.expense)),
+                              ],
+                              onChanged: (value) {
+                                setState(() {
+                                  selectedType = value!;
+                                });
+                              },
                             ),
-                            items: [
-                              DropdownMenuItem(value: 'income', child: Text(l10n.income)),
-                              DropdownMenuItem(value: 'expense', child: Text(l10n.expense)),
-                            ],
-                            onChanged: (value) {
-                              setState(() {
-                                selectedType = value!;
-                              });
-                            },
-                          ),
-                          const SizedBox(height: 12),
+                            const SizedBox(height: 12),
+                          ],
                           // Icon & Color section
                           Container(
                             padding: const EdgeInsets.all(12),
