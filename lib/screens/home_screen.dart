@@ -34,7 +34,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   ];
 
   void refreshData() {
-    print('[HOME] Refreshing all providers...');
     ref.invalidate(categoryProvider);
     ref.invalidate(transactionProvider);
     ref.invalidate(recurringProvider);
