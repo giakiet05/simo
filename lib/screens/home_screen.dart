@@ -7,7 +7,7 @@ import '../providers/recurring_provider.dart';
 import '../providers/settings_provider.dart';
 import 'dashboard_screen.dart';
 import 'transaction_screen.dart';
-import 'category_screen.dart';
+import 'loan_screen.dart';
 import 'settings_screen.dart';
 import 'transaction_form_screen.dart';
 
@@ -29,7 +29,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   final List<Widget> _screens = [
     const DashboardScreen(),
     const TransactionScreen(),
-    const CategoryScreen(),
+    const LoanScreen(),
     const SettingsScreen(),
   ];
 
@@ -118,8 +118,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               label: '',
             ),
             BottomNavigationBarItem(
-              icon: const Icon(Icons.category),
-              label: l10n.categories,
+              icon: const Icon(Icons.account_balance_wallet),
+              label: l10n.locale == 'vi' ? 'Sổ nợ' : 'Loans',
             ),
             BottomNavigationBarItem(
               icon: const Icon(Icons.settings),

@@ -1229,12 +1229,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
     // Format based on typical decimal places for currency
     // Most Asian currencies (VND, JPY, KRW, IDR) don't use decimals
-    final noDecimalCurrencies = ['VND', 'JPY', 'KRW', 'IDR'];
-
-    if (noDecimalCurrencies.contains(currency)) {
+    if (amount == amount.toInt()) {
       return '${NumberFormat('#,###').format(amount)} $symbol';
     } else {
-      return '$symbol${NumberFormat('#,###.##').format(amount)}';
+      return '${NumberFormat('#,###.##').format(amount)} $symbol';
     }
   }
 

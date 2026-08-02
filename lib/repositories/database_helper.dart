@@ -19,7 +19,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 6,
+      version: 9,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -91,6 +91,38 @@ class DatabaseHelper {
         cloud_id $textType,
         table_name $textType,
         deleted_at $textType
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE loan_contacts (
+        id $idType,
+        cloud_id TEXT,
+        contact_name $textType,
+        type $textType,
+        total_amount $realType,
+        remaining_amount $realType,
+        status $textType,
+        synced INTEGER DEFAULT 0,
+        created_at $textType,
+        updated_at $textType
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE loan_transactions (
+        id $idType,
+        cloud_id TEXT,
+        loan_id $textType,
+        amount $realType,
+        type $textType,
+        date $textType,
+        due_date TEXT,
+        note TEXT,
+        synced INTEGER DEFAULT 0,
+        created_at $textType,
+        updated_at $textType,
+        FOREIGN KEY (loan_id) REFERENCES loan_contacts (id) ON DELETE CASCADE
       )
     ''');
   }
@@ -201,6 +233,58 @@ class DatabaseHelper {
       );
 
       print('[DB] Deleted $deletedCount default categories from local');
+    }
+
+    if (oldVersion < 7) {
+      // Create loans and loan_transactions tables
+      const idType = 'TEXT PRIMARY KEY';
+      const textType = 'TEXT NOT NULL';
+      const realType = 'REAL NOT NULL';
+
+      await db.execute('''
+        CREATE TABLE loan_contacts (
+          id $idType,
+          cloud_id TEXT,
+          contact_name $textType,
+          type $textType,
+          total_amount $realType,
+          remaining_amount $realType,
+          status $textType,
+          due_date TEXT,
+          note TEXT,
+          synced INTEGER DEFAULT 0,
+          created_at $textType,
+          updated_at $textType
+        )
+      ''');
+
+      await db.execute('''
+        CREATE TABLE loan_transactions (
+          id $idType,
+          cloud_id TEXT,
+          loan_id $textType,
+          amount $realType,
+          type $textType,
+          date $textType,
+          note TEXT,
+          synced INTEGER DEFAULT 0,
+          created_at $textType,
+          updated_at $textType,
+          FOREIGN KEY (loan_id) REFERENCES loan_contacts (id) ON DELETE CASCADE
+        )
+      ''');
+    }
+
+    if (oldVersion < 8) {
+      print('[DB] Migration v8: Adjusting loan tables');
+      // Add due_date to loan_transactions
+      await db.execute('ALTER TABLE loan_transactions ADD COLUMN due_date TEXT');
+      // Note: SQLite doesn't support DROP COLUMN easily. We just leave due_date and note in loans table but stop using them.
+    }
+
+    if (oldVersion < 9) {
+      print('[DB] Migration v9: Rename loans to loan_contacts');
+      await db.execute('ALTER TABLE loans RENAME TO loan_contacts');
     }
   }
 
