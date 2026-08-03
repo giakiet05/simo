@@ -50,7 +50,7 @@ class CategoryRepository {
     return Category.fromMap(maps.first);
   }
 
-  Future<Category> create(String name, String type, {String? icon, String? color}) async {
+  Future<Category> create(String name, String type, {String? icon, String? color, double? budgetLimit}) async {
     final db = await DatabaseHelper.instance.database;
     final now = DateTime.now();
 
@@ -60,6 +60,7 @@ class CategoryRepository {
       type: type,
       icon: icon,
       color: color,
+      budgetLimit: budgetLimit,
       createdAt: now,
       updatedAt: now,
     );
@@ -68,7 +69,7 @@ class CategoryRepository {
     return category;
   }
 
-  Future<Category> update(String id, String name, String type, {String? icon, String? color}) async {
+  Future<Category> update(String id, String name, String type, {String? icon, String? color, double? budgetLimit}) async {
     final db = await DatabaseHelper.instance.database;
     final category = await getById(id);
 
@@ -81,6 +82,7 @@ class CategoryRepository {
       type: type,
       icon: icon,
       color: color,
+      budgetLimit: budgetLimit,
       updatedAt: DateTime.now(),
     );
 

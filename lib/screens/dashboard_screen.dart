@@ -315,12 +315,20 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                               _buildLoanSummaryCards(loans, currency, l10n),
                               const SizedBox(height: 24),
 
-                              // Budget Progress
                               _buildBudgetCard(
                                 context,
                                 budgetUsed,
                                 budget,
                                 budgetPercent,
+                                currency,
+                                l10n,
+                              ),
+                              const SizedBox(height: 16),
+
+                              // Category Budgets Progress
+                              _buildCategoryBudgetsWidget(
+                                transactions,
+                                categories,
                                 currency,
                                 l10n,
                               ),
@@ -636,6 +644,111 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   ),
                 ],
               ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCategoryBudgetsWidget(
+    List<Transaction> transactions,
+    List<Category> categories,
+    String currency,
+    dynamic l10n,
+  ) {
+    // Lọc ra các category có set budgetLimit > 0
+    final budgetCategories = categories.where((c) => c.budgetLimit != null && c.budgetLimit! > 0).toList();
+    if (budgetCategories.isEmpty) return const SizedBox.shrink();
+
+    // Tính toán số tiền đã dùng cho mỗi category
+    final Map<String, double> categorySpent = {};
+    for (var tx in transactions) {
+      if (tx.type == 'expense' && tx.categoryId != null) {
+        categorySpent[tx.categoryId!] = (categorySpent[tx.categoryId!] ?? 0) + tx.amount;
+      }
+    }
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Ngân sách danh mục',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey[800],
+              ),
+            ),
+            const SizedBox(height: 16),
+            ...budgetCategories.map((category) {
+              final budget = category.budgetLimit!;
+              final spent = categorySpent[category.id] ?? 0;
+              final percent = (spent / budget * 100).clamp(0, 100).toDouble();
+
+              Color progressColor = Colors.green;
+              if (percent >= 100) {
+                progressColor = Colors.red;
+              } else if (percent >= 80) {
+                progressColor = Colors.orange;
+              } else if (percent >= 50) {
+                progressColor = Colors.amber;
+              }
+
+              IconData? iconData = CategoryIconData.getIcon(category.icon);
+              Color iconColor = Colors.grey[600]!;
+              if (category.color != null && category.color!.isNotEmpty) {
+                try {
+                  iconColor = Color(int.parse(category.color!.substring(1), radix: 16) + 0xFF000000);
+                } catch (e) {
+                  // ignore
+                }
+              }
+
+              final displayName = l10n.translateCategoryName(category.id, category.name);
+
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        Icon(iconData ?? Icons.category, color: iconColor, size: 20),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            displayName,
+                            style: const TextStyle(fontWeight: FontWeight.w500),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        Text(
+                          '${_formatAmount(spent, currency)} / ${_formatAmount(budget, currency)}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: percent >= 100 ? FontWeight.bold : FontWeight.normal,
+                            color: percent >= 100 ? Colors.red : Colors.grey[700],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(
+                        value: percent / 100,
+                        backgroundColor: Colors.grey[200],
+                        color: progressColor,
+                        minHeight: 6,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
           ],
         ),
       ),
@@ -1075,7 +1188,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     // Group transactions by category
     final Map<String, double> categoryTotals = {};
     for (var tx in transactions) {
-      final catId = tx.categoryId ?? 'no_category';
+      String catId = tx.categoryId ?? 'no_category';
+      if (catId != 'no_category') {
+        final exists = categories.any((c) => c.id == catId);
+        if (!exists) {
+          catId = 'no_category';
+        }
+      }
       categoryTotals[catId] = (categoryTotals[catId] ?? 0) + tx.amount;
     }
 

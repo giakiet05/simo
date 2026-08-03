@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/category_provider.dart';
 import '../providers/localization_provider.dart';
@@ -257,6 +259,7 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
 
   void _showAddDialog(BuildContext context, WidgetRef ref) {
     final controller = TextEditingController();
+    final budgetController = TextEditingController();
     final l10n = ref.read(localizationProvider);
     String selectedType = 'expense';
     String? selectedIcon;
@@ -337,9 +340,23 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                               setState(() {
                                 selectedType = value!;
                               });
-                            },
-                          ),
-                          const SizedBox(height: 12),
+                              },
+                            ),
+                            if (selectedType == 'expense') ...[
+                              const SizedBox(height: 12),
+                              TextField(
+                                controller: budgetController,
+                                keyboardType: TextInputType.number,
+                                inputFormatters: [CurrencyInputFormatter()],
+                                decoration: InputDecoration(
+                                  labelText: 'Ngân sách tháng (Tùy chọn)',
+                                  border: const OutlineInputBorder(),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                                  prefixIcon: const Icon(Icons.account_balance_wallet),
+                                ),
+                              ),
+                            ],
+                            const SizedBox(height: 12),
                           // Icon & Color section
                           Container(
                             padding: const EdgeInsets.all(12),
@@ -429,9 +446,12 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                             if (name.isEmpty) return;
 
                             try {
+                              final budgetStr = budgetController.text.replaceAll(',', '');
+                              final budget = double.tryParse(budgetStr);
+                              
                               await ref
                                   .read(categoryProvider.notifier)
-                                  .createCategory(name, selectedType, icon: selectedIcon, color: selectedColor);
+                                  .createCategory(name, selectedType, icon: selectedIcon, color: selectedColor, budgetLimit: budget);
                               if (context.mounted) {
                                 Navigator.pop(context);
                                 ScaffoldMessenger.of(context).showSnackBar(
@@ -468,6 +488,12 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
     final l10n = ref.read(localizationProvider);
     final displayName = l10n.translateCategoryName(category.id, category.name);
     final controller = TextEditingController(text: displayName);
+    final formatter = NumberFormat('#,###');
+    final budgetController = TextEditingController(
+      text: category.budgetLimit != null && category.budgetLimit! > 0
+          ? formatter.format(category.budgetLimit)
+          : '',
+    );
     String selectedType = category.type;
     String? selectedIcon = category.icon;
     String? selectedColor = category.color;
@@ -553,6 +579,20 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                                   selectedType = value!;
                                 });
                               },
+                            ),
+                            const SizedBox(height: 12),
+                          ],
+                          if (!isSystem && selectedType == 'expense') ...[
+                            TextField(
+                              controller: budgetController,
+                              keyboardType: TextInputType.number,
+                              inputFormatters: [CurrencyInputFormatter()],
+                              decoration: InputDecoration(
+                                labelText: 'Ngân sách tháng (Tùy chọn)',
+                                border: const OutlineInputBorder(),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                                prefixIcon: const Icon(Icons.account_balance_wallet),
+                              ),
                             ),
                             const SizedBox(height: 12),
                           ],
@@ -645,9 +685,12 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                             if (name.isEmpty) return;
 
                             try {
+                              final budgetStr = budgetController.text.replaceAll(',', '');
+                              final budget = double.tryParse(budgetStr);
+
                               await ref
                                   .read(categoryProvider.notifier)
-                                  .updateCategory(category.id, name, selectedType, icon: selectedIcon, color: selectedColor);
+                                  .updateCategory(category.id, name, selectedType, icon: selectedIcon, color: selectedColor, budgetLimit: budget);
                               if (context.mounted) {
                                 Navigator.pop(context);
                                 ScaffoldMessenger.of(context).showSnackBar(
@@ -720,6 +763,30 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class CurrencyInputFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue, TextEditingValue newValue) {
+    if (newValue.selection.baseOffset == 0) {
+      return newValue;
+    }
+
+    String newText = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
+    if (newText.isEmpty) {
+      return newValue.copyWith(text: '');
+    }
+
+    double value = double.parse(newText);
+    final formatter = NumberFormat('#,###');
+    String newString = formatter.format(value);
+
+    return newValue.copyWith(
+      text: newString,
+      selection: TextSelection.collapsed(offset: newString.length),
     );
   }
 }

@@ -19,7 +19,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 9,
+      version: 10,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -40,6 +40,7 @@ class DatabaseHelper {
         type $textType,
         icon TEXT,
         color TEXT,
+        budget_limit REAL,
         synced INTEGER DEFAULT 0,
         created_at $textType,
         updated_at $textType
@@ -285,6 +286,11 @@ class DatabaseHelper {
     if (oldVersion < 9) {
       print('[DB] Migration v9: Rename loans to loan_contacts');
       await db.execute('ALTER TABLE loans RENAME TO loan_contacts');
+    }
+
+    if (oldVersion < 10) {
+      print('[DB] Migration v10: Add budget_limit to categories');
+      await db.execute('ALTER TABLE categories ADD COLUMN budget_limit REAL');
     }
   }
 
