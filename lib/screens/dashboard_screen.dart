@@ -7,8 +7,10 @@ import '../providers/transaction_provider.dart';
 import '../providers/settings_provider.dart';
 import '../providers/localization_provider.dart';
 import '../providers/category_provider.dart';
+import '../providers/loan_provider.dart';
 import '../models/transaction.dart';
 import '../models/category.dart';
+import '../models/loan_contact.dart';
 import '../utils/icon_data.dart';
 import '../services/currency_service.dart';
 import '../services/rewarded_ad_service.dart';
@@ -157,6 +159,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final transactionsAsync = ref.watch(transactionProvider);
     final settingsAsync = ref.watch(settingsProvider);
     final categoriesAsync = ref.watch(categoryProvider);
+    final loansAsync = ref.watch(loanProvider);
     final l10n = ref.watch(localizationProvider);
 
     return Scaffold(
@@ -223,8 +226,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 loading: () => const Center(child: CircularProgressIndicator()),
                 error: (error, stack) => Center(child: Text('Error: $error')),
                 data: (categories) {
-                  return Column(
-                    children: [
+                  return loansAsync.when(
+                    loading: () => const Center(child: CircularProgressIndicator()),
+                    error: (error, stack) => Center(child: Text('Error: $error')),
+                    data: (loans) {
+                      return Column(
+                        children: [
                       Expanded(
                         child: SingleChildScrollView(
                           padding: const EdgeInsets.all(16),
@@ -304,6 +311,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                 currency,
                                 l10n,
                               ),
+                              const SizedBox(height: 16),
+                              _buildLoanSummaryCards(loans, currency, l10n),
                               const SizedBox(height: 24),
 
                               // Budget Progress
@@ -326,7 +335,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                               const SizedBox(height: 24),
 
                               // Pie Charts (filtered by selected month)
-                              _buildPieCharts(transactions, categories, currency, l10n),
+                              _buildPieCharts(transactions, categories, loans, currency, l10n),
                               const SizedBox(height: 24),
 
                               // Recent Transactions (filtered by selected month)
@@ -338,6 +347,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       // Banner Ad - sticky at bottom
                       const BannerAdWidget(key: ValueKey('dashboard_banner_ad')),
                     ],
+                  );
+                    },
                   );
                 },
               );
@@ -353,6 +364,118 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           );
         },
         child: const Icon(Icons.add),
+      ),
+    );
+  }
+
+  Widget _buildLoanSummaryCards(List<LoanContact> loans, String currency, dynamic l10n) {
+    double totalBorrow = 0;
+    double totalLend = 0;
+    for (var l in loans) {
+      if (l.type == 'borrowed') totalBorrow += l.remainingAmount;
+      if (l.type == 'lent') totalLend += l.remainingAmount;
+    }
+    return Row(
+      children: [
+        Expanded(
+          child: _buildStatCard(
+            l10n.locale == 'vi' ? 'Nợ' : 'Borrow',
+            totalBorrow,
+            currency,
+            Colors.amber,
+            Icons.account_balance_wallet,
+          ),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: _buildStatCard(
+            l10n.locale == 'vi' ? 'Cho vay' : 'Lend',
+            totalLend,
+            currency,
+            Colors.blue,
+            Icons.account_balance_wallet_outlined,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLoanPieChartCard({
+    required String title,
+    required String type,
+    required List<LoanContact> loans,
+    required String currency,
+    required dynamic l10n,
+  }) {
+    final filteredLoans = loans.where((l) => l.type == type && l.remainingAmount > 0).toList();
+    if (filteredLoans.isEmpty) {
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              Text(l10n.noData, style: TextStyle(color: Colors.grey[600])),
+            ],
+          ),
+        ),
+      );
+    }
+    
+    final colors = [Colors.blue, Colors.red, Colors.green, Colors.orange, Colors.purple, Colors.teal, Colors.pink, Colors.amber, Colors.cyan, Colors.indigo];
+    
+    int colorIndex = 0;
+    final total = filteredLoans.fold(0.0, (sum, l) => sum + l.remainingAmount);
+    
+    final sections = filteredLoans.map((l) {
+      final percentage = (l.remainingAmount / total * 100);
+      final color = colors[colorIndex % colors.length];
+      colorIndex++;
+      return PieChartSectionData(
+        value: l.remainingAmount,
+        title: '${percentage.toStringAsFixed(1)}%',
+        color: color,
+        radius: 60,
+        titleStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+      );
+    }).toList();
+    
+    colorIndex = 0;
+    final legends = filteredLoans.map((l) {
+      final color = colors[colorIndex % colors.length];
+      colorIndex++;
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          children: [
+            Container(width: 16, height: 16, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+            const SizedBox(width: 8),
+            Expanded(child: Text(l.contactName, style: const TextStyle(fontSize: 13), overflow: TextOverflow.ellipsis)),
+            Text('${_formatAmount(l.remainingAmount, currency)}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+          ],
+        ),
+      );
+    }).toList();
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              SizedBox(
+                height: 200,
+                child: PieChart(PieChartData(sections: sections, sectionsSpace: 2, centerSpaceRadius: 40)),
+              ),
+              const SizedBox(height: 16),
+              ...legends,
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -565,9 +688,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 
   Widget _buildBarChart(List<Transaction> transactions, String currency, l10n) {
-    // Group transactions by month
     final now = DateTime.now();
-    final Map<String, Map<String, double>> monthlyData = {};
+    final Map<String, double> monthlyIncome = {};
+    final Map<String, double> monthlyExpense = {};
     final List<String> monthKeys = [];
     final List<String> displayNames = [];
 
@@ -576,128 +699,119 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       final monthKey = '${month.year}-${month.month.toString().padLeft(2, '0')}';
       monthKeys.add(monthKey);
       displayNames.add(l10n.getMonthName(month.month));
-      monthlyData[monthKey] = {'income': 0, 'expense': 0};
+      monthlyIncome[monthKey] = 0;
+      monthlyExpense[monthKey] = 0;
     }
 
     for (var tx in transactions) {
       final monthKey = '${tx.createdAt.year}-${tx.createdAt.month.toString().padLeft(2, '0')}';
-
-      if (monthlyData.containsKey(monthKey)) {
+      if (monthlyIncome.containsKey(monthKey)) {
         if (tx.type == 'income') {
-          monthlyData[monthKey]!['income'] =
-              (monthlyData[monthKey]!['income'] ?? 0) + tx.amount;
+          monthlyIncome[monthKey] = (monthlyIncome[monthKey] ?? 0) + tx.amount;
         } else {
-          monthlyData[monthKey]!['expense'] =
-              (monthlyData[monthKey]!['expense'] ?? 0) + tx.amount;
+          monthlyExpense[monthKey] = (monthlyExpense[monthKey] ?? 0) + tx.amount;
         }
       }
     }
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              l10n.incomeVsExpense,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
-            _buildTimeRangeSelector(_barChartTimeRange, (months) async {
-              setState(() {
-                _barChartTimeRange = months;
-              });
-              await _saveBarChartTimeRange(months);
-            }, l10n),
-            const SizedBox(height: 16),
-            SizedBox(
-              height: 250,
-              child: BarChart(
-                BarChartData(
-                  alignment: BarChartAlignment.spaceAround,
-                  maxY: _getMaxValue(monthlyData) * 1.2,
-                  barTouchData: BarTouchData(enabled: false),
-                  titlesData: FlTitlesData(
-                    show: true,
-                    bottomTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-                        getTitlesWidget: (value, meta) {
-                          if (value.toInt() >= 0 && value.toInt() < displayNames.length) {
-                            return Text(
-                              displayNames[value.toInt()],
-                              style: const TextStyle(fontSize: 12),
-                            );
-                          }
-                          return const Text('');
-                        },
-                      ),
-                    ),
-                    leftTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-                        reservedSize: 50,
-                        getTitlesWidget: (value, meta) {
-                          return Text(
-                            _formatShortAmount(value, currency),
-                            style: const TextStyle(fontSize: 10),
-                          );
-                        },
-                      ),
-                    ),
-                    topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                    rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  ),
-                  borderData: FlBorderData(show: false),
-                  gridData: FlGridData(
-                    show: true,
-                    drawVerticalLine: false,
-                  ),
-                  barGroups: List.generate(monthKeys.length, (index) {
-                    final monthKey = monthKeys[index];
-                    final income = monthlyData[monthKey]!['income'] ?? 0;
-                    final expense = monthlyData[monthKey]!['expense'] ?? 0;
+    double maxIncome = 0;
+    double maxExpense = 0;
+    for (var val in monthlyIncome.values) {
+      if (val > maxIncome) maxIncome = val;
+    }
+    for (var val in monthlyExpense.values) {
+      if (val > maxExpense) maxExpense = val;
+    }
+    if (maxIncome == 0) maxIncome = 1;
+    if (maxExpense == 0) maxExpense = 1;
 
-                    return BarChartGroupData(
-                      x: index,
-                      barRods: [
-                        BarChartRodData(
-                          toY: income,
-                          color: Colors.green,
-                          width: 12,
-                          borderRadius: const BorderRadius.only(
-                            topLeft: Radius.circular(4),
-                            topRight: Radius.circular(4),
-                          ),
+    Widget buildSingleBarChart(String title, Color color, Map<String, double> data, double maxVal) {
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 12),
+              _buildTimeRangeSelector(_barChartTimeRange, (months) async {
+                setState(() {
+                  _barChartTimeRange = months;
+                });
+                await _saveBarChartTimeRange(months);
+              }, l10n),
+              const SizedBox(height: 16),
+              SizedBox(
+                height: 250,
+                child: BarChart(
+                  BarChartData(
+                    alignment: BarChartAlignment.spaceAround,
+                    maxY: maxVal * 1.2,
+                    barTouchData: BarTouchData(enabled: false),
+                    titlesData: FlTitlesData(
+                      show: true,
+                      bottomTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          getTitlesWidget: (value, meta) {
+                            if (value.toInt() >= 0 && value.toInt() < displayNames.length) {
+                              return Text(displayNames[value.toInt()], style: const TextStyle(fontSize: 12));
+                            }
+                            return const Text('');
+                          },
                         ),
-                        BarChartRodData(
-                          toY: expense,
-                          color: Colors.red,
-                          width: 12,
-                          borderRadius: const BorderRadius.only(
-                            topLeft: Radius.circular(4),
-                            topRight: Radius.circular(4),
-                          ),
+                      ),
+                      leftTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          reservedSize: 50,
+                          getTitlesWidget: (value, meta) {
+                            return Text(_formatShortAmount(value, currency), style: const TextStyle(fontSize: 10));
+                          },
                         ),
-                      ],
-                    );
-                  }),
+                      ),
+                      topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                      rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    ),
+                    borderData: FlBorderData(show: false),
+                    gridData: FlGridData(show: true, drawVerticalLine: false),
+                    barGroups: List.generate(monthKeys.length, (index) {
+                      final monthKey = monthKeys[index];
+                      final val = data[monthKey] ?? 0;
+                      return BarChartGroupData(
+                        x: index,
+                        barRods: [
+                          BarChartRodData(
+                            toY: val,
+                            color: color,
+                            width: 16,
+                            borderRadius: const BorderRadius.only(topLeft: Radius.circular(4), topRight: Radius.circular(4)),
+                          ),
+                        ],
+                      );
+                    }),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _buildLegendItem(Colors.green, l10n.income),
-                const SizedBox(width: 16),
-                _buildLegendItem(Colors.red, l10n.expense),
-              ],
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
+      );
+    }
+
+    return _buildCarouselWithArrows(
+      420,
+      [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: buildSingleBarChart(l10n.expense, Colors.red, monthlyExpense, maxExpense),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: buildSingleBarChart(l10n.income, Colors.green, monthlyIncome, maxIncome),
+        ),
+      ],
+      0.95,
     );
   }
 
@@ -733,134 +847,108 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final expenseValues = monthKeys.map((key) => monthlyExpenses[key] ?? 0).toList();
     final incomeValues = monthKeys.map((key) => monthlyIncome[key] ?? 0).toList();
 
-    final maxExpense = expenseValues.isEmpty ? 0 : expenseValues.reduce((a, b) => a > b ? a : b);
-    final maxIncome = incomeValues.isEmpty ? 0 : incomeValues.reduce((a, b) => a > b ? a : b);
-    final maxValue = maxExpense > maxIncome ? maxExpense : maxIncome;
+    double maxExpense = expenseValues.isEmpty ? 0 : expenseValues.reduce((a, b) => a > b ? a : b);
+    double maxIncome = incomeValues.isEmpty ? 0 : incomeValues.reduce((a, b) => a > b ? a : b);
+    if (maxExpense == 0) maxExpense = 1;
+    if (maxIncome == 0) maxIncome = 1;
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              l10n.spendingTrend,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
-            _buildTimeRangeSelector(_lineChartTimeRange, (months) async {
-              setState(() {
-                _lineChartTimeRange = months;
-              });
-              await _saveLineChartTimeRange(months);
-            }, l10n),
-            const SizedBox(height: 16),
-            SizedBox(
-              height: 250,
-              child: LineChart(
-                LineChartData(
-                  maxY: maxValue * 1.2,
-                  minY: 0,
-                  lineBarsData: [
-                    LineChartBarData(
-                      spots: List.generate(displayNames.length, (index) {
-                        return FlSpot(index.toDouble(), expenseValues[index]);
-                      }),
-                      isCurved: true,
-                      color: Colors.red,
-                      barWidth: 3,
-                      dotData: FlDotData(
-                        show: true,
-                        getDotPainter: (spot, percent, barData, index) {
-                          return FlDotCirclePainter(
-                            radius: 4,
-                            color: Colors.red,
-                            strokeWidth: 2,
-                            strokeColor: Colors.white,
-                          );
-                        },
-                      ),
-                      belowBarData: BarAreaData(
-                        show: true,
-                        color: Colors.red.withOpacity(0.1),
-                      ),
-                    ),
-                    LineChartBarData(
-                      spots: List.generate(displayNames.length, (index) {
-                        return FlSpot(index.toDouble(), incomeValues[index]);
-                      }),
-                      isCurved: true,
-                      color: Colors.green,
-                      barWidth: 3,
-                      dotData: FlDotData(
-                        show: true,
-                        getDotPainter: (spot, percent, barData, index) {
-                          return FlDotCirclePainter(
-                            radius: 4,
-                            color: Colors.green,
-                            strokeWidth: 2,
-                            strokeColor: Colors.white,
-                          );
-                        },
-                      ),
-                      belowBarData: BarAreaData(
-                        show: true,
-                        color: Colors.green.withOpacity(0.1),
-                      ),
-                    ),
-                  ],
-                  titlesData: FlTitlesData(
-                    show: true,
-                    bottomTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-                        interval: 1,
-                        getTitlesWidget: (value, meta) {
-                          if (value.toInt() >= 0 && value.toInt() < displayNames.length) {
-                            return Text(
-                              displayNames[value.toInt()],
-                              style: const TextStyle(fontSize: 12),
+    Widget buildSingleLineChart(String title, Color color, List<double> values, double maxVal) {
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 12),
+              _buildTimeRangeSelector(_lineChartTimeRange, (months) async {
+                setState(() {
+                  _lineChartTimeRange = months;
+                });
+                await _saveLineChartTimeRange(months);
+              }, l10n),
+              const SizedBox(height: 16),
+              SizedBox(
+                height: 250,
+                child: LineChart(
+                  LineChartData(
+                    maxY: maxVal * 1.2,
+                    minY: 0,
+                    lineBarsData: [
+                      LineChartBarData(
+                        spots: List.generate(displayNames.length, (index) {
+                          return FlSpot(index.toDouble(), values[index]);
+                        }),
+                        isCurved: true,
+                        color: color,
+                        barWidth: 3,
+                        dotData: FlDotData(
+                          show: true,
+                          getDotPainter: (spot, percent, barData, index) {
+                            return FlDotCirclePainter(
+                              radius: 4,
+                              color: color,
+                              strokeWidth: 2,
+                              strokeColor: Colors.white,
                             );
-                          }
-                          return const Text('');
-                        },
+                          },
+                        ),
+                        belowBarData: BarAreaData(
+                          show: true,
+                          color: color.withOpacity(0.1),
+                        ),
                       ),
-                    ),
-                    leftTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-                        reservedSize: 50,
-                        getTitlesWidget: (value, meta) {
-                          return Text(
-                            _formatShortAmount(value, currency),
-                            style: const TextStyle(fontSize: 10),
-                          );
-                        },
+                    ],
+                    titlesData: FlTitlesData(
+                      show: true,
+                      bottomTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          interval: 1,
+                          getTitlesWidget: (value, meta) {
+                            if (value.toInt() >= 0 && value.toInt() < displayNames.length) {
+                              return Text(displayNames[value.toInt()], style: const TextStyle(fontSize: 12));
+                            }
+                            return const Text('');
+                          },
+                        ),
                       ),
+                      leftTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          reservedSize: 50,
+                          getTitlesWidget: (value, meta) {
+                            return Text(_formatShortAmount(value, currency), style: const TextStyle(fontSize: 10));
+                          },
+                        ),
+                      ),
+                      topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                      rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
                     ),
-                    topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                    rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  ),
-                  borderData: FlBorderData(show: false),
-                  gridData: FlGridData(
-                    show: true,
-                    drawVerticalLine: false,
+                    borderData: FlBorderData(show: false),
+                    gridData: FlGridData(show: true, drawVerticalLine: false),
                   ),
                 ),
               ),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _buildLegendItem(Colors.green, l10n.income),
-                const SizedBox(width: 16),
-                _buildLegendItem(Colors.red, l10n.expense),
-              ],
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
+      );
+    }
+
+    return _buildCarouselWithArrows(
+      420,
+      [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: buildSingleLineChart(l10n.expense, Colors.red, expenseValues, maxExpense),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: buildSingleLineChart(l10n.income, Colors.green, incomeValues, maxIncome),
+        ),
+      ],
+      0.95,
     );
   }
 
@@ -928,27 +1016,52 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
-  Widget _buildPieCharts(List<Transaction> transactions, List<Category> categories, String currency, l10n) {
-    return Column(
-      children: [
-        // Income Pie Chart
-        _buildPieChartCard(
-          title: l10n.incomeByCategory,
-          transactions: transactions.where((t) => t.type == 'income').toList(),
-          categories: categories,
-          currency: currency,
-          l10n: l10n,
+  Widget _buildPieCharts(List<Transaction> transactions, List<Category> categories, List<LoanContact> loans, String currency, l10n) {
+    return _buildCarouselWithArrows(
+      420,
+      [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: _buildPieChartCard(
+            title: l10n.expenseByCategory,
+            transactions: transactions.where((t) => t.type == 'expense').toList(),
+            categories: categories,
+            currency: currency,
+            l10n: l10n,
+          ),
         ),
-        const SizedBox(height: 16),
-        // Expense Pie Chart
-        _buildPieChartCard(
-          title: l10n.expenseByCategory,
-          transactions: transactions.where((t) => t.type == 'expense').toList(),
-          categories: categories,
-          currency: currency,
-          l10n: l10n,
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: _buildPieChartCard(
+            title: l10n.incomeByCategory,
+            transactions: transactions.where((t) => t.type == 'income').toList(),
+            categories: categories,
+            currency: currency,
+            l10n: l10n,
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: _buildLoanPieChartCard(
+            title: l10n.locale == 'vi' ? 'Nợ theo người' : 'Borrow by contact',
+            type: 'borrowed',
+            loans: loans,
+            currency: currency,
+            l10n: l10n,
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: _buildLoanPieChartCard(
+            title: l10n.locale == 'vi' ? 'Cho vay theo người' : 'Lend by contact',
+            type: 'lent',
+            loans: loans,
+            currency: currency,
+            l10n: l10n,
+          ),
         ),
       ],
+      0.9,
     );
   }
 
@@ -1078,27 +1191,29 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              height: 200,
-              child: PieChart(
-                PieChartData(
-                  sections: sections,
-                  sectionsSpace: 2,
-                  centerSpaceRadius: 40,
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                height: 200,
+                child: PieChart(
+                  PieChartData(
+                    sections: sections,
+                    sectionsSpace: 2,
+                    centerSpaceRadius: 40,
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 16),
-            ...legends,
-          ],
+              const SizedBox(height: 16),
+              ...legends,
+            ],
+          ),
         ),
       ),
     );
@@ -1331,5 +1446,48 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         );
       }
     }
+  }
+
+  Widget _buildCarouselWithArrows(double height, List<Widget> children, double viewportFraction) {
+    // Start at a very high multiple of children.length to allow infinite scrolling backwards.
+    final int initialPage = children.length * 1000;
+    final PageController controller = PageController(viewportFraction: viewportFraction, initialPage: initialPage);
+    
+    return SizedBox(
+      height: height,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          PageView.builder(
+            controller: controller,
+            itemBuilder: (context, index) {
+              return children[index % children.length];
+            },
+          ),
+          Positioned(
+            left: 0,
+            child: IconButton(
+              icon: const Icon(Icons.chevron_left, color: Colors.grey, size: 32),
+              onPressed: () {
+                if (controller.hasClients) {
+                  controller.previousPage(duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
+                }
+              },
+            ),
+          ),
+          Positioned(
+            right: 0,
+            child: IconButton(
+              icon: const Icon(Icons.chevron_right, color: Colors.grey, size: 32),
+              onPressed: () {
+                if (controller.hasClients) {
+                  controller.nextPage(duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
+                }
+              },
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
