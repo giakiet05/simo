@@ -12,7 +12,6 @@ class AiTransactionService {
   Future<Map<String, dynamic>?> parseTransaction(String spokenText, List<Category> categories) async {
     final modelId = dotenv.env['AI_MODEL'] ?? 'llama3-70b-8192';
 
-    // Tạo context cho danh mục
     final categoryContext = categories.map((c) => "ID: ${c.id}, Name: ${c.name}, Type: ${c.type}").join("\n");
     final currentDate = DateTime.now().toIso8601String();
 
@@ -40,7 +39,7 @@ $categoryContext
 """;
 
     print("========== AI PROMPT ==========");
-    for (var line in systemPrompt.split('\n')) {
+    for (var line in systemPrompt.split('\\n')) {
       print(line);
     }
     print("===============================");
@@ -64,7 +63,6 @@ $categoryContext
       final responseText = chatCompletion.choices.first.message.content?.first.text;
       if (responseText != null) {
         var cleanJson = responseText.replaceAll('```json', '').replaceAll('```', '').trim();
-        // Cắt lấy đúng phần JSON nếu AI có lỡ nói nhảm
         final startIndex = cleanJson.indexOf('{');
         final endIndex = cleanJson.lastIndexOf('}');
         if (startIndex != -1 && endIndex != -1 && startIndex < endIndex) {
@@ -72,7 +70,7 @@ $categoryContext
         }
         
         print("========== AI JSON RESULT ==========");
-        for (var line in cleanJson.split('\n')) {
+        for (var line in cleanJson.split('\\n')) {
           print(line);
         }
         print("====================================");
@@ -84,3 +82,4 @@ $categoryContext
     return null;
   }
 }
+

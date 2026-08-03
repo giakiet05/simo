@@ -73,22 +73,7 @@ class _LoanContactModalState extends ConsumerState<LoanContactModal> {
                 style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold), 
                 textAlign: TextAlign.center
               ),
-              if (widget.editContact != null) ...[
-                DropdownButtonFormField<String>(
-                  value: _type,
-                  decoration: const InputDecoration(border: OutlineInputBorder(), labelText: 'Loại'),
-                  items: const [
-                    DropdownMenuItem(value: 'borrowed', child: Text('Nợ')),
-                    DropdownMenuItem(value: 'lent', child: Text('Cho vay')),
-                  ],
-                  onChanged: (widget.editContact!.totalAmount > 0 || widget.editContact!.remainingAmount > 0)
-                    ? null
-                    : (val) {
-                        if (val != null) setState(() => _type = val);
-                      },
-                ),
-                const SizedBox(height: 16),
-              ],
+              const SizedBox(height: 16),
               TextFormField(
                 controller: _nameController,
                 decoration: const InputDecoration(border: OutlineInputBorder(), labelText: 'Tên người giao dịch'),

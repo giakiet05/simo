@@ -57,7 +57,7 @@ class _VoiceRecordSheetState extends ConsumerState<VoiceRecordSheet> {
       try {
         final transactionsData = result['transactions'] as List<dynamic>;
         if (transactionsData.isEmpty) {
-          throw Exception("Không tìm thấy giao dịch nào.");
+          throw Exception("AI không hiểu được câu nói của bạn. Vui lòng nói rõ số tiền và nội dung thu/chi nhé!");
         }
 
         final List<Map<String, dynamic>> newTransactions = [];
@@ -88,14 +88,20 @@ class _VoiceRecordSheetState extends ConsumerState<VoiceRecordSheet> {
         }
       } catch (e) {
         setState(() {
-          _text = 'Lỗi xử lý dữ liệu AI: $e';
+          String errorMessage = e.toString();
+          if (errorMessage.startsWith('Exception: ')) {
+            errorMessage = errorMessage.substring(11);
+          } else {
+            errorMessage = "Đã xảy ra lỗi khi phân tích câu nói.";
+          }
+          _text = errorMessage;
           _isProcessing = false;
         });
       }
     } else {
       if (mounted) {
         setState(() {
-          _text = 'Không thể phân tích câu nói. Vui lòng thử lại!';
+          _text = 'Không thể kết nối với AI. Vui lòng thử lại sau!';
           _isProcessing = false;
         });
       }
