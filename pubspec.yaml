@@ -59,7 +59,11 @@ dependencies:
   # AdMob
   google_mobile_ads: ^5.1.0
   change_app_package_name: ^1.5.0
-
+  speech_to_text: ^7.3.0
+  permission_handler: ^11.3.1
+  dart_openai: ^6.1.1
+  google_fonts: ^8.2.1
+  shimmer: ^3.0.0
 dev_dependencies:
   flutter_test:
     sdk: flutter

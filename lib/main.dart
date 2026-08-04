@@ -6,6 +6,7 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'dart:io';
 import 'screens/home_screen.dart';
 import 'utils/recurring_service.dart';
+import 'theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -44,10 +45,7 @@ class MyApp extends StatelessWidget {
       navigatorKey: navigatorKey,
       title: 'Simo - Simple Money Management',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
-        useMaterial3: true,
-      ),
+      theme: AppTheme.lightTheme,
       home: HomeScreen(key: homeScreenKey),
     );
   }
