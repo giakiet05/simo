@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/category_provider.dart';
 import '../providers/localization_provider.dart';
@@ -224,6 +226,7 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
 
   void _showActionMenu(BuildContext context, WidgetRef ref, Category category) {
     final l10n = ref.read(localizationProvider);
+    final isSystem = category.id.startsWith('sys_');
 
     showModalBottomSheet(
       context: context,
@@ -233,20 +236,21 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
           children: [
             ListTile(
               leading: const Icon(Icons.edit),
-              title: Text(l10n.edit),
+              title: Text(isSystem ? 'Sửa Icon/Màu (Hệ thống)' : l10n.edit),
               onTap: () {
                 Navigator.pop(context);
                 _showEditDialog(context, ref, category);
               },
             ),
-            ListTile(
-              leading: const Icon(Icons.delete, color: Colors.red),
-              title: Text(l10n.delete, style: const TextStyle(color: Colors.red)),
-              onTap: () {
-                Navigator.pop(context);
-                _showDeleteDialog(context, ref, category);
-              },
-            ),
+            if (!isSystem)
+              ListTile(
+                leading: const Icon(Icons.delete, color: Colors.red),
+                title: Text(l10n.delete, style: const TextStyle(color: Colors.red)),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showDeleteDialog(context, ref, category);
+                },
+              ),
           ],
         ),
       ),
@@ -255,6 +259,7 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
 
   void _showAddDialog(BuildContext context, WidgetRef ref) {
     final controller = TextEditingController();
+    final budgetController = TextEditingController();
     final l10n = ref.read(localizationProvider);
     String selectedType = 'expense';
     String? selectedIcon;
@@ -335,9 +340,23 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                               setState(() {
                                 selectedType = value!;
                               });
-                            },
-                          ),
-                          const SizedBox(height: 12),
+                              },
+                            ),
+                            if (selectedType == 'expense') ...[
+                              const SizedBox(height: 12),
+                              TextField(
+                                controller: budgetController,
+                                keyboardType: TextInputType.number,
+                                inputFormatters: [CurrencyInputFormatter()],
+                                decoration: InputDecoration(
+                                  labelText: 'Ngân sách tháng (Tùy chọn)',
+                                  border: const OutlineInputBorder(),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                                  prefixIcon: const Icon(Icons.account_balance_wallet),
+                                ),
+                              ),
+                            ],
+                            const SizedBox(height: 12),
                           // Icon & Color section
                           Container(
                             padding: const EdgeInsets.all(12),
@@ -427,9 +446,12 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                             if (name.isEmpty) return;
 
                             try {
+                              final budgetStr = budgetController.text.replaceAll(',', '');
+                              final budget = double.tryParse(budgetStr);
+                              
                               await ref
                                   .read(categoryProvider.notifier)
-                                  .createCategory(name, selectedType, icon: selectedIcon, color: selectedColor);
+                                  .createCategory(name, selectedType, icon: selectedIcon, color: selectedColor, budgetLimit: budget);
                               if (context.mounted) {
                                 Navigator.pop(context);
                                 ScaffoldMessenger.of(context).showSnackBar(
@@ -466,9 +488,16 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
     final l10n = ref.read(localizationProvider);
     final displayName = l10n.translateCategoryName(category.id, category.name);
     final controller = TextEditingController(text: displayName);
+    final formatter = NumberFormat('#,###');
+    final budgetController = TextEditingController(
+      text: category.budgetLimit != null && category.budgetLimit! > 0
+          ? formatter.format(category.budgetLimit)
+          : '',
+    );
     String selectedType = category.type;
     String? selectedIcon = category.icon;
     String? selectedColor = category.color;
+    final isSystem = category.id.startsWith('sys_');
 
     showDialog(
       context: context,
@@ -523,31 +552,50 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                           TextField(
                             controller: controller,
                             decoration: InputDecoration(
-                              labelText: l10n.categoryName,
+                              labelText: isSystem ? 'Tên danh mục (Hệ thống)' : l10n.categoryName,
                               border: const OutlineInputBorder(),
                               contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                              filled: isSystem,
+                              fillColor: isSystem ? Colors.grey[200] : null,
                             ),
-                            autofocus: true,
+                            autofocus: !isSystem,
+                            enabled: !isSystem,
                           ),
                           const SizedBox(height: 12),
-                          DropdownButtonFormField<String>(
-                            value: selectedType,
-                            decoration: InputDecoration(
-                              labelText: l10n.type,
-                              border: const OutlineInputBorder(),
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                          if (!isSystem) ...[
+                            DropdownButtonFormField<String>(
+                              value: selectedType,
+                              decoration: InputDecoration(
+                                labelText: l10n.type,
+                                border: const OutlineInputBorder(),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                              ),
+                              items: [
+                                DropdownMenuItem(value: 'income', child: Text(l10n.income)),
+                                DropdownMenuItem(value: 'expense', child: Text(l10n.expense)),
+                              ],
+                              onChanged: (value) {
+                                setState(() {
+                                  selectedType = value!;
+                                });
+                              },
                             ),
-                            items: [
-                              DropdownMenuItem(value: 'income', child: Text(l10n.income)),
-                              DropdownMenuItem(value: 'expense', child: Text(l10n.expense)),
-                            ],
-                            onChanged: (value) {
-                              setState(() {
-                                selectedType = value!;
-                              });
-                            },
-                          ),
-                          const SizedBox(height: 12),
+                            const SizedBox(height: 12),
+                          ],
+                          if (!isSystem && selectedType == 'expense') ...[
+                            TextField(
+                              controller: budgetController,
+                              keyboardType: TextInputType.number,
+                              inputFormatters: [CurrencyInputFormatter()],
+                              decoration: InputDecoration(
+                                labelText: 'Ngân sách tháng (Tùy chọn)',
+                                border: const OutlineInputBorder(),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                                prefixIcon: const Icon(Icons.account_balance_wallet),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                          ],
                           // Icon & Color section
                           Container(
                             padding: const EdgeInsets.all(12),
@@ -637,9 +685,12 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                             if (name.isEmpty) return;
 
                             try {
+                              final budgetStr = budgetController.text.replaceAll(',', '');
+                              final budget = double.tryParse(budgetStr);
+
                               await ref
                                   .read(categoryProvider.notifier)
-                                  .updateCategory(category.id, name, selectedType, icon: selectedIcon, color: selectedColor);
+                                  .updateCategory(category.id, name, selectedType, icon: selectedIcon, color: selectedColor, budgetLimit: budget);
                               if (context.mounted) {
                                 Navigator.pop(context);
                                 ScaffoldMessenger.of(context).showSnackBar(
@@ -712,6 +763,30 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class CurrencyInputFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue, TextEditingValue newValue) {
+    if (newValue.selection.baseOffset == 0) {
+      return newValue;
+    }
+
+    String newText = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
+    if (newText.isEmpty) {
+      return newValue.copyWith(text: '');
+    }
+
+    double value = double.parse(newText);
+    final formatter = NumberFormat('#,###');
+    String newString = formatter.format(value);
+
+    return newValue.copyWith(
+      text: newString,
+      selection: TextSelection.collapsed(offset: newString.length),
     );
   }
 }

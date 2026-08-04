@@ -4,6 +4,7 @@ class Category {
   final String type; // 'income' or 'expense'
   final String? icon;
   final String? color;
+  final double? budgetLimit;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -13,6 +14,7 @@ class Category {
     required this.type,
     this.icon,
     this.color,
+    this.budgetLimit,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -23,6 +25,7 @@ class Category {
     String? type,
     String? icon,
     String? color,
+    double? budgetLimit,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -32,6 +35,7 @@ class Category {
       type: type ?? this.type,
       icon: icon ?? this.icon,
       color: color ?? this.color,
+      budgetLimit: budgetLimit ?? this.budgetLimit,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -44,6 +48,7 @@ class Category {
       'type': type,
       'icon': icon,
       'color': color,
+      'budget_limit': budgetLimit,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };
@@ -56,6 +61,7 @@ class Category {
       type: map['type'] as String,
       icon: map['icon'] as String?,
       color: map['color'] as String?,
+      budgetLimit: (map['budget_limit'] as num?)?.toDouble(),
       createdAt: DateTime.parse(map['created_at'] as String),
       updatedAt: DateTime.parse(map['updated_at'] as String),
     );
