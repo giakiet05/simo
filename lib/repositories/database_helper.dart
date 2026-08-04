@@ -243,7 +243,7 @@ class DatabaseHelper {
       const realType = 'REAL NOT NULL';
 
       await db.execute('''
-        CREATE TABLE loan_contacts (
+        CREATE TABLE IF NOT EXISTS loan_contacts (
           id $idType,
           cloud_id TEXT,
           contact_name $textType,
@@ -260,7 +260,7 @@ class DatabaseHelper {
       ''');
 
       await db.execute('''
-        CREATE TABLE loan_transactions (
+        CREATE TABLE IF NOT EXISTS loan_transactions (
           id $idType,
           cloud_id TEXT,
           loan_id $textType,
@@ -279,13 +279,21 @@ class DatabaseHelper {
     if (oldVersion < 8) {
       print('[DB] Migration v8: Adjusting loan tables');
       // Add due_date to loan_transactions
-      await db.execute('ALTER TABLE loan_transactions ADD COLUMN due_date TEXT');
+      try {
+        await db.execute('ALTER TABLE loan_transactions ADD COLUMN due_date TEXT');
+      } catch (e) {
+        print('[DB] Migration v8: due_date column might already exist, skipping.');
+      }
       // Note: SQLite doesn't support DROP COLUMN easily. We just leave due_date and note in loans table but stop using them.
     }
 
     if (oldVersion < 9) {
       print('[DB] Migration v9: Rename loans to loan_contacts');
-      await db.execute('ALTER TABLE loans RENAME TO loan_contacts');
+      try {
+        await db.execute('ALTER TABLE loans RENAME TO loan_contacts');
+      } catch (e) {
+        print('[DB] Migration v9: loans table not found or already renamed, skipping.');
+      }
     }
 
     if (oldVersion < 10) {
