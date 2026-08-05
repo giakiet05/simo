@@ -21,6 +21,7 @@ import 'transaction_form_screen.dart';
 import 'home_screen.dart';
 import 'settings_screen.dart';
 import '../widgets/voice_record_sheet.dart';
+import '../widgets/dashboard/quick_access_hub.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -314,6 +315,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                               const SizedBox(height: 16),
                               _buildLoanSummaryCards(loans, currency, l10n),
                               const SizedBox(height: 24),
+                              
+                              QuickAccessHub(l10n: l10n),
+                              const SizedBox(height: 16),
 
                               _buildBudgetCard(
                                 context,
@@ -332,18 +336,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                 currency,
                                 l10n,
                               ),
-                              const SizedBox(height: 24),
-
-                              // Bar Chart (uses all transactions)
-                              _buildBarChart(allTransactions, currency, l10n),
-                              const SizedBox(height: 24),
-
-                              // Line Chart (uses all transactions)
-                              _buildLineChart(allTransactions, currency, l10n),
-                              const SizedBox(height: 24),
-
-                              // Pie Charts (filtered by selected month)
-                              _buildPieCharts(transactions, categories, loans, currency, l10n),
                               const SizedBox(height: 24),
 
                               // Recent Transactions (filtered by selected month)
@@ -683,72 +675,88 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            ...budgetCategories.map((category) {
-              final budget = category.budgetLimit!;
-              final spent = categorySpent[category.id] ?? 0;
-              final percent = (spent / budget * 100).clamp(0, 100).toDouble();
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: budgetCategories.map((category) {
+                final budget = category.budgetLimit!;
+                final spent = categorySpent[category.id] ?? 0;
+                final percent = (spent / budget * 100).clamp(0, 100).toDouble();
 
-              Color progressColor = Colors.green;
-              if (percent >= 100) {
-                progressColor = Colors.red;
-              } else if (percent >= 80) {
-                progressColor = Colors.orange;
-              } else if (percent >= 50) {
-                progressColor = Colors.amber;
-              }
-
-              IconData? iconData = CategoryIconData.getIcon(category.icon);
-              Color iconColor = Colors.grey[600]!;
-              if (category.color != null && category.color!.isNotEmpty) {
-                try {
-                  iconColor = Color(int.parse(category.color!.substring(1), radix: 16) + 0xFF000000);
-                } catch (e) {
-                  // ignore
+                Color progressColor = Colors.green;
+                if (percent >= 100) {
+                  progressColor = Colors.red;
+                } else if (percent >= 80) {
+                  progressColor = Colors.orange;
+                } else if (percent >= 50) {
+                  progressColor = Colors.amber;
                 }
-              }
 
-              final displayName = l10n.translateCategoryName(category.id, category.name);
+                IconData? iconData = CategoryIconData.getIcon(category.icon);
+                Color iconColor = Colors.grey[600]!;
+                if (category.color != null && category.color!.isNotEmpty) {
+                  try {
+                    String hex = category.color!.replaceAll('#', '');
+                    if (hex.length == 6) hex = 'FF' + hex;
+                    iconColor = Color(int.parse(hex, radix: 16));
+                  } catch (e) {
+                    // ignore
+                  }
+                }
 
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 16),
-                child: Column(
-                  children: [
-                    Row(
-                      children: [
-                        Icon(iconData ?? Icons.category, color: iconColor, size: 20),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            displayName,
-                            style: const TextStyle(fontWeight: FontWeight.w500),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                final displayName = l10n.translateCategoryName(category.id, category.name);
+
+                return Container(
+                  width: 160,
+                  margin: const EdgeInsets.only(right: 12),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).cardColor,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey.withOpacity(0.2)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(iconData ?? Icons.category, color: iconColor, size: 16),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              displayName,
+                              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
-                        ),
-                        Text(
-                          '${_formatAmount(spent, currency)} / ${_formatAmount(budget, currency)}',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: percent >= 100 ? FontWeight.bold : FontWeight.normal,
-                            color: percent >= 100 ? Colors.red : Colors.grey[700],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: LinearProgressIndicator(
-                        value: percent / 100,
-                        backgroundColor: Colors.grey[200],
-                        color: progressColor,
-                        minHeight: 6,
+                        ],
                       ),
-                    ),
-                  ],
-                ),
-              );
-            }),
+                      const SizedBox(height: 8),
+                      Text(
+                        '${_formatAmount(spent, currency)} / ${_formatAmount(budget, currency)}',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: percent >= 100 ? Colors.red : Colors.grey[600],
+                          fontWeight: percent >= 100 ? FontWeight.bold : FontWeight.normal,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(2),
+                        child: LinearProgressIndicator(
+                          value: percent / 100,
+                          backgroundColor: Colors.grey[200],
+                          color: progressColor,
+                          minHeight: 4,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+              ),
+            ),
           ],
         ),
       ),
@@ -1423,8 +1431,20 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   ? Colors.black
                   : Colors.white;
 
-              return ListTile(
-                contentPadding: EdgeInsets.zero,
+              return Dismissible(
+                key: Key(tx.id),
+                direction: DismissDirection.endToStart,
+                background: Container(
+                  color: Colors.red,
+                  alignment: Alignment.centerRight,
+                  padding: const EdgeInsets.only(right: 20),
+                  child: const Icon(Icons.delete, color: Colors.white),
+                ),
+                onDismissed: (direction) {
+                  ref.read(transactionProvider.notifier).deleteTransactions([tx.id]);
+                },
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
                 leading: CircleAvatar(
                   backgroundColor: backgroundColor,
                   radius: 20,
@@ -1450,7 +1470,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     color: tx.type == 'income' ? Colors.green : Colors.red,
                   ),
                 ),
-              );
+              ));
             }).toList(),
           ],
         ),

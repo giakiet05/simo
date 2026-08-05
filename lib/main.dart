@@ -4,6 +4,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'dart:io';
+import 'config/ads_config.dart';
 import 'screens/home_screen.dart';
 import 'utils/recurring_service.dart';
 import 'theme/app_theme.dart';
@@ -14,8 +15,10 @@ void main() async {
   // Load environment variables
   await dotenv.load(fileName: ".env");
 
-  // Initialize AdMob
-  await MobileAds.instance.initialize();
+  // Initialize AdMob only if enabled and on supported platforms
+  if (AdsConfig.adsEnabled && (Platform.isAndroid || Platform.isIOS)) {
+    await MobileAds.instance.initialize();
+  }
 
   // Initialize sqflite for desktop platforms
   if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {
