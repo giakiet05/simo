@@ -24,12 +24,12 @@ class StatisticsScreen extends ConsumerStatefulWidget {
 class _StatisticsScreenState extends ConsumerState<StatisticsScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
   int _selectedMonths = 6;
-  bool _showExpenseCategory = true; // Toggle between expense/income in Categories tab
+  bool _showExpenseCategory = true;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
   }
 
   @override
@@ -70,22 +70,24 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> with Single
           labelColor: AppColors.primary,
           unselectedLabelColor: Colors.grey,
           indicatorColor: AppColors.primary,
+          isScrollable: true,
           tabs: [
             Tab(text: l10n.locale == 'vi' ? 'Tổng quan' : 'Overview'),
             Tab(text: l10n.locale == 'vi' ? 'Danh mục' : 'Categories'),
+            Tab(text: l10n.locale == 'vi' ? 'Ngân sách' : 'Budgets'),
             Tab(text: l10n.locale == 'vi' ? 'Sổ nợ' : 'Loans'),
           ],
         ),
       ),
       body: Column(
         children: [
-          _buildTimeFilter(l10n),
           Expanded(
             child: TabBarView(
               controller: _tabController,
               children: [
                 _buildOverviewTab(transactions, currency, l10n),
                 _buildCategoriesTab(transactions, categories, currency, l10n),
+                _buildBudgetsTab(transactions, categories, currency, l10n),
                 _buildLoansTab(loans, currency, l10n),
               ],
             ),
@@ -96,9 +98,8 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> with Single
   }
 
   Widget _buildTimeFilter(dynamic l10n) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
-      color: AppColors.surface,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [3, 6, 12].map((months) {
@@ -112,6 +113,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> with Single
                 if (selected) setState(() => _selectedMonths = months);
               },
               selectedColor: AppColors.primary.withValues(alpha: 0.2),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
               labelStyle: TextStyle(
                 color: isSelected ? AppColors.primary : Colors.grey[700],
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
@@ -124,7 +126,48 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> with Single
   }
 
   Widget _buildOverviewTab(List<Transaction> transactions, String currency, dynamic l10n) {
+    // Analytics calculations for current month
     final now = DateTime.now();
+    final startOfThisMonth = DateTime(now.year, now.month, 1);
+    final startOfLastMonth = DateTime(now.year, now.month - 1, 1);
+    final startOfNextMonth = DateTime(now.year, now.month + 1, 1);
+
+    double thisMonthExpense = 0;
+    double lastMonthExpense = 0;
+    double topExpenseThisMonth = 0;
+    Set<int> daysSpent = {};
+    
+    // Day of week spending
+    Map<int, double> dowSpending = {1:0, 2:0, 3:0, 4:0, 5:0, 6:0, 7:0}; // Mon-Sun
+
+    for (var tx in transactions) {
+      if (tx.type == 'expense') {
+        if (tx.createdAt.isAfter(startOfThisMonth) && tx.createdAt.isBefore(startOfNextMonth)) {
+          thisMonthExpense += tx.amount;
+          daysSpent.add(tx.createdAt.day);
+          if (tx.amount > topExpenseThisMonth) topExpenseThisMonth = tx.amount;
+        } else if (tx.createdAt.isAfter(startOfLastMonth) && tx.createdAt.isBefore(startOfThisMonth)) {
+          lastMonthExpense += tx.amount;
+        }
+        
+        // Day of week
+        if (tx.createdAt.isAfter(DateTime(now.year, now.month - _selectedMonths + 1, 1))) {
+          dowSpending[tx.createdAt.weekday] = (dowSpending[tx.createdAt.weekday] ?? 0) + tx.amount;
+        }
+      }
+    }
+
+    final currentDay = now.day;
+    final noSpendDays = currentDay - daysSpent.length;
+    final avgDaily = currentDay > 0 ? thisMonthExpense / currentDay : 0.0;
+    
+    // Month over Month calculation
+    double momDiff = 0;
+    if (lastMonthExpense > 0) {
+      momDiff = ((thisMonthExpense - lastMonthExpense) / lastMonthExpense) * 100;
+    }
+
+    // Prepare chart data
     final Map<String, double> incomeData = {};
     final Map<String, double> expenseData = {};
     final List<String> labels = [];
@@ -154,6 +197,45 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> with Single
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        _buildTimeFilter(l10n),
+        // Quick Stats row
+        Row(
+          children: [
+            Expanded(child: _buildMiniStatCard(l10n.locale == 'vi' ? 'Tiêu TB/ngày' : 'Daily Avg', avgDaily, currency, Icons.calendar_today, Colors.blue)),
+            const SizedBox(width: 12),
+            Expanded(child: _buildMiniStatCard(l10n.locale == 'vi' ? 'Món to nhất' : 'Top Expense', topExpenseThisMonth, currency, Icons.trending_down, Colors.red)),
+            const SizedBox(width: 12),
+            Expanded(child: _buildMiniStatCard(l10n.locale == 'vi' ? 'Ngày 0đ' : 'No-Spend Days', noSpendDays.toDouble(), '', Icons.sentiment_very_satisfied, Colors.green, isAmount: false)),
+          ],
+        ),
+        const SizedBox(height: 16),
+        
+        // Month over Month
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: momDiff > 0 ? Colors.red.withValues(alpha: 0.1) : Colors.green.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: momDiff > 0 ? Colors.red.withValues(alpha: 0.3) : Colors.green.withValues(alpha: 0.3)),
+          ),
+          child: Row(
+            children: [
+              Icon(momDiff > 0 ? Icons.warning_amber_rounded : Icons.check_circle_outline, 
+                color: momDiff > 0 ? Colors.red : Colors.green),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  l10n.locale == 'vi' 
+                    ? (momDiff > 0 ? 'Tháng này tiêu nhiều hơn tháng trước ${momDiff.toStringAsFixed(1)}%' : 'Tuyệt vời! Tháng này tiêu ít hơn tháng trước ${momDiff.abs().toStringAsFixed(1)}%')
+                    : (momDiff > 0 ? 'Spent ${momDiff.toStringAsFixed(1)}% more than last month' : 'Great! Spent ${momDiff.abs().toStringAsFixed(1)}% less than last month'),
+                  style: TextStyle(fontWeight: FontWeight.w600, color: momDiff > 0 ? Colors.red[700] : Colors.green[700]),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 24),
+
         _buildChartCard(
           title: l10n.locale == 'vi' ? 'Tổng Thu & Chi' : 'Income & Expense',
           child: BarChart(
@@ -224,33 +306,11 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> with Single
         ),
         const SizedBox(height: 16),
         _buildChartCard(
-          title: l10n.locale == 'vi' ? 'Xu hướng (Trend)' : 'Trend Line',
-          child: LineChart(
-            LineChartData(
-              maxY: yMax,
-              minY: 0,
-              lineBarsData: [
-                LineChartBarData(
-                  spots: List.generate(labels.length, (index) {
-                    final key = incomeData.keys.elementAt(index);
-                    return FlSpot(index.toDouble(), incomeData[key]!);
-                  }),
-                  isCurved: true,
-                  color: Colors.green,
-                  barWidth: 3,
-                  dotData: FlDotData(show: true),
-                ),
-                LineChartBarData(
-                  spots: List.generate(labels.length, (index) {
-                    final key = expenseData.keys.elementAt(index);
-                    return FlSpot(index.toDouble(), expenseData[key]!);
-                  }),
-                  isCurved: true,
-                  color: Colors.red,
-                  barWidth: 3,
-                  dotData: FlDotData(show: true),
-                ),
-              ],
+          title: l10n.locale == 'vi' ? 'Chi tiêu theo Thứ' : 'Spending by Day of Week',
+          child: BarChart(
+            BarChartData(
+              alignment: BarChartAlignment.spaceAround,
+              barTouchData: BarTouchData(enabled: false),
               titlesData: FlTitlesData(
                 show: true,
                 topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
@@ -258,12 +318,14 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> with Single
                 bottomTitles: AxisTitles(
                   sideTitles: SideTitles(
                     showTitles: true,
-                    interval: 1,
                     getTitlesWidget: (value, meta) {
-                      if (value.toInt() >= 0 && value.toInt() < labels.length) {
+                      final daysVi = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+                      final daysEn = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+                      final days = l10n.locale == 'vi' ? daysVi : daysEn;
+                      if (value.toInt() >= 0 && value.toInt() < 7) {
                         return Padding(
                           padding: const EdgeInsets.only(top: 8),
-                          child: Text(labels[value.toInt()], style: const TextStyle(fontSize: 10)),
+                          child: Text(days[value.toInt()], style: const TextStyle(fontSize: 10)),
                         );
                       }
                       return const Text('');
@@ -282,6 +344,19 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> with Single
               ),
               borderData: FlBorderData(show: false),
               gridData: const FlGridData(show: true, drawVerticalLine: false),
+              barGroups: List.generate(7, (index) {
+                return BarChartGroupData(
+                  x: index,
+                  barRods: [
+                    BarChartRodData(
+                      toY: dowSpending[index + 1]!,
+                      color: (index == 5 || index == 6) ? Colors.orange : AppColors.primary,
+                      width: 16,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ],
+                );
+              }),
             ),
           ),
         ),
@@ -289,10 +364,40 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> with Single
     );
   }
 
+  Widget _buildMiniStatCard(String title, double value, String currency, IconData icon, Color color, {bool isAmount = true}) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(height: 8),
+          Text(title, style: TextStyle(fontSize: 11, color: Colors.grey[600]), maxLines: 1, overflow: TextOverflow.ellipsis),
+          const SizedBox(height: 4),
+          Text(
+            isAmount ? _formatCompact(value) + CurrencyService.getSymbol(currency) : value.toInt().toString(),
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildCategoriesTab(List<Transaction> transactions, List<Category> categories, String currency, dynamic l10n) {
-    final cutoff = DateTime(DateTime.now().year, DateTime.now().month - _selectedMonths + 1, 1);
+    final startOfThisMonth = DateTime(DateTime.now().year, DateTime.now().month, 1);
     final txType = _showExpenseCategory ? 'expense' : 'income';
-    final recentTx = transactions.where((t) => t.type == txType && t.createdAt.isAfter(cutoff)).toList();
+    final recentTx = transactions.where((t) => t.type == txType && t.createdAt.isAfter(startOfThisMonth)).toList();
 
     final Map<String, double> categoryTotals = {};
     for (var tx in recentTx) {
@@ -382,6 +487,87 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> with Single
                     }),
                   ],
                 ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBudgetsTab(List<Transaction> transactions, List<Category> categories, String currency, dynamic l10n) {
+    // Only current month budget vs actual
+    final now = DateTime.now();
+    final startOfThisMonth = DateTime(now.year, now.month, 1);
+
+    final budgetCategories = categories.where((c) => c.budgetLimit != null && c.budgetLimit! > 0).toList();
+    
+    if (budgetCategories.isEmpty) {
+      return Center(child: Text(l10n.locale == 'vi' ? 'Bạn chưa đặt ngân sách nào' : 'No budgets set'));
+    }
+
+    final Map<String, double> categorySpent = {};
+    for (var tx in transactions) {
+      if (tx.type == 'expense' && tx.createdAt.isAfter(startOfThisMonth)) {
+        final catId = tx.categoryId ?? 'other';
+        categorySpent[catId] = (categorySpent[catId] ?? 0) + tx.amount;
+      }
+    }
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        _buildChartCard(
+          title: l10n.locale == 'vi' ? 'Ngân sách vs Thực tế (Tháng này)' : 'Budget vs Actual (This Month)',
+          height: budgetCategories.length * 70.0,
+          child: ListView.builder(
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: budgetCategories.length,
+            itemBuilder: (context, index) {
+              final cat = budgetCategories[index];
+              final budget = cat.budgetLimit!;
+              final spent = categorySpent[cat.id] ?? 0.0;
+              final percent = (spent / budget).clamp(0.0, 1.0);
+              
+              Color progressColor = Colors.green;
+              if (percent >= 1.0) progressColor = Colors.red;
+              else if (percent >= 0.8) progressColor = Colors.orange;
+              
+              final catName = l10n.translateCategoryName(cat.id, cat.name);
+              final iconData = CategoryIconData.getIcon(cat.icon) ?? Icons.category;
+
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(iconData, size: 16, color: Colors.grey[700]),
+                        const SizedBox(width: 8),
+                        Expanded(child: Text(catName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13))),
+                        Text(
+                          '${_formatCompact(spent)} / ${_formatCompact(budget)} ${CurrencyService.getSymbol(currency)}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: percent >= 1.0 ? FontWeight.bold : FontWeight.normal,
+                            color: percent >= 1.0 ? Colors.red : Colors.grey[700],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(
+                        value: percent,
+                        backgroundColor: Colors.grey[200],
+                        color: progressColor,
+                        minHeight: 8,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
         ),
       ],
     );
