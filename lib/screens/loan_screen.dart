@@ -45,6 +45,9 @@ class _LoanScreenState extends ConsumerState<LoanScreen> {
             ),
           ],
           bottom: TabBar(
+            labelColor: Theme.of(context).colorScheme.primary,
+            unselectedLabelColor: Colors.grey,
+            indicatorColor: Theme.of(context).colorScheme.primary,
             tabs: [
               Tab(text: l10n.locale == 'vi' ? 'Nợ (Phải trả)' : 'Borrowed (Payables)'),
               Tab(text: l10n.locale == 'vi' ? 'Cho vay (Phải thu)' : 'Lent (Receivables)'),
@@ -112,7 +115,7 @@ class _LoanListViewState extends ConsumerState<_LoanListView> {
               children: [
                 Container(
                   padding: const EdgeInsets.all(16),
-                  color: Theme.of(context).primaryColor.withOpacity(0.1),
+                  color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -134,8 +137,14 @@ class _LoanListViewState extends ConsumerState<_LoanListView> {
                       final contact = contacts[index];
                       return ListTile(
                         leading: CircleAvatar(
-                          backgroundColor: Theme.of(context).primaryColor.withOpacity(0.2),
-                          child: Icon(Icons.person, color: Theme.of(context).primaryColor),
+                          backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+                          child: Text(
+                            contact.contactName.isNotEmpty ? contact.contactName[0].toUpperCase() : '?',
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.primary,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ),
                         title: Text(contact.contactName, style: const TextStyle(fontWeight: FontWeight.bold)),
                         subtitle: Text(

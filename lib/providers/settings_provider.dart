@@ -61,6 +61,19 @@ class SettingsNotifier extends StateNotifier<AsyncValue<Settings>> {
       state = AsyncValue.error(error, stackTrace);
     }
   }
+
+  Future<void> updateThemeMode(String themeMode) async {
+    final currentSettings = state.value;
+    if (currentSettings == null) return;
+
+    state = const AsyncValue.loading();
+    try {
+      await _repository.updateThemeMode(themeMode);
+      state = AsyncValue.data(currentSettings.copyWith(themeMode: themeMode));
+    } catch (error, stackTrace) {
+      state = AsyncValue.error(error, stackTrace);
+    }
+  }
 }
 
 final settingsProvider =

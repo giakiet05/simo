@@ -15,6 +15,7 @@ import '../widgets/voice_record_sheet.dart';
 
 // Global key to access HomeScreen state from anywhere
 final GlobalKey<_HomeScreenState> homeScreenKey = GlobalKey<_HomeScreenState>();
+final GlobalKey<TransactionScreenState> transactionScreenKey = GlobalKey<TransactionScreenState>();
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -28,7 +29,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   final List<Widget> _screens = [
     const DashboardScreen(),
-    const TransactionScreen(),
+    TransactionScreen(key: transactionScreenKey),
     const LoanScreen(),
     const SettingsScreen(),
   ];
@@ -81,13 +82,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       canPop: _selectedIndex == 0,
       onPopInvoked: (didPop) {
         if (!didPop && _selectedIndex != 0) {
+          if (_selectedIndex == 1 && transactionScreenKey.currentState?.isSelectionMode == true) {
+            // Let the TransactionScreen's PopScope handle it
+            return;
+          }
           setState(() {
             _selectedIndex = 0;
           });
         }
       },
       child: Scaffold(
-        body: _screens[_selectedIndex],
+        body: IndexedStack(
+          index: _selectedIndex,
+          children: _screens,
+        ),
         bottomNavigationBar: BottomNavigationBar(
           currentIndex: displayIndex,
           onTap: _onItemTapped,

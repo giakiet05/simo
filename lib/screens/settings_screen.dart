@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 import '../providers/settings_provider.dart';
 import '../providers/localization_provider.dart';
 import '../services/currency_service.dart';
 import '../widgets/banner_ad_widget.dart';
-import 'recurring_screen.dart';
+import '../repositories/database_helper.dart';
 import 'about_screen.dart';
-import 'category_screen.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -17,42 +15,98 @@ class SettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
-  final _budgetController = TextEditingController();
   String _selectedCurrency = 'VND';
   String _selectedLanguage = 'vi';
+  String _selectedTheme = 'system';
   bool _initialized = false;
 
-  @override
-  void dispose() {
-    _budgetController.dispose();
-    super.dispose();
+  void _updateCurrency(String currency) async {
+    setState(() => _selectedCurrency = currency);
+    await ref.read(settingsProvider.notifier).updateCurrency(currency);
   }
 
-  String _formatBudgetForDisplay(double budget) {
-    if (budget == budget.toInt()) {
-      return NumberFormat('#,###').format(budget.toInt());
-    }
-    return NumberFormat('#,###.##').format(budget);
+  void _updateLanguage(String lang) async {
+    setState(() => _selectedLanguage = lang);
+    await ref.read(settingsProvider.notifier).updateLanguage(lang);
   }
 
-  void _onBudgetChanged(String value) {
-    final cleanValue = value.replaceAll(',', '');
-    final numValue = double.tryParse(cleanValue);
+  void _updateTheme(String theme) async {
+    setState(() => _selectedTheme = theme);
+    await ref.read(settingsProvider.notifier).updateThemeMode(theme);
+  }
 
-    if (numValue != null) {
-      final formatted = _formatBudgetForDisplay(numValue);
-      if (formatted != value) {
-        final cursorPos = _budgetController.selection.baseOffset;
-        final oldCommas = value.substring(0, cursorPos).split(',').length - 1;
+  void _showResetDataDialog(BuildContext context, dynamic l10n) {
+    final controller = TextEditingController();
+    bool isMatched = false;
 
-        _budgetController.value = TextEditingValue(
-          text: formatted,
-          selection: TextSelection.collapsed(
-            offset: cursorPos + (formatted.split(',').length - 1 - oldCommas),
-          ),
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: Text(
+                l10n.locale == 'vi' ? 'Xóa toàn bộ dữ liệu' : 'Reset All Data',
+                style: const TextStyle(color: Colors.red),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    l10n.locale == 'vi'
+                        ? 'Hành động này sẽ xóa tất cả giao dịch, danh mục, và khoản vay. Không thể khôi phục.\n\nNhập "xoa" để xác nhận.'
+                        : 'This action will delete all transactions, categories, and loans. Cannot be undone.\n\nType "delete" to confirm.',
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: controller,
+                    decoration: const InputDecoration(
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (val) {
+                      final target = l10n.locale == 'vi' ? 'xoa' : 'delete';
+                      setDialogState(() {
+                        isMatched = val.trim().toLowerCase() == target;
+                      });
+                    },
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text(l10n.locale == 'vi' ? 'Hủy' : 'Cancel'),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                  onPressed: isMatched
+                      ? () async {
+                          Navigator.pop(context);
+                          await DatabaseHelper.instance.clearAllData();
+                          // Show success and require restart
+                          if (context.mounted) {
+                            showDialog(
+                              context: context,
+                              barrierDismissible: false,
+                              builder: (context) => AlertDialog(
+                                title: Text(l10n.locale == 'vi' ? 'Thành công' : 'Success'),
+                                content: Text(l10n.locale == 'vi' ? 'Đã xóa toàn bộ dữ liệu. Vui lòng khởi động lại ứng dụng.' : 'All data cleared. Please restart the app.'),
+                              ),
+                            );
+                          }
+                        }
+                      : null,
+                  child: Text(
+                    l10n.locale == 'vi' ? 'XÓA' : 'DELETE',
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                ),
+              ],
+            );
+          },
         );
-      }
-    }
+      },
+    );
   }
 
   @override
@@ -64,180 +118,201 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       appBar: AppBar(
         title: Text(l10n.settings),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        elevation: 0,
       ),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: settingsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, stack) => Center(child: Text('Error: $error')),
         data: (settings) {
           if (!_initialized) {
-            _budgetController.text = _formatBudgetForDisplay(settings.monthlyBudget);
             _selectedCurrency = settings.currency;
             _selectedLanguage = settings.language;
+            _selectedTheme = settings.themeMode;
             _initialized = true;
           }
 
           return Column(
             children: [
               Expanded(
-                child: SingleChildScrollView(
+                child: ListView(
                   padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                    Text(
-                      l10n.monthlyBudgetSetting,
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: _budgetController,
-                      keyboardType: TextInputType.number,
-                      decoration: InputDecoration(
-                        border: const OutlineInputBorder(),
-                        hintText: l10n.monthlyBudgetSetting,
-                        prefixIcon: const Icon(Icons.account_balance_wallet),
-                      ),
-                      onChanged: _onBudgetChanged,
-                    ),
-                    const SizedBox(height: 24),
-                    Text(
-                      l10n.currency,
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 8),
-                    DropdownButtonFormField<String>(
-                      value: _selectedCurrency,
-                      decoration: const InputDecoration(
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.currency_exchange),
-                      ),
-                      items: CurrencyService.supportedCurrencies.map((currency) {
-                        return DropdownMenuItem<String>(
-                          value: currency['code'],
-                          child: Text(
-                            '${currency['code']} - ${currency['symbol']} - ${currency['name']}',
-                          ),
-                        );
-                      }).toList(),
-                      onChanged: (value) {
-                        if (value != null) {
-                          setState(() {
-                            _selectedCurrency = value;
-                          });
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 24),
-                    Text(
-                      l10n.language,
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 8),
-                    DropdownButtonFormField<String>(
-                      value: _selectedLanguage,
-                      decoration: const InputDecoration(
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.language),
-                      ),
-                      items: [
-                        DropdownMenuItem(value: 'vi', child: Text(l10n.vietnamese)),
-                        DropdownMenuItem(value: 'en', child: Text(l10n.english)),
-                        DropdownMenuItem(value: 'zh', child: Text(l10n.chinese)),
-                      ],
-                      onChanged: (value) {
-                        if (value != null) {
-                          setState(() {
-                            _selectedLanguage = value;
-                          });
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 32),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        onPressed: () async {
-                          final cleanText = _budgetController.text.replaceAll(',', '');
-                          final budget = double.tryParse(cleanText) ?? 0.0;
-
-                          await ref
-                              .read(settingsProvider.notifier)
-                              .updateBudget(budget);
-                          await ref
-                              .read(settingsProvider.notifier)
-                              .updateCurrency(_selectedCurrency);
-                          await ref
-                              .read(settingsProvider.notifier)
-                              .updateLanguage(_selectedLanguage);
-
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                  content: Text(l10n.settingsSaved)),
-                            );
-                          }
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Theme.of(context).colorScheme.primary,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
+                  children: [
+                    // Tùy chọn chung
+                    Padding(
+                      padding: const EdgeInsets.only(left: 8, bottom: 8, top: 8),
+                      child: Text(
+                        l10n.locale == 'vi' ? 'Tùy chọn chung' : 'General Preferences',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).colorScheme.primary,
                         ),
-                        icon: const Icon(Icons.save),
-                        label: Text(l10n.save),
                       ),
                     ),
-                    const SizedBox(height: 32),
-                    const Divider(),
-                    const SizedBox(height: 8),
-                    ListTile(
-                      leading: const Icon(Icons.category),
-                      title: Text(l10n.categories),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const CategoryScreen(),
+                    Card(
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        side: BorderSide(color: Colors.grey.withOpacity(0.2)),
+                      ),
+                      child: Column(
+                        children: [
+                          ListTile(
+                            leading: const CircleAvatar(
+                              backgroundColor: Colors.purple,
+                              child: Icon(Icons.dark_mode, color: Colors.white, size: 20),
+                            ),
+                            title: Text(l10n.locale == 'vi' ? 'Giao diện' : 'Theme', style: const TextStyle(fontWeight: FontWeight.w500)),
+                            trailing: DropdownButton<String>(
+                              value: _selectedTheme,
+                              underline: const SizedBox(),
+                              icon: const Icon(Icons.arrow_drop_down),
+                              items: [
+                                DropdownMenuItem(value: 'light', child: Text(l10n.locale == 'vi' ? 'Sáng' : 'Light')),
+                                DropdownMenuItem(value: 'dark', child: Text(l10n.locale == 'vi' ? 'Tối' : 'Dark')),
+                                DropdownMenuItem(value: 'system', child: Text(l10n.locale == 'vi' ? 'Hệ thống' : 'System')),
+                              ],
+                              onChanged: (val) {
+                                if (val != null) _updateTheme(val);
+                              },
+                            ),
                           ),
-                        );
-                      },
+                          Divider(height: 1, color: Colors.grey.withOpacity(0.2)),
+                          ListTile(
+                            leading: const CircleAvatar(
+                              backgroundColor: Colors.blueAccent,
+                              child: Icon(Icons.language, color: Colors.white, size: 20),
+                            ),
+                            title: Text(l10n.language, style: const TextStyle(fontWeight: FontWeight.w500)),
+                            trailing: DropdownButton<String>(
+                              value: _selectedLanguage,
+                              underline: const SizedBox(),
+                              icon: const Icon(Icons.arrow_drop_down),
+                              items: [
+                                DropdownMenuItem(value: 'vi', child: Text(l10n.vietnamese)),
+                                DropdownMenuItem(value: 'en', child: Text(l10n.english)),
+                                DropdownMenuItem(value: 'zh', child: Text(l10n.chinese)),
+                              ],
+                              onChanged: (val) {
+                                if (val != null) _updateLanguage(val);
+                              },
+                            ),
+                          ),
+                          Divider(height: 1, color: Colors.grey.withOpacity(0.2)),
+                          ListTile(
+                            leading: const CircleAvatar(
+                              backgroundColor: Colors.green,
+                              child: Icon(Icons.currency_exchange, color: Colors.white, size: 20),
+                            ),
+                            title: Text(l10n.currency, style: const TextStyle(fontWeight: FontWeight.w500)),
+                            trailing: DropdownButton<String>(
+                              value: _selectedCurrency,
+                              underline: const SizedBox(),
+                              icon: const Icon(Icons.arrow_drop_down),
+                              items: CurrencyService.supportedCurrencies.map((currency) {
+                                return DropdownMenuItem<String>(
+                                  value: currency['code'],
+                                  child: Text('${currency['code']} (${currency['symbol']})'),
+                                );
+                              }).toList(),
+                              onChanged: (val) {
+                                if (val != null) _updateCurrency(val);
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                    ListTile(
-                      leading: const Icon(Icons.repeat),
-                      title: Text(l10n.recurringTransactions),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const RecurringScreen(),
-                          ),
-                        );
-                      },
+
+                    const SizedBox(height: 24),
+                    
+                    // Dữ liệu
+                    Padding(
+                      padding: const EdgeInsets.only(left: 8, bottom: 8),
+                      child: Text(
+                        l10n.locale == 'vi' ? 'Dữ liệu' : 'Data',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      ),
                     ),
-                    ListTile(
-                      leading: const Icon(Icons.info_outline),
-                      title: Text(l10n.about),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const AboutScreen(),
+                    Card(
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        side: BorderSide(color: Colors.grey.withOpacity(0.2)),
+                      ),
+                      child: Column(
+                        children: [
+                          ListTile(
+                            leading: const CircleAvatar(
+                              backgroundColor: Colors.redAccent,
+                              child: Icon(Icons.delete_forever, color: Colors.white, size: 20),
+                            ),
+                            title: Text(
+                              l10n.locale == 'vi' ? 'Xóa toàn bộ dữ liệu' : 'Reset All Data', 
+                              style: const TextStyle(fontWeight: FontWeight.w500, color: Colors.redAccent),
+                            ),
+                            trailing: const Icon(Icons.chevron_right),
+                            onTap: () => _showResetDataDialog(context, l10n),
                           ),
-                        );
-                      },
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 24),
+                    
+                    // Thông tin & Khác
+                    Padding(
+                      padding: const EdgeInsets.only(left: 8, bottom: 8),
+                      child: Text(
+                        l10n.locale == 'vi' ? 'Khác' : 'Others',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      ),
+                    ),
+                    Card(
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        side: BorderSide(color: Colors.grey.withOpacity(0.2)),
+                      ),
+                      child: Column(
+                        children: [
+                          ListTile(
+                            leading: const CircleAvatar(
+                              backgroundColor: Colors.orange,
+                              child: Icon(Icons.info_outline, color: Colors.white, size: 20),
+                            ),
+                            title: Text(l10n.about, style: const TextStyle(fontWeight: FontWeight.w500)),
+                            trailing: const Icon(Icons.chevron_right),
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (context) => const AboutScreen()),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
               ),
-            ),
-            // Banner Ad - sticky at bottom
-            const BannerAdWidget(key: ValueKey('settings_banner_ad')),
-          ],
+              // Banner Ad - sticky at bottom
+              const BannerAdWidget(key: ValueKey('settings_banner_ad')),
+            ],
           );
         },
       ),
     );
   }
 }
+
+

@@ -66,9 +66,9 @@ class _BudgetSheetState extends ConsumerState<BudgetSheet> {
         left: 24,
         right: 24,
       ),
-      decoration: const BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -141,7 +141,7 @@ class _BudgetSheetState extends ConsumerState<BudgetSheet> {
           ElevatedButton(
             onPressed: _saveTotalBudget,
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
+              backgroundColor: Theme.of(context).colorScheme.primary,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
@@ -158,9 +158,9 @@ class _BudgetSheetState extends ConsumerState<BudgetSheet> {
         width: double.infinity,
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: AppColors.primary.withOpacity(0.1),
+          color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+          border: Border.all(color: Theme.of(context).colorScheme.primary.withOpacity(0.2)),
         ),
         child: Column(
           children: [
@@ -171,13 +171,13 @@ class _BudgetSheetState extends ConsumerState<BudgetSheet> {
               style: TextStyle(
                 fontSize: 28,
                 fontWeight: FontWeight.w800,
-                color: AppColors.primary,
+                color: Theme.of(context).colorScheme.primary,
               ),
             ),
             const SizedBox(height: 4),
             Text(
               ref.read(localizationProvider).locale == 'vi' ? 'Chạm để sửa' : 'Tap to edit',
-              style: TextStyle(fontSize: 12, color: AppColors.primary.withOpacity(0.6)),
+              style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.primary.withOpacity(0.6)),
             ),
           ],
         ),

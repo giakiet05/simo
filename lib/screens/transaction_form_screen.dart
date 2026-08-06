@@ -354,9 +354,85 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                 border: const OutlineInputBorder(),
               ),
             ),
+            const SizedBox(height: 16),
+            InkWell(
+              onTap: () async {
+                final picked = await showDatePicker(
+                  context: context,
+                  initialDate: item.transactionDate,
+                  firstDate: DateTime(2000),
+                  lastDate: DateTime.now().add(const Duration(days: 365)),
+                );
+                if (picked != null) {
+                  setState(() {
+                    item.transactionDate = picked;
+                  });
+                }
+              },
+              child: InputDecorator(
+                decoration: InputDecoration(
+                  labelText: l10n.locale == 'vi' ? 'Ngày giao dịch' : 'Transaction Date',
+                  border: const OutlineInputBorder(),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      '${item.transactionDate.day}/${item.transactionDate.month}/${item.transactionDate.year}',
+                    ),
+                    const Icon(Icons.calendar_today, size: 20),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _buildQuickDateButton(item, 0, l10n.locale == 'vi' ? 'Hôm nay' : 'Today'),
+                  const SizedBox(width: 8),
+                  _buildQuickDateButton(item, 1, l10n.locale == 'vi' ? 'Hôm qua' : 'Yesterday'),
+                  const SizedBox(width: 8),
+                  _buildQuickDateButton(item, 2, l10n.locale == 'vi' ? '2 ngày trước' : '2 days ago'),
+                ],
+              ),
+            ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildQuickDateButton(TransactionItem item, int daysAgo, String label) {
+    final now = DateTime.now();
+    final targetDate = DateTime(now.year, now.month, now.day).subtract(Duration(days: daysAgo));
+    
+    // Check if item's date is same as targetDate
+    final isSelected = item.transactionDate.year == targetDate.year &&
+                       item.transactionDate.month == targetDate.month &&
+                       item.transactionDate.day == targetDate.day;
+
+    return ActionChip(
+      label: Text(label),
+      backgroundColor: isSelected ? Theme.of(context).colorScheme.primary.withOpacity(0.2) : null,
+      side: BorderSide(
+        color: isSelected ? Theme.of(context).colorScheme.primary : Colors.grey.shade400,
+      ),
+      onPressed: () {
+        setState(() {
+          // Keep the current time, just change the date
+          final current = DateTime.now();
+          item.transactionDate = DateTime(
+            targetDate.year, 
+            targetDate.month, 
+            targetDate.day, 
+            current.hour, 
+            current.minute, 
+            current.second
+          );
+        });
+      },
     );
   }
 
@@ -402,6 +478,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
               ? null
               : item.noteController.text.trim(),
           'type': item.type,
+          'transactionDate': item.transactionDate,
         });
       }
 
@@ -424,6 +501,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
               formula: data['formula'],
               note: data['note'],
               type: data['type'],
+              transactionDate: data['transactionDate'],
             );
 
         if (context.mounted) {
@@ -536,6 +614,7 @@ class TransactionItem {
   final TextEditingController noteController = TextEditingController();
   String? categoryId;
   String type = 'expense';
+  DateTime transactionDate = DateTime.now();
 
   void dispose() {
     amountController.dispose();

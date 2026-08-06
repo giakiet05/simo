@@ -38,6 +38,7 @@ class _VoiceRecordSheetState extends ConsumerState<VoiceRecordSheet> {
   @override
   void dispose() {
     _countdownTimer?.cancel();
+    _speech.cancel();
     super.dispose();
   }
 
@@ -75,6 +76,7 @@ class _VoiceRecordSheetState extends ConsumerState<VoiceRecordSheet> {
             'amount': amount,
             'note': note,
             'type': type,
+            'transactionDate': date,
           });
         }
 

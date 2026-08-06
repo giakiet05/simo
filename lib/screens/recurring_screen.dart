@@ -36,8 +36,8 @@ class RecurringScreen extends ConsumerWidget {
               ),
               child: TextButton.icon(
                 onPressed: () => _showAddDialog(context, ref),
-                icon: const Icon(Icons.add, color: Colors.black),
-                label: Text(l10n.add, style: const TextStyle(color: Colors.black)),
+                icon: Icon(Icons.add, color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black),
+                label: Text(l10n.add, style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black)),
               ),
             ),
           ),

@@ -102,10 +102,12 @@ class QuickAccessHub extends StatelessWidget {
         const SizedBox(height: 8),
         Text(
           label,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w600,
-            color: AppColors.textPrimary,
+            color: Theme.of(context).brightness == Brightness.dark
+                ? Colors.white
+                : AppColors.textPrimary,
           ),
         ),
       ],

@@ -16,10 +16,10 @@ class TransactionScreen extends ConsumerStatefulWidget {
   const TransactionScreen({super.key});
 
   @override
-  ConsumerState<TransactionScreen> createState() => _TransactionScreenState();
+  ConsumerState<TransactionScreen> createState() => TransactionScreenState();
 }
 
-class _TransactionScreenState extends ConsumerState<TransactionScreen> {
+class TransactionScreenState extends ConsumerState<TransactionScreen> {
   // Filter states
   String _timeFilter = 'all'; // all, this_month, last_month, last_3_months, custom
   String? _typeFilter; // null = all, 'income', 'expense'
@@ -40,7 +40,13 @@ class _TransactionScreenState extends ConsumerState<TransactionScreen> {
 
   // Selection mode
   bool _isSelectionMode = false;
+  bool get isSelectionMode => _isSelectionMode;
   final Set<String> _selectedTransactionIds = {};
+
+  // Search mode
+  bool _isSearching = false;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -51,6 +57,7 @@ class _TransactionScreenState extends ConsumerState<TransactionScreen> {
   @override
   void dispose() {
     _scrollController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -87,22 +94,22 @@ class _TransactionScreenState extends ConsumerState<TransactionScreen> {
       // No time filter
     } else if (_timeFilter == 'this_month') {
       filtered = filtered.where((tx) {
-        return tx.createdAt.year == now.year && tx.createdAt.month == now.month;
+        return tx.transactionDate.year == now.year && tx.transactionDate.month == now.month;
       }).toList();
     } else if (_timeFilter == 'last_month') {
       final lastMonth = DateTime(now.year, now.month - 1);
       filtered = filtered.where((tx) {
-        return tx.createdAt.year == lastMonth.year && tx.createdAt.month == lastMonth.month;
+        return tx.transactionDate.year == lastMonth.year && tx.transactionDate.month == lastMonth.month;
       }).toList();
     } else if (_timeFilter == 'last_3_months') {
       final threeMonthsAgo = DateTime(now.year, now.month - 3);
-      filtered = filtered.where((tx) => tx.createdAt.isAfter(threeMonthsAgo)).toList();
+      filtered = filtered.where((tx) => tx.transactionDate.isAfter(threeMonthsAgo)).toList();
     } else if (_timeFilter == 'custom') {
       if (_startDate != null) {
-        filtered = filtered.where((tx) => tx.createdAt.isAfter(_startDate!)).toList();
+        filtered = filtered.where((tx) => tx.transactionDate.isAfter(_startDate!)).toList();
       }
       if (_endDate != null) {
-        filtered = filtered.where((tx) => tx.createdAt.isBefore(_endDate!.add(const Duration(days: 1)))).toList();
+        filtered = filtered.where((tx) => tx.transactionDate.isBefore(_endDate!.add(const Duration(days: 1)))).toList();
       }
     }
 
@@ -123,6 +130,18 @@ class _TransactionScreenState extends ConsumerState<TransactionScreen> {
     if (_maxAmount != null) {
       filtered = filtered.where((tx) => tx.amount <= _maxAmount!).toList();
     }
+
+    // Search query filter
+    if (_searchQuery.isNotEmpty) {
+      final q = _searchQuery.toLowerCase();
+      filtered = filtered.where((tx) {
+        final noteMatch = tx.note?.toLowerCase().contains(q) ?? false;
+        final amountMatch = tx.amount.toString().contains(q);
+        return noteMatch || amountMatch;
+      }).toList();
+    }
+
+    filtered.sort((a, b) => b.transactionDate.compareTo(a.transactionDate));
 
     return filtered;
   }
@@ -150,7 +169,24 @@ class _TransactionScreenState extends ConsumerState<TransactionScreen> {
         appBar: AppBar(
           title: _isSelectionMode
               ? Text('${_selectedTransactionIds.length} ${l10n.transaction}')
-              : Text(l10n.transactions),
+              : _isSearching
+                  ? TextField(
+                      controller: _searchController,
+                      autofocus: true,
+                      decoration: InputDecoration(
+                        hintText: l10n.locale == 'vi' ? 'Tìm theo ghi chú, số tiền...' : 'Search note, amount...',
+                        border: InputBorder.none,
+                        hintStyle: TextStyle(color: Colors.white70),
+                      ),
+                      style: const TextStyle(color: Colors.white, fontSize: 16),
+                      onChanged: (val) {
+                        setState(() {
+                          _searchQuery = val;
+                          _currentPage = 1; // reset pagination when searching
+                        });
+                      },
+                    )
+                  : Text(l10n.transactions),
           backgroundColor: Theme.of(context).colorScheme.inversePrimary,
           leading: _isSelectionMode
               ? IconButton(
@@ -162,7 +198,18 @@ class _TransactionScreenState extends ConsumerState<TransactionScreen> {
                     });
                   },
                 )
-              : null,
+              : _isSearching
+                  ? IconButton(
+                      icon: const Icon(Icons.arrow_back),
+                      onPressed: () {
+                        setState(() {
+                          _isSearching = false;
+                          _searchQuery = '';
+                          _searchController.clear();
+                        });
+                      },
+                    )
+                  : null,
           actions: _isSelectionMode
               ? [
                   IconButton(
@@ -173,39 +220,59 @@ class _TransactionScreenState extends ConsumerState<TransactionScreen> {
                   ),
                 ]
               : [
-                  Stack(
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.filter_list),
-                        onPressed: () => _showFilterSheet(context, ref),
-                      ),
-                      if (filterCount > 0)
-                        Positioned(
-                          right: 8,
-                          top: 8,
-                          child: Container(
-                            padding: const EdgeInsets.all(4),
-                            decoration: BoxDecoration(
-                              color: Colors.red,
-                              shape: BoxShape.circle,
-                            ),
-                            constraints: const BoxConstraints(
-                              minWidth: 16,
-                              minHeight: 16,
-                            ),
-                            child: Text(
-                              filterCount.toString(),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
+                  if (!_isSearching)
+                    IconButton(
+                      icon: const Icon(Icons.search),
+                      onPressed: () {
+                        setState(() {
+                          _isSearching = true;
+                        });
+                      },
+                    ),
+                  if (!_isSearching)
+                    Stack(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.filter_list),
+                          onPressed: () => _showFilterSheet(context, ref),
+                        ),
+                        if (filterCount > 0)
+                          Positioned(
+                            right: 8,
+                            top: 8,
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: const BoxDecoration(
+                                color: Colors.red,
+                                shape: BoxShape.circle,
                               ),
-                              textAlign: TextAlign.center,
+                              constraints: const BoxConstraints(
+                                minWidth: 16,
+                                minHeight: 16,
+                              ),
+                              child: Text(
+                                filterCount.toString(),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
                             ),
                           ),
-                        ),
-                    ],
-                  ),
+                      ],
+                    ),
+                  if (_isSearching && _searchQuery.isNotEmpty)
+                    IconButton(
+                      icon: const Icon(Icons.clear),
+                      onPressed: () {
+                        setState(() {
+                          _searchQuery = '';
+                          _searchController.clear();
+                        });
+                      },
+                    ),
                 ],
         ),
         body: categoriesAsync.when(
@@ -272,8 +339,8 @@ class _TransactionScreenState extends ConsumerState<TransactionScreen> {
 
                         // Check if we need to show month header
                         final showHeader = index == 0 ||
-                          (paginatedTransactions[index - 1].createdAt.month != transaction.createdAt.month ||
-                           paginatedTransactions[index - 1].createdAt.year != transaction.createdAt.year);
+                          (paginatedTransactions[index - 1].transactionDate.month != transaction.transactionDate.month ||
+                           paginatedTransactions[index - 1].transactionDate.year != transaction.transactionDate.year);
 
                         // Get icon and color
                         final iconData = category != null
@@ -329,8 +396,8 @@ class _TransactionScreenState extends ConsumerState<TransactionScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  DateFormat('dd/MM/yyyy HH:mm')
-                                      .format(transaction.createdAt),
+                                  DateFormat('dd/MM/yyyy')
+                                      .format(transaction.transactionDate),
                                   style: const TextStyle(fontSize: 12),
                                 ),
                                 if (transaction.formula != null && transaction.formula!.isNotEmpty)
@@ -387,8 +454,8 @@ class _TransactionScreenState extends ConsumerState<TransactionScreen> {
 
                         // Return with header if needed
                         if (showHeader) {
-                          final monthNum = transaction.createdAt.month;
-                          final year = transaction.createdAt.year;
+                          final monthNum = transaction.transactionDate.month;
+                          final year = transaction.transactionDate.year;
 
                           final headerText = l10n.locale == 'vi'
                               ? 'Tháng $monthNum/$year'
@@ -401,13 +468,17 @@ class _TransactionScreenState extends ConsumerState<TransactionScreen> {
                                 width: double.infinity,
                                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                                 margin: const EdgeInsets.only(top: 8),
-                                color: Colors.grey[200],
+                                color: Theme.of(context).brightness == Brightness.dark
+                                    ? Colors.grey[800]
+                                    : Colors.grey[200],
                                 child: Text(
                                   headerText,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
-                                    color: Colors.black87,
+                                    color: Theme.of(context).brightness == Brightness.dark
+                                        ? Colors.white
+                                        : Colors.black87,
                                   ),
                                 ),
                               ),
@@ -426,6 +497,15 @@ class _TransactionScreenState extends ConsumerState<TransactionScreen> {
             },
           );
         },
+        ),
+        floatingActionButton: FloatingActionButton(
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const TransactionFormScreen()),
+            );
+          },
+          child: const Icon(Icons.add),
         ),
       ),
     );

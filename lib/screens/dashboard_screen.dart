@@ -65,15 +65,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   List<Transaction> _filterTransactionsByMonth(List<Transaction> transactions) {
     return transactions.where((tx) {
-      return tx.createdAt.year == _selectedYear &&
-             tx.createdAt.month == _selectedMonth;
+      return tx.transactionDate.year == _selectedYear &&
+             tx.transactionDate.month == _selectedMonth;
     }).toList();
   }
 
   List<int> _getAvailableYears(List<Transaction> transactions) {
     if (transactions.isEmpty) return [DateTime.now().year];
 
-    final years = transactions.map((tx) => tx.createdAt.year).toSet().toList();
+    final years = transactions.map((tx) => tx.transactionDate.year).toSet().toList();
     years.sort();
     return years;
   }
@@ -82,8 +82,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     if (transactions.isEmpty) return [DateTime.now().month];
 
     final months = transactions
-        .where((tx) => tx.createdAt.year == year)
-        .map((tx) => tx.createdAt.month)
+        .where((tx) => tx.transactionDate.year == year)
+        .map((tx) => tx.transactionDate.month)
         .toSet()
         .toList();
     months.sort();
@@ -533,7 +533,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   title,
                   style: TextStyle(
                     fontSize: 14,
-                    color: Colors.grey[600],
+                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
                   ),
                 ),
               ],
@@ -572,7 +572,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
-                color: Colors.grey[800],
+                color: Theme.of(context).colorScheme.onSurface,
               ),
             ),
             const SizedBox(height: 16),
@@ -584,7 +584,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     l10n.budgetNotSet,
                     style: TextStyle(
                       fontSize: 14,
-                      color: Colors.grey[600],
+                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
                     ),
                   ),
                   OutlinedButton.icon(
@@ -607,7 +607,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 children: [
                   LinearProgressIndicator(
                     value: percent / 100,
-                    backgroundColor: Colors.grey[200],
+                    backgroundColor: Theme.of(context).brightness == Brightness.dark ? Colors.grey[800] : Colors.grey[200],
                     color: percent >= 100
                         ? Colors.red
                         : (percent >= 80 ? Colors.orange : Colors.green),
@@ -621,7 +621,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         '${percent.toStringAsFixed(1)}${l10n.percentUsed}',
                         style: TextStyle(
                           fontSize: 14,
-                          color: Colors.grey[600],
+                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
                         ),
                       ),
                       Text(
@@ -629,7 +629,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
-                          color: Colors.grey[800],
+                          color: Theme.of(context).colorScheme.onSurface,
                         ),
                       ),
                     ],
@@ -671,7 +671,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
-                color: Colors.grey[800],
+                color: Theme.of(context).colorScheme.onSurface,
               ),
             ),
             const SizedBox(height: 16),
@@ -746,7 +746,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         borderRadius: BorderRadius.circular(2),
                         child: LinearProgressIndicator(
                           value: percent / 100,
-                          backgroundColor: Colors.grey[200],
+                          backgroundColor: Theme.of(context).brightness == Brightness.dark ? Colors.grey[800] : Colors.grey[200],
                           color: progressColor,
                           minHeight: 4,
                         ),
@@ -825,7 +825,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     }
 
     for (var tx in transactions) {
-      final monthKey = '${tx.createdAt.year}-${tx.createdAt.month.toString().padLeft(2, '0')}';
+      final monthKey = '${tx.transactionDate.year}-${tx.transactionDate.month.toString().padLeft(2, '0')}';
       if (monthlyIncome.containsKey(monthKey)) {
         if (tx.type == 'income') {
           monthlyIncome[monthKey] = (monthlyIncome[monthKey] ?? 0) + tx.amount;
@@ -954,7 +954,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     }
 
     for (var tx in transactions) {
-      final monthKey = '${tx.createdAt.year}-${tx.createdAt.month.toString().padLeft(2, '0')}';
+      final monthKey = '${tx.transactionDate.year}-${tx.transactionDate.month.toString().padLeft(2, '0')}';
 
       if (monthlyExpenses.containsKey(monthKey)) {
         if (tx.type == 'expense') {
@@ -1219,7 +1219,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               const SizedBox(height: 16),
               Text(
                 l10n.noData,
-                style: TextStyle(color: Colors.grey[600]),
+                style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6)),
               ),
             ],
           ),
@@ -1370,7 +1370,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               const SizedBox(height: 16),
               Text(
                 l10n.noTransactions,
-                style: TextStyle(color: Colors.grey[600]),
+                style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6)),
               ),
             ],
           ),
@@ -1431,20 +1431,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   ? Colors.black
                   : Colors.white;
 
-              return Dismissible(
-                key: Key(tx.id),
-                direction: DismissDirection.endToStart,
-                background: Container(
-                  color: Colors.red,
-                  alignment: Alignment.centerRight,
-                  padding: const EdgeInsets.only(right: 20),
-                  child: const Icon(Icons.delete, color: Colors.white),
-                ),
-                onDismissed: (direction) {
-                  ref.read(transactionProvider.notifier).deleteTransactions([tx.id]);
-                },
-                child: ListTile(
-                  contentPadding: EdgeInsets.zero,
+              return ListTile(
+                contentPadding: EdgeInsets.zero,
                 leading: CircleAvatar(
                   backgroundColor: backgroundColor,
                   radius: 20,
@@ -1459,7 +1447,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
                 ),
                 subtitle: Text(
-                  DateFormat('dd/MM/yyyy').format(tx.createdAt),
+                  DateFormat('dd/MM/yyyy').format(tx.transactionDate),
                   style: const TextStyle(fontSize: 12),
                 ),
                 trailing: Text(
@@ -1470,7 +1458,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     color: tx.type == 'income' ? Colors.green : Colors.red,
                   ),
                 ),
-              ));
+                onTap: () => _showActionMenu(context, ref, tx),
+              );
             }).toList(),
           ],
         ),
@@ -1624,6 +1613,92 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 }
               },
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showActionMenu(BuildContext context, WidgetRef ref, Transaction transaction) {
+    final l10n = ref.read(localizationProvider);
+
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.edit),
+              title: Text(l10n.edit),
+              onTap: () {
+                Navigator.pop(context);
+                _showEditDialog(context, ref, transaction);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete, color: Colors.red),
+              title: Text(l10n.delete, style: const TextStyle(color: Colors.red)),
+              onTap: () {
+                Navigator.pop(context);
+                _showDeleteDialog(context, ref, transaction);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showEditDialog(BuildContext context, WidgetRef ref, Transaction transaction) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => TransactionFormScreen(
+          editTransactionId: transaction.id,
+          editType: transaction.type,
+          editAmount: transaction.amount.toString(),
+          editFormula: transaction.formula,
+          editCategoryId: transaction.categoryId,
+          editNote: transaction.note,
+        ),
+      ),
+    );
+  }
+
+  void _showDeleteDialog(BuildContext context, WidgetRef ref, Transaction transaction) {
+    final l10n = ref.read(localizationProvider);
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(l10n.deleteTransaction),
+        content: Text(l10n.deleteTransactionConfirm),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(l10n.cancel),
+          ),
+          TextButton(
+            onPressed: () async {
+              try {
+                await ref.read(transactionProvider.notifier).deleteTransactions([transaction.id]);
+                if (context.mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(l10n.transactionDeleted)),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('${l10n.error}: $e')),
+                  );
+                }
+              }
+            },
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: Text(l10n.delete),
           ),
         ],
       ),

@@ -26,6 +26,32 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> with Single
   int _selectedMonths = 6;
   bool _showExpenseCategory = true;
 
+  Widget _buildCustomChip({
+    required String label,
+    required bool isSelected,
+    required Color selectedColor,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? selectedColor : (Theme.of(context).brightness == Brightness.dark ? Colors.grey[800] : Colors.grey[200]),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isSelected ? (Theme.of(context).brightness == Brightness.dark ? Colors.black : Colors.white) : Theme.of(context).textTheme.bodyMedium?.color,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -59,17 +85,17 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> with Single
     final loans = loanAsync.value ?? [];
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text(l10n.locale == 'vi' ? 'Thống kê chi tiết' : 'Detailed Insights', style: const TextStyle(fontWeight: FontWeight.bold)),
         elevation: 0,
-        backgroundColor: AppColors.surface,
-        foregroundColor: AppColors.textPrimary,
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        foregroundColor: Theme.of(context).textTheme.titleLarge?.color ?? Colors.white,
         bottom: TabBar(
           controller: _tabController,
-          labelColor: AppColors.primary,
+          labelColor: Theme.of(context).colorScheme.primary,
           unselectedLabelColor: Colors.grey,
-          indicatorColor: AppColors.primary,
+          indicatorColor: Theme.of(context).colorScheme.primary,
           isScrollable: true,
           tabs: [
             Tab(text: l10n.locale == 'vi' ? 'Tổng quan' : 'Overview'),
@@ -106,18 +132,11 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> with Single
           final isSelected = _selectedMonths == months;
           return Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: ChoiceChip(
-              label: Text('$months ${l10n.locale == 'vi' ? 'tháng' : 'months'}'),
-              selected: isSelected,
-              onSelected: (selected) {
-                if (selected) setState(() => _selectedMonths = months);
-              },
-              selectedColor: AppColors.primary.withValues(alpha: 0.2),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-              labelStyle: TextStyle(
-                color: isSelected ? AppColors.primary : Colors.grey[700],
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-              ),
+            child: _buildCustomChip(
+              label: '$months ${l10n.locale == 'vi' ? 'tháng' : 'months'}',
+              isSelected: isSelected,
+              selectedColor: Theme.of(context).colorScheme.primary,
+              onTap: () => setState(() => _selectedMonths = months),
             ),
           );
         }).toList(),
@@ -142,17 +161,17 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> with Single
 
     for (var tx in transactions) {
       if (tx.type == 'expense') {
-        if (tx.createdAt.isAfter(startOfThisMonth) && tx.createdAt.isBefore(startOfNextMonth)) {
+        if (tx.transactionDate.isAfter(startOfThisMonth) && tx.transactionDate.isBefore(startOfNextMonth)) {
           thisMonthExpense += tx.amount;
-          daysSpent.add(tx.createdAt.day);
+          daysSpent.add(tx.transactionDate.day);
           if (tx.amount > topExpenseThisMonth) topExpenseThisMonth = tx.amount;
-        } else if (tx.createdAt.isAfter(startOfLastMonth) && tx.createdAt.isBefore(startOfThisMonth)) {
+        } else if (tx.transactionDate.isAfter(startOfLastMonth) && tx.transactionDate.isBefore(startOfThisMonth)) {
           lastMonthExpense += tx.amount;
         }
         
         // Day of week
-        if (tx.createdAt.isAfter(DateTime(now.year, now.month - _selectedMonths + 1, 1))) {
-          dowSpending[tx.createdAt.weekday] = (dowSpending[tx.createdAt.weekday] ?? 0) + tx.amount;
+        if (tx.transactionDate.isAfter(DateTime(now.year, now.month - _selectedMonths + 1, 1))) {
+          dowSpending[tx.transactionDate.weekday] = (dowSpending[tx.transactionDate.weekday] ?? 0) + tx.amount;
         }
       }
     }
@@ -181,7 +200,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> with Single
     }
 
     for (var tx in transactions) {
-      final key = '${tx.createdAt.year}-${tx.createdAt.month.toString().padLeft(2, '0')}';
+      final key = '${tx.transactionDate.year}-${tx.transactionDate.month.toString().padLeft(2, '0')}';
       if (incomeData.containsKey(key)) {
         if (tx.type == 'income') {
           incomeData[key] = incomeData[key]! + tx.amount;
@@ -350,7 +369,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> with Single
                   barRods: [
                     BarChartRodData(
                       toY: dowSpending[index + 1]!,
-                      color: (index == 5 || index == 6) ? Colors.orange : AppColors.primary,
+                      color: (index == 5 || index == 6) ? Colors.orange : Theme.of(context).colorScheme.primary,
                       width: 16,
                       borderRadius: BorderRadius.circular(4),
                     ),
@@ -368,11 +387,11 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> with Single
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: Theme.of(context).brightness == Brightness.dark ? Colors.transparent : Colors.black.withOpacity(0.05),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -383,7 +402,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> with Single
         children: [
           Icon(icon, color: color, size: 20),
           const SizedBox(height: 8),
-          Text(title, style: TextStyle(fontSize: 11, color: Colors.grey[600]), maxLines: 1, overflow: TextOverflow.ellipsis),
+          Text(title, style: TextStyle(fontSize: 11, color: Theme.of(context).textTheme.bodySmall?.color), maxLines: 1, overflow: TextOverflow.ellipsis),
           const SizedBox(height: 4),
           Text(
             isAmount ? _formatCompact(value) + CurrencyService.getSymbol(currency) : value.toInt().toString(),
@@ -397,7 +416,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> with Single
   Widget _buildCategoriesTab(List<Transaction> transactions, List<Category> categories, String currency, dynamic l10n) {
     final startOfThisMonth = DateTime(DateTime.now().year, DateTime.now().month, 1);
     final txType = _showExpenseCategory ? 'expense' : 'income';
-    final recentTx = transactions.where((t) => t.type == txType && t.createdAt.isAfter(startOfThisMonth)).toList();
+    final recentTx = transactions.where((t) => t.type == txType && t.transactionDate.isAfter(startOfThisMonth)).toList();
 
     final Map<String, double> categoryTotals = {};
     for (var tx in recentTx) {
@@ -409,7 +428,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> with Single
     final sortedEntries = categoryTotals.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
 
     final colors = [
-      AppColors.primary, AppColors.secondary, Colors.red, AppColors.warning,
+      Theme.of(context).colorScheme.primary, AppColors.secondary, Colors.red, AppColors.warning,
       Colors.green, AppColors.info, Colors.purple, Colors.pink, Colors.teal, Colors.indigo,
     ];
 
@@ -420,18 +439,18 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> with Single
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              ChoiceChip(
-                label: Text(l10n.locale == 'vi' ? 'Chi tiêu' : 'Expense'),
-                selected: _showExpenseCategory,
-                onSelected: (_) => setState(() => _showExpenseCategory = true),
-                selectedColor: Colors.red.withValues(alpha: 0.2),
+              _buildCustomChip(
+                label: l10n.locale == 'vi' ? 'Chi tiêu' : 'Expense',
+                isSelected: _showExpenseCategory,
+                selectedColor: Colors.red,
+                onTap: () => setState(() => _showExpenseCategory = true),
               ),
               const SizedBox(width: 16),
-              ChoiceChip(
-                label: Text(l10n.locale == 'vi' ? 'Thu nhập' : 'Income'),
-                selected: !_showExpenseCategory,
-                onSelected: (_) => setState(() => _showExpenseCategory = false),
-                selectedColor: Colors.green.withValues(alpha: 0.2),
+              _buildCustomChip(
+                label: l10n.locale == 'vi' ? 'Thu nhập' : 'Income',
+                isSelected: !_showExpenseCategory,
+                selectedColor: Colors.green,
+                onTap: () => setState(() => _showExpenseCategory = false),
               ),
             ],
           ),
@@ -505,7 +524,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> with Single
 
     final Map<String, double> categorySpent = {};
     for (var tx in transactions) {
-      if (tx.type == 'expense' && tx.createdAt.isAfter(startOfThisMonth)) {
+      if (tx.type == 'expense' && tx.transactionDate.isAfter(startOfThisMonth)) {
         final catId = tx.categoryId ?? 'other';
         categorySpent[catId] = (categorySpent[catId] ?? 0) + tx.amount;
       }
@@ -540,7 +559,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> with Single
                   children: [
                     Row(
                       children: [
-                        Icon(iconData, size: 16, color: Colors.grey[700]),
+                        Icon(iconData, size: 16, color: Theme.of(context).textTheme.bodySmall?.color),
                         const SizedBox(width: 8),
                         Expanded(child: Text(catName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13))),
                         Text(
@@ -548,7 +567,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> with Single
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: percent >= 1.0 ? FontWeight.bold : FontWeight.normal,
-                            color: percent >= 1.0 ? Colors.red : Colors.grey[700],
+                            color: percent >= 1.0 ? Colors.red : Theme.of(context).textTheme.bodySmall?.color,
                           ),
                         ),
                       ],
@@ -558,7 +577,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> with Single
                       borderRadius: BorderRadius.circular(4),
                       child: LinearProgressIndicator(
                         value: percent,
-                        backgroundColor: Colors.grey[200],
+                        backgroundColor: Theme.of(context).brightness == Brightness.dark ? Colors.grey[800] : Colors.grey[200],
                         color: progressColor,
                         minHeight: 8,
                       ),
@@ -649,11 +668,11 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> with Single
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: Theme.of(context).brightness == Brightness.dark ? Colors.transparent : Colors.black.withOpacity(0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),

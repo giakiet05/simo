@@ -20,6 +20,32 @@ class CategoryScreen extends ConsumerStatefulWidget {
 class _CategoryScreenState extends ConsumerState<CategoryScreen> {
   String? _selectedTypeFilter; // null = all, 'income', 'expense'
 
+  Widget _buildCustomChip({
+    required String label,
+    required bool isSelected,
+    required Color selectedColor,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? selectedColor : (Theme.of(context).brightness == Brightness.dark ? Colors.grey[800] : Colors.grey[200]),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isSelected ? (Theme.of(context).brightness == Brightness.dark ? Colors.black : Colors.white) : Theme.of(context).textTheme.bodyMedium?.color,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final categoriesAsync = ref.watch(categoryProvider);
@@ -39,8 +65,8 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
               ),
               child: TextButton.icon(
                 onPressed: () => _showAddDialog(context, ref),
-                icon: const Icon(Icons.add, color: Colors.black),
-                label: Text(l10n.add, style: const TextStyle(color: Colors.black)),
+                icon: Icon(Icons.add, color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black),
+                label: Text(l10n.add, style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black)),
               ),
             ),
           ),
@@ -68,36 +94,25 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: Row(
                   children: [
-                    FilterChip(
-                      label: Text(l10n.all),
-                      selected: _selectedTypeFilter == null,
-                      onSelected: (selected) {
-                        setState(() {
-                          _selectedTypeFilter = null;
-                        });
-                      },
+                    _buildCustomChip(
+                      label: l10n.all,
+                      isSelected: _selectedTypeFilter == null,
+                      selectedColor: Theme.of(context).primaryColor,
+                      onTap: () => setState(() => _selectedTypeFilter = null),
                     ),
                     const SizedBox(width: 8),
-                    FilterChip(
-                      label: Text(l10n.income),
-                      selected: _selectedTypeFilter == 'income',
-                      selectedColor: Colors.green.withOpacity(0.3),
-                      onSelected: (selected) {
-                        setState(() {
-                          _selectedTypeFilter = selected ? 'income' : null;
-                        });
-                      },
+                    _buildCustomChip(
+                      label: l10n.income,
+                      isSelected: _selectedTypeFilter == 'income',
+                      selectedColor: Colors.green,
+                      onTap: () => setState(() => _selectedTypeFilter = 'income'),
                     ),
                     const SizedBox(width: 8),
-                    FilterChip(
-                      label: Text(l10n.expense),
-                      selected: _selectedTypeFilter == 'expense',
-                      selectedColor: Colors.red.withOpacity(0.3),
-                      onSelected: (selected) {
-                        setState(() {
-                          _selectedTypeFilter = selected ? 'expense' : null;
-                        });
-                      },
+                    _buildCustomChip(
+                      label: l10n.expense,
+                      isSelected: _selectedTypeFilter == 'expense',
+                      selectedColor: Colors.red,
+                      onTap: () => setState(() => _selectedTypeFilter = 'expense'),
                     ),
                   ],
                 ),

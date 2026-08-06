@@ -6,12 +6,14 @@ class SettingsRepository {
   static const String _budgetKey = 'monthly_budget';
   static const String _currencyKey = 'currency';
   static const String _languageKey = 'language';
+  static const String _themeModeKey = 'theme_mode';
 
   Future<Settings> loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
 
     final budget = prefs.getDouble(_budgetKey) ?? 0.0;
     final currency = prefs.getString(_currencyKey) ?? 'VND';
+    final themeMode = prefs.getString(_themeModeKey) ?? 'system';
 
     // Detect system language on first launch
     String language;
@@ -43,6 +45,7 @@ class SettingsRepository {
       monthlyBudget: budget,
       currency: currency,
       language: language,
+      themeMode: themeMode,
     );
   }
 
@@ -67,5 +70,10 @@ class SettingsRepository {
   Future<void> updateLanguage(String language) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_languageKey, language);
+  }
+
+  Future<void> updateThemeMode(String themeMode) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_themeModeKey, themeMode);
   }
 }

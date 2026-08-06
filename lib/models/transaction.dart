@@ -6,6 +6,7 @@ class Transaction {
   final String? formula;
   final String? note;
   final String type;
+  final DateTime transactionDate;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -17,6 +18,7 @@ class Transaction {
     this.formula,
     this.note,
     required this.type,
+    required this.transactionDate,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -29,6 +31,7 @@ class Transaction {
     String? formula,
     String? note,
     String? type,
+    DateTime? transactionDate,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -40,6 +43,7 @@ class Transaction {
       formula: formula ?? this.formula,
       note: note ?? this.note,
       type: type ?? this.type,
+      transactionDate: transactionDate ?? this.transactionDate,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -54,6 +58,7 @@ class Transaction {
       'formula': formula,
       'note': note,
       'type': type,
+      'transaction_date': transactionDate.toIso8601String(),
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };
@@ -68,6 +73,9 @@ class Transaction {
       formula: map['formula'] as String?,
       note: map['note'] as String?,
       type: map['type'] as String,
+      transactionDate: map['transaction_date'] != null 
+          ? DateTime.parse(map['transaction_date'] as String) 
+          : DateTime.parse(map['created_at'] as String),
       createdAt: DateTime.parse(map['created_at'] as String),
       updatedAt: DateTime.parse(map['updated_at'] as String),
     );

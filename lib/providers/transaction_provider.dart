@@ -56,6 +56,7 @@ class TransactionNotifier extends StateNotifier<AsyncValue<List<Transaction>>> {
     String? formula,
     String? note,
     String? type,
+    DateTime? transactionDate,
   }) async {
     try {
       await _repository.update(
@@ -65,6 +66,7 @@ class TransactionNotifier extends StateNotifier<AsyncValue<List<Transaction>>> {
         formula: formula,
         note: note,
         type: type,
+        transactionDate: transactionDate,
       );
       await loadTransactions();
     } catch (error) {

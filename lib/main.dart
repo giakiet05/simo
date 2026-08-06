@@ -8,6 +8,7 @@ import 'config/ads_config.dart';
 import 'screens/home_screen.dart';
 import 'utils/recurring_service.dart';
 import 'theme/app_theme.dart';
+import 'providers/settings_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -15,20 +16,20 @@ void main() async {
   // Load environment variables
   await dotenv.load(fileName: ".env");
 
-  // Initialize AdMob only if enabled and on supported platforms
-  if (AdsConfig.adsEnabled && (Platform.isAndroid || Platform.isIOS)) {
-    await MobileAds.instance.initialize();
-  }
-
   // Initialize sqflite for desktop platforms
   if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
   }
 
-  // Process recurring transactions on app start
+  // Initialize AdMob only if enabled and on supported platforms (non-blocking)
+  if (AdsConfig.adsEnabled && (Platform.isAndroid || Platform.isIOS)) {
+    MobileAds.instance.initialize();
+  }
+
+  // Process recurring transactions on app start (non-blocking)
   final recurringService = RecurringService();
-  await recurringService.processRecurringTransactions();
+  recurringService.processRecurringTransactions();
 
   runApp(
     const ProviderScope(
@@ -39,17 +40,33 @@ void main() async {
 
 final navigatorKey = GlobalKey<NavigatorState>();
 
-class MyApp extends StatelessWidget {
+class MyApp extends ConsumerWidget {
   const MyApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settingsAsync = ref.watch(settingsProvider);
+    
     return MaterialApp(
       navigatorKey: navigatorKey,
       title: 'Simo - Simple Money Management',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
+      themeMode: _getThemeMode(settingsAsync.value?.themeMode ?? 'system'),
       home: HomeScreen(key: homeScreenKey),
     );
+  }
+
+  ThemeMode _getThemeMode(String mode) {
+    switch (mode) {
+      case 'light':
+        return ThemeMode.light;
+      case 'dark':
+        return ThemeMode.dark;
+      case 'system':
+      default:
+        return ThemeMode.system;
+    }
   }
 }

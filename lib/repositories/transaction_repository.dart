@@ -20,12 +20,12 @@ class TransactionRepository {
     List<dynamic> whereArgs = [];
 
     if (startDate != null) {
-      where += ' AND created_at >= ?';
+      where += ' AND COALESCE(transaction_date, created_at) >= ?';
       whereArgs.add(startDate.toIso8601String());
     }
 
     if (endDate != null) {
-      where += ' AND created_at <= ?';
+      where += ' AND COALESCE(transaction_date, created_at) <= ?';
       whereArgs.add(endDate.toIso8601String());
     }
 
@@ -59,7 +59,7 @@ class TransactionRepository {
       'transactions',
       where: where,
       whereArgs: whereArgs,
-      orderBy: 'created_at DESC',
+      orderBy: 'COALESCE(transaction_date, created_at) DESC',
     );
 
     return maps.map((map) => Transaction.fromMap(map)).toList();
@@ -92,6 +92,7 @@ class TransactionRepository {
         formula: data['formula'] as String?,
         note: data['note'] as String?,
         type: data['type'] as String,
+        transactionDate: data['transactionDate'] as DateTime? ?? now,
         createdAt: now,
         updatedAt: now,
       );
@@ -110,6 +111,7 @@ class TransactionRepository {
     String? formula,
     String? note,
     String? type,
+    DateTime? transactionDate,
   }) async {
     final db = await DatabaseHelper.instance.database;
     final transaction = await getById(id);
@@ -124,6 +126,7 @@ class TransactionRepository {
       formula: formula ?? transaction.formula,
       note: note ?? transaction.note,
       type: type ?? transaction.type,
+      transactionDate: transactionDate ?? transaction.transactionDate,
       updatedAt: DateTime.now(),
     );
 

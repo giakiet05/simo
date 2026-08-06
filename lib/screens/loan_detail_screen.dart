@@ -200,8 +200,18 @@ class _LoanDetailScreenState extends ConsumerState<LoanDetailScreen> {
     
     final txAsync = ref.watch(loanTransactionsProvider(currentContact.id));
 
-    return Scaffold(
-      appBar: AppBar(
+    return PopScope(
+      canPop: !_isSelectionMode,
+      onPopInvoked: (didPop) {
+        if (!didPop && _isSelectionMode) {
+          setState(() {
+            _isSelectionMode = false;
+            _selectedTransactionIds.clear();
+          });
+        }
+      },
+      child: Scaffold(
+        appBar: AppBar(
         title: _isSelectionMode
             ? Text('${_selectedTransactionIds.length} đã chọn')
             : Text(currentContact.contactName),
@@ -243,7 +253,7 @@ class _LoanDetailScreenState extends ConsumerState<LoanDetailScreen> {
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(20),
-                  color: Theme.of(context).primaryColor.withOpacity(0.1),
+                  color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
                   child: Column(
                     children: [
                       Text(
@@ -262,10 +272,10 @@ class _LoanDetailScreenState extends ConsumerState<LoanDetailScreen> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: Theme.of(context).colorScheme.surface,
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
+                        color: Theme.of(context).brightness == Brightness.dark ? Colors.transparent : Colors.black.withOpacity(0.05),
                         blurRadius: 5,
                         offset: const Offset(0, 5),
                       ),
@@ -318,7 +328,7 @@ class _LoanDetailScreenState extends ConsumerState<LoanDetailScreen> {
                         
                         return Card(
                           margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          color: isSelected ? Colors.blue[50] : null,
+                          color: isSelected ? Theme.of(context).colorScheme.primary.withOpacity(0.1) : null,
                           child: ListTile(
                             leading: _isSelectionMode
                               ? Checkbox(
@@ -375,6 +385,7 @@ class _LoanDetailScreenState extends ConsumerState<LoanDetailScreen> {
             ],
           );
         }
+      ),
       ),
     );
   }

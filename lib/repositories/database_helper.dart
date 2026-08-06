@@ -19,7 +19,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 10,
+      version: 11,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -57,6 +57,7 @@ class DatabaseHelper {
         formula TEXT,
         note TEXT,
         type $textType,
+        transaction_date TEXT,
         synced INTEGER DEFAULT 0,
         created_at $textType,
         updated_at $textType,
@@ -300,6 +301,23 @@ class DatabaseHelper {
       print('[DB] Migration v10: Add budget_limit to categories');
       await db.execute('ALTER TABLE categories ADD COLUMN budget_limit REAL');
     }
+
+    if (oldVersion < 11) {
+      print('[DB] Migration v11: Add transaction_date to transactions');
+      await db.execute('ALTER TABLE transactions ADD COLUMN transaction_date TEXT');
+    }
+  }
+
+  Future<void> clearAllData() async {
+    final db = await instance.database;
+    await db.transaction((txn) async {
+      await txn.delete('loan_transactions');
+      await txn.delete('transactions');
+      await txn.delete('recurring_configs');
+      await txn.delete('pending_deletions');
+      await txn.delete('loan_contacts');
+      await txn.delete('categories');
+    });
   }
 
   Future<void> close() async {
