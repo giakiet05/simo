@@ -1,0 +1,297 @@
+[
+  {
+    "input": "ăn sáng 70",
+    "expected_success": true,
+    "expected_amount": 70000,
+    "expected_category_semantic": "Ăn uống"
+  },
+  {
+    "input": "hôm qua đổ xăng 50k",
+    "expected_success": true,
+    "expected_amount": 50000,
+    "expected_category_semantic": "Di chuyển"
+  },
+  {
+    "input": "đi xem phim 2 xị rưỡi",
+    "expected_success": true,
+    "expected_amount": 250000,
+    "expected_category_semantic": "Giải trí"
+  },
+  {
+    "input": "mua rau 15",
+    "expected_success": true,
+    "expected_amount": 15000,
+    "expected_category_semantic": "Ăn uống"
+  },
+  {
+    "input": "hôm kia nạp card 1 lít",
+    "expected_success": true,
+    "expected_amount": 100000,
+    "expected_category_semantic": "Khác"
+  },
+  {
+    "input": "đi nhậu hết 1 củ",
+    "expected_success": true,
+    "expected_amount": 1000000,
+    "expected_category_semantic": "Ăn uống"
+  },
+  {
+    "input": "đóng tiền nhà 3 triệu 2",
+    "expected_success": true,
+    "expected_amount": 3200000,
+    "expected_category_semantic": "Nhà cửa"
+  },
+  {
+    "input": "trả nợ 5 vạn",
+    "expected_success": true,
+    "expected_amount": 50000,
+    "expected_category_semantic": "Khác"
+  },
+  {
+    "input": "mua vé máy bay 2 cành",
+    "expected_success": true,
+    "expected_amount": 2000,
+    "expected_category_semantic": "Di chuyển"
+  },
+  {
+    "input": "lương tháng này được mười lăm củ",
+    "expected_success": true,
+    "expected_amount": 15000000,
+    "expected_category_semantic": "Lương",
+    "expected_type": "income"
+  },
+  {
+    "input": "bán đồ cũ được 5 xị",
+    "expected_success": true,
+    "expected_amount": 500000,
+    "expected_category_semantic": "Thu nhập khác",
+    "expected_type": "income"
+  },
+  {
+    "input": "ăn sáng 70k nhưng ghi vào danh mục chơi nha",
+    "expected_success": true,
+    "expected_amount": 70000,
+    "expected_category_semantic": "Ăn uống"
+  },
+  {
+    "input": "1 triệu năm trước tao ăn sáng 80k",
+    "expected_success": false
+  },
+  {
+    "input": "hôm nay trời đẹp quá",
+    "expected_success": false
+  },
+  {
+    "input": "mua áo 3 trăm rưỡi ngàn",
+    "expected_success": true,
+    "expected_amount": 350000,
+    "expected_category_semantic": "Mua sắm"
+  },
+  {
+    "input": "tiền điện 800",
+    "expected_success": true,
+    "expected_amount": 800000,
+    "expected_category_semantic": "Hoá đơn"
+  },
+  {
+    "input": "tiền nước một lít hai",
+    "expected_success": true,
+    "expected_amount": 120000,
+    "expected_category_semantic": "Hoá đơn"
+  },
+  {
+    "input": "chuyển khoản cho mẹ 5 triệu",
+    "expected_success": true,
+    "expected_amount": 5000000,
+    "expected_category_semantic": "Khác"
+  },
+  {
+    "input": "đi grab 4 chục",
+    "expected_success": true,
+    "expected_amount": 40000,
+    "expected_category_semantic": "Di chuyển"
+  },
+  {
+    "input": "đổ xăng năm chục",
+    "expected_success": true,
+    "expected_amount": 50000,
+    "expected_category_semantic": "Di chuyển"
+  },
+  {
+    "input": "cà phê 35 ka",
+    "expected_success": true,
+    "expected_amount": 35000,
+    "expected_category_semantic": "Ăn uống"
+  },
+  {
+    "input": "trà sữa 50 ca",
+    "expected_success": true,
+    "expected_amount": 50000,
+    "expected_category_semantic": "Ăn uống"
+  },
+  {
+    "input": "mua sách 150 cành",
+    "expected_success": true,
+    "expected_amount": 150000,
+    "expected_category_semantic": "Học tập"
+  },
+  {
+    "input": "đóng học phí 2 triệu",
+    "expected_success": true,
+    "expected_amount": 2000000,
+    "expected_category_semantic": "Học tập"
+  },
+  {
+    "input": "hôm qua mua thuốc 1 xị",
+    "expected_success": true,
+    "expected_amount": 100000,
+    "expected_category_semantic": "Sức khoẻ"
+  },
+  {
+    "input": "khám bệnh 500",
+    "expected_success": true,
+    "expected_amount": 500000,
+    "expected_category_semantic": "Sức khoẻ"
+  },
+  {
+    "input": "thưởng tết 10 củ",
+    "expected_success": true,
+    "expected_amount": 10000000,
+    "expected_category_semantic": "Thu nhập khác",
+    "expected_type": "income"
+  },
+  {
+    "input": "trúng số 100 lít",
+    "expected_success": true,
+    "expected_amount": 10000000,
+    "expected_category_semantic": "Thu nhập khác",
+    "expected_type": "income"
+  },
+  {
+    "input": "cho tao một cái bánh mì",
+    "expected_success": false
+  },
+  {
+    "input": "ngày mai tao sẽ đi ăn sáng 50k",
+    "expected_success": false
+  },
+  {
+    "input": "sửa xe ba chục ngàn",
+    "expected_success": true,
+    "expected_amount": 30000,
+    "expected_category_semantic": "Di chuyển"
+  },
+  {
+    "input": "rửa xe 2 chục",
+    "expected_success": true,
+    "expected_amount": 20000,
+    "expected_category_semantic": "Di chuyển"
+  },
+  {
+    "input": "tiền mạng 2 trăm rưỡi",
+    "expected_success": true,
+    "expected_amount": 250000,
+    "expected_category_semantic": "Hoá đơn"
+  },
+  {
+    "input": "hôm kia gửi xe 5k",
+    "expected_success": true,
+    "expected_amount": 5000,
+    "expected_category_semantic": "Di chuyển"
+  },
+  {
+    "input": "tặng quà sinh nhật 5 xị",
+    "expected_success": true,
+    "expected_amount": 500000,
+    "expected_category_semantic": "Khác"
+  },
+  {
+    "input": "cắt tóc 80",
+    "expected_success": true,
+    "expected_amount": 80000,
+    "expected_category_semantic": "Cá nhân"
+  },
+  {
+    "input": "mua mỹ phẩm 2 củ rưỡi",
+    "expected_success": true,
+    "expected_amount": 2500000,
+    "expected_category_semantic": "Cá nhân"
+  },
+  {
+    "input": "nạp game 1 lít",
+    "expected_success": true,
+    "expected_amount": 100000,
+    "expected_category_semantic": "Giải trí"
+  },
+  {
+    "input": "đăng ký netflix 260k",
+    "expected_success": true,
+    "expected_amount": 260000,
+    "expected_category_semantic": "Giải trí"
+  },
+  {
+    "input": "ăn trưa 4 chục rưỡi",
+    "expected_success": true,
+    "expected_amount": 45000,
+    "expected_category_semantic": "Ăn uống"
+  },
+  {
+    "input": "ăn tối 1 lít",
+    "expected_success": true,
+    "expected_amount": 100000,
+    "expected_category_semantic": "Ăn uống"
+  },
+  {
+    "input": "mua bó hoa 3 xị",
+    "expected_success": true,
+    "expected_amount": 300000,
+    "expected_category_semantic": "Khác"
+  },
+  {
+    "input": "đi khám răng 1 triệu",
+    "expected_success": true,
+    "expected_amount": 1000000,
+    "expected_category_semantic": "Sức khoẻ"
+  },
+  {
+    "input": "đồ ăn cho mèo 2 lít",
+    "expected_success": true,
+    "expected_amount": 200000,
+    "expected_category_semantic": "Thú cưng"
+  },
+  {
+    "input": "mua giày mới 1 củ 2",
+    "expected_success": true,
+    "expected_amount": 1200000,
+    "expected_category_semantic": "Mua sắm"
+  },
+  {
+    "input": "nhận tiền hoàn trả 5 chục",
+    "expected_success": true,
+    "expected_amount": 50000,
+    "expected_category_semantic": "Thu nhập khác",
+    "expected_type": "income"
+  },
+  {
+    "input": "tiền phòng tháng này 2 củ rưỡi",
+    "expected_success": true,
+    "expected_amount": 2500000,
+    "expected_category_semantic": "Nhà cửa"
+  },
+  {
+    "input": "bảo trì thang máy 100k",
+    "expected_success": true,
+    "expected_amount": 100000,
+    "expected_category_semantic": "Nhà cửa"
+  },
+  {
+    "input": "ăn vặt mười lăm cành",
+    "expected_success": true,
+    "expected_amount": 15000,
+    "expected_category_semantic": "Ăn uống"
+  },
+  {
+    "input": "năm ngoái mua nhà 2 tỷ",
+    "expected_success": false
+  }
+]

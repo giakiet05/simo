@@ -141,7 +141,14 @@ class TransactionScreenState extends ConsumerState<TransactionScreen> {
       }).toList();
     }
 
-    filtered.sort((a, b) => b.transactionDate.compareTo(a.transactionDate));
+    filtered.sort((a, b) {
+      int dateCmp = b.transactionDate.compareTo(a.transactionDate);
+      if (dateCmp != 0) return dateCmp;
+      
+      final aCreated = a.createdAt ?? a.transactionDate;
+      final bCreated = b.createdAt ?? b.transactionDate;
+      return bCreated.compareTo(aCreated);
+    });
 
     return filtered;
   }
@@ -395,11 +402,34 @@ class TransactionScreenState extends ConsumerState<TransactionScreen> {
                             subtitle: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  DateFormat('dd/MM/yyyy')
-                                      .format(transaction.transactionDate),
-                                  style: const TextStyle(fontSize: 12),
-                                ),
+                                Builder(builder: (context) {
+                                  final txDate = transaction.transactionDate;
+                                  final createdDate = transaction.createdAt ?? txDate;
+                                  final isSameDay = txDate.year == createdDate.year && 
+                                                    txDate.month == createdDate.month && 
+                                                    txDate.day == createdDate.day;
+                                  
+                                  if (isSameDay) {
+                                    return Text(
+                                      DateFormat('dd/MM/yyyy HH:mm:ss').format(createdDate),
+                                      style: const TextStyle(fontSize: 12),
+                                    );
+                                  } else {
+                                    return Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'GD: ${DateFormat('dd/MM/yyyy').format(txDate)}',
+                                          style: const TextStyle(fontSize: 12),
+                                        ),
+                                        Text(
+                                          'Tạo: ${DateFormat('dd/MM/yyyy HH:mm:ss').format(createdDate)}',
+                                          style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                        ),
+                                      ],
+                                    );
+                                  }
+                                }),
                                 if (transaction.formula != null && transaction.formula!.isNotEmpty)
                                   Text(
                                     '${l10n.formula}: ${transaction.formula}',

@@ -1,14 +1,17 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:permission_handler/permission_handler.dart';
 import 'package:uuid/uuid.dart';
+
+import '../services/speech/speech_recognition_service.dart';
+import '../services/speech/speech_service_factory.dart';
 
 import '../services/ai_transaction_service.dart';
 import '../providers/category_provider.dart';
 import '../providers/transaction_provider.dart';
 import '../models/transaction.dart' as tx_model;
+import '../screens/home_screen.dart';
 
 class VoiceRecordSheet extends ConsumerStatefulWidget {
   const VoiceRecordSheet({super.key});
@@ -18,7 +21,7 @@ class VoiceRecordSheet extends ConsumerStatefulWidget {
 }
 
 class _VoiceRecordSheetState extends ConsumerState<VoiceRecordSheet> {
-  late stt.SpeechToText _speech;
+  late SpeechRecognitionService _speech;
   bool _isListening = false;
   bool _isProcessing = false;
   String _text = 'Bấm vào micro và bắt đầu nói...';
@@ -29,7 +32,7 @@ class _VoiceRecordSheetState extends ConsumerState<VoiceRecordSheet> {
   @override
   void initState() {
     super.initState();
-    _speech = stt.SpeechToText();
+    _speech = SpeechServiceFactory.create();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _startListening();
     });
@@ -56,7 +59,14 @@ class _VoiceRecordSheetState extends ConsumerState<VoiceRecordSheet> {
     
     if (result != null && mounted) {
       try {
-        final transactionsData = result['transactions'] as List<dynamic>;
+        final isSuccess = result['isSuccess'] as bool? ?? true;
+        
+        if (!isSuccess) {
+          final message = result['message'] as String? ?? "AI không hiểu được câu nói của bạn.";
+          throw Exception(message);
+        }
+
+        final transactionsData = result['transactions'] as List<dynamic>? ?? [];
         if (transactionsData.isEmpty) {
           throw Exception("AI không hiểu được câu nói của bạn. Vui lòng nói rõ số tiền và nội dung thu/chi nhé!");
         }
@@ -84,6 +94,7 @@ class _VoiceRecordSheetState extends ConsumerState<VoiceRecordSheet> {
         
         if (mounted) {
           Navigator.pop(context); // Đóng sheet
+          homeScreenKey.currentState?.switchToTransactionsTab(); // Chuyển qua tab danh sách
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Đã thêm giao dịch thành công!'), backgroundColor: Colors.green),
           );
@@ -143,6 +154,21 @@ class _VoiceRecordSheetState extends ConsumerState<VoiceRecordSheet> {
     bool available = await _speech.initialize(
       onStatus: (val) {
         print('onStatus: $val');
+        if (val == 'listening') {
+          if (mounted) {
+            setState(() {
+              _text = 'Đang nghe... (Nhấn vào micro để dừng)';
+            });
+          }
+        }
+        if (val == 'processing') {
+          if (mounted) {
+            setState(() {
+              _isListening = false;
+              _text = 'Đang chuyển giọng nói thành văn bản...';
+            });
+          }
+        }
         if (val == 'done' || val == 'notListening') {
           if (mounted) {
             _countdownTimer?.cancel();
@@ -153,7 +179,12 @@ class _VoiceRecordSheetState extends ConsumerState<VoiceRecordSheet> {
           }
         }
       },
-      onError: (val) => print('onError: $val'),
+      onError: (val) {
+        print('onError: $val');
+        if (mounted) {
+          setState(() => _text = val);
+        }
+      },
     );
     if (available) {
       if (mounted) {
@@ -163,23 +194,17 @@ class _VoiceRecordSheetState extends ConsumerState<VoiceRecordSheet> {
         });
       }
       _resetSilenceTimer();
-      _speech.listen(
+      await _speech.startListening(
         onResult: (val) {
           if (mounted) {
             setState(() {
-              _text = val.recognizedWords;
+              _text = val;
             });
             _resetSilenceTimer();
           }
         },
-        localeId: 'vi_VN',
         listenFor: const Duration(seconds: 30),
       );
-    } else {
-      var status = await Permission.microphone.request();
-      if (status.isDenied) {
-        if (mounted) setState(() => _text = 'Vui lòng cấp quyền Micro để sử dụng.');
-      }
     }
   }
 
