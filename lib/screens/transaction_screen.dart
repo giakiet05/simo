@@ -11,6 +11,7 @@ import '../utils/icon_data.dart';
 import '../services/currency_service.dart';
 import '../widgets/banner_ad_widget.dart';
 import 'transaction_form_screen.dart';
+import '../widgets/category_icon_widget.dart';
 
 class TransactionScreen extends ConsumerStatefulWidget {
   const TransactionScreen({super.key});
@@ -349,27 +350,6 @@ class TransactionScreenState extends ConsumerState<TransactionScreen> {
                           (paginatedTransactions[index - 1].transactionDate.month != transaction.transactionDate.month ||
                            paginatedTransactions[index - 1].transactionDate.year != transaction.transactionDate.year);
 
-                        // Get icon and color
-                        final iconData = category != null
-                            ? (CategoryIconData.getIcon(category.icon) ??
-                                (transaction.type == 'income' ? Icons.arrow_downward : Icons.arrow_upward))
-                            : (transaction.type == 'income' ? Icons.arrow_downward : Icons.arrow_upward);
-
-                        Color backgroundColor;
-                        if (category?.color != null && category!.color!.isNotEmpty) {
-                          try {
-                            backgroundColor = Color(int.parse(category.color!.substring(1), radix: 16) + 0xFF000000);
-                          } catch (e) {
-                            backgroundColor = transaction.type == 'income' ? Colors.green : Colors.red;
-                          }
-                        } else {
-                          backgroundColor = transaction.type == 'income' ? Colors.green : Colors.red;
-                        }
-
-                        final iconColor = ThemeData.estimateBrightnessForColor(backgroundColor) == Brightness.light
-                            ? Colors.black
-                            : Colors.white;
-
                         final card = Card(
                           margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           color: isSelected ? Colors.blue[50] : null,
@@ -387,13 +367,9 @@ class TransactionScreenState extends ConsumerState<TransactionScreen> {
                                       });
                                     },
                                   )
-                                : CircleAvatar(
-                                    backgroundColor: backgroundColor,
-                                    child: Icon(
-                                      iconData,
-                                      color: iconColor,
-                                      size: 20,
-                                    ),
+                                : CategoryIconWidget(
+                                    category: category,
+                                    iconName: category == null ? (transaction.type == 'income' ? 'attach_money' : 'shopping_cart') : null,
                                   ),
                             title: Text(
                               categoryName,
@@ -529,6 +505,7 @@ class TransactionScreenState extends ConsumerState<TransactionScreen> {
         },
         ),
         floatingActionButton: FloatingActionButton(
+          heroTag: 'transaction_fab',
           onPressed: () {
             Navigator.push(
               context,

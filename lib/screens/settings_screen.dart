@@ -6,6 +6,7 @@ import '../services/currency_service.dart';
 import '../widgets/banner_ad_widget.dart';
 import '../repositories/database_helper.dart';
 import 'about_screen.dart';
+import '../widgets/category_icon_widget.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -159,9 +160,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       child: Column(
                         children: [
                           ListTile(
-                            leading: const CircleAvatar(
-                              backgroundColor: Colors.purple,
-                              child: Icon(Icons.dark_mode, color: Colors.white, size: 20),
+                            leading: const CategoryIconWidget(
+                              colorOverride: Colors.purple,
+                              iconDataOverride: Icons.dark_mode,
                             ),
                             title: Text(l10n.locale == 'vi' ? 'Giao diện' : 'Theme', style: const TextStyle(fontWeight: FontWeight.w500)),
                             trailing: DropdownButton<String>(
@@ -180,9 +181,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           ),
                           Divider(height: 1, color: Colors.grey.withOpacity(0.2)),
                           ListTile(
-                            leading: const CircleAvatar(
-                              backgroundColor: Colors.blueAccent,
-                              child: Icon(Icons.language, color: Colors.white, size: 20),
+                            leading: const CategoryIconWidget(
+                              colorOverride: Colors.blueAccent,
+                              iconDataOverride: Icons.language,
                             ),
                             title: Text(l10n.language, style: const TextStyle(fontWeight: FontWeight.w500)),
                             trailing: DropdownButton<String>(
@@ -201,9 +202,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           ),
                           Divider(height: 1, color: Colors.grey.withOpacity(0.2)),
                           ListTile(
-                            leading: const CircleAvatar(
-                              backgroundColor: Colors.green,
-                              child: Icon(Icons.currency_exchange, color: Colors.white, size: 20),
+                            leading: const CategoryIconWidget(
+                              colorOverride: Colors.green,
+                              iconDataOverride: Icons.currency_exchange,
                             ),
                             title: Text(l10n.currency, style: const TextStyle(fontWeight: FontWeight.w500)),
                             trailing: DropdownButton<String>(
@@ -248,9 +249,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       child: Column(
                         children: [
                           ListTile(
-                            leading: const CircleAvatar(
-                              backgroundColor: Colors.redAccent,
-                              child: Icon(Icons.delete_forever, color: Colors.white, size: 20),
+                            leading: const CategoryIconWidget(
+                              colorOverride: Colors.redAccent,
+                              iconDataOverride: Icons.delete_forever,
                             ),
                             title: Text(
                               l10n.locale == 'vi' ? 'Xóa toàn bộ dữ liệu' : 'Reset All Data', 
@@ -286,9 +287,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       child: Column(
                         children: [
                           ListTile(
-                            leading: const CircleAvatar(
-                              backgroundColor: Colors.orange,
-                              child: Icon(Icons.info_outline, color: Colors.white, size: 20),
+                            leading: const CategoryIconWidget(
+                              colorOverride: Colors.orange,
+                              iconDataOverride: Icons.info_outline,
                             ),
                             title: Text(l10n.about, style: const TextStyle(fontWeight: FontWeight.w500)),
                             trailing: const Icon(Icons.chevron_right),

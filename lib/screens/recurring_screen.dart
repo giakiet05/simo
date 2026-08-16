@@ -11,6 +11,7 @@ import '../models/category.dart';
 import '../utils/icon_data.dart';
 import '../services/currency_service.dart';
 import '../widgets/banner_ad_widget.dart';
+import '../widgets/category_icon_widget.dart';
 
 class RecurringScreen extends ConsumerWidget {
   const RecurringScreen({super.key});
@@ -86,37 +87,12 @@ class RecurringScreen extends ConsumerWidget {
                             ? l10n.translateCategoryName(category.id, category.name)
                             : l10n.noCategory;
 
-                        // Get icon and color
-                        final iconData = category != null
-                            ? (CategoryIconData.getIcon(category.icon) ??
-                                (config.type == 'income' ? Icons.arrow_downward : Icons.arrow_upward))
-                            : (config.type == 'income' ? Icons.arrow_downward : Icons.arrow_upward);
-
-                        Color backgroundColor;
-                        if (category?.color != null && category!.color!.isNotEmpty) {
-                          try {
-                            backgroundColor = Color(int.parse(category.color!.substring(1), radix: 16) + 0xFF000000);
-                          } catch (e) {
-                            backgroundColor = config.type == 'income' ? Colors.green : Colors.red;
-                          }
-                        } else {
-                          backgroundColor = config.type == 'income' ? Colors.green : Colors.red;
-                        }
-
-                        final iconColor = ThemeData.estimateBrightnessForColor(backgroundColor) == Brightness.light
-                            ? Colors.black
-                            : Colors.white;
-
                         return Card(
                           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                           child: ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor: backgroundColor,
-                              child: Icon(
-                                iconData,
-                                color: iconColor,
-                                size: 20,
-                              ),
+                            leading: CategoryIconWidget(
+                              category: category,
+                              iconName: category == null ? (config.type == 'income' ? 'attach_money' : 'shopping_cart') : null,
                             ),
                             title: Text(
                               config.name,

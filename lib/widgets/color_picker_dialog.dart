@@ -7,49 +7,29 @@ class ColorPickerDialog extends StatelessWidget {
 
   static const List<Color> colors = [
     // Reds
-    Color(0xFFE57373), // Light Red
-    Color(0xFFF44336), // Red
-    Color(0xFFD32F2F), // Dark Red
-
+    Color(0xFFE57373), Color(0xFFF44336), Color(0xFFD32F2F), Color(0xFFFF5252),
     // Oranges
-    Color(0xFFFFB74D), // Light Orange
-    Color(0xFFFF9800), // Orange
-    Color(0xFFF57C00), // Dark Orange
-
+    Color(0xFFFFB74D), Color(0xFFFF9800), Color(0xFFF57C00), Color(0xFFFF6D00),
     // Yellows
-    Color(0xFFFFF176), // Light Yellow
-    Color(0xFFFFEB3B), // Yellow
-    Color(0xFFFBC02D), // Dark Yellow
-
+    Color(0xFFFFF176), Color(0xFFFFEB3B), Color(0xFFFBC02D), Color(0xFFFFD600),
     // Greens
-    Color(0xFF81C784), // Light Green
-    Color(0xFF4CAF50), // Green
-    Color(0xFF388E3C), // Dark Green
-
+    Color(0xFF81C784), Color(0xFF4CAF50), Color(0xFF388E3C), Color(0xFF00C853),
+    Color(0xFFAED581), Color(0xFF8BC34A), Color(0xFF558B2F), Color(0xFF64DD17),
     // Teals
-    Color(0xFF4DB6AC), // Light Teal
-    Color(0xFF009688), // Teal
-    Color(0xFF00796B), // Dark Teal
-
+    Color(0xFF4DB6AC), Color(0xFF009688), Color(0xFF00796B), Color(0xFF00BFA5),
     // Blues
-    Color(0xFF64B5F6), // Light Blue
-    Color(0xFF2196F3), // Blue
-    Color(0xFF1976D2), // Dark Blue
-
+    Color(0xFF64B5F6), Color(0xFF2196F3), Color(0xFF1976D2), Color(0xFF2962FF),
+    Color(0xFF4FC3F7), Color(0xFF03A9F4), Color(0xFF0288D1), Color(0xFF00B0FF),
+    Color(0xFF7986CB), Color(0xFF3F51B5), Color(0xFF303F9F), Color(0xFF304FFE),
     // Purples
-    Color(0xFFBA68C8), // Light Purple
-    Color(0xFF9C27B0), // Purple
-    Color(0xFF7B1FA2), // Dark Purple
-
+    Color(0xFFBA68C8), Color(0xFF9C27B0), Color(0xFF7B1FA2), Color(0xFFAA00FF),
+    Color(0xFF9575CD), Color(0xFF673AB7), Color(0xFF512DA8), Color(0xFF6200EA),
     // Pinks
-    Color(0xFFF06292), // Light Pink
-    Color(0xFFE91E63), // Pink
-    Color(0xFFC2185B), // Dark Pink
-
-    // Grays
-    Color(0xFF90A4AE), // Light Gray
-    Color(0xFF607D8B), // Gray
-    Color(0xFF455A64), // Dark Gray
+    Color(0xFFF06292), Color(0xFFE91E63), Color(0xFFC2185B), Color(0xFFC51162),
+    // Browns
+    Color(0xFFA1887F), Color(0xFF795548), Color(0xFF5D4037),
+    // Grays/Blue-Grays
+    Color(0xFF90A4AE), Color(0xFF607D8B), Color(0xFF455A64),
   ];
 
   @override

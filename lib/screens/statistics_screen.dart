@@ -25,6 +25,8 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> with Single
   late TabController _tabController;
   int _selectedMonths = 6;
   bool _showExpenseCategory = true;
+  int _selectedCategoryMonth = DateTime.now().month;
+  int _selectedCategoryYear = DateTime.now().year;
 
   Widget _buildCustomChip({
     required String label,
@@ -156,9 +158,6 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> with Single
     double topExpenseThisMonth = 0;
     Set<int> daysSpent = {};
     
-    // Day of week spending
-    Map<int, double> dowSpending = {1:0, 2:0, 3:0, 4:0, 5:0, 6:0, 7:0}; // Mon-Sun
-
     for (var tx in transactions) {
       if (tx.type == 'expense') {
         if (tx.transactionDate.isAfter(startOfThisMonth) && tx.transactionDate.isBefore(startOfNextMonth)) {
@@ -167,11 +166,6 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> with Single
           if (tx.amount > topExpenseThisMonth) topExpenseThisMonth = tx.amount;
         } else if (tx.transactionDate.isAfter(startOfLastMonth) && tx.transactionDate.isBefore(startOfThisMonth)) {
           lastMonthExpense += tx.amount;
-        }
-        
-        // Day of week
-        if (tx.transactionDate.isAfter(DateTime(now.year, now.month - _selectedMonths + 1, 1))) {
-          dowSpending[tx.transactionDate.weekday] = (dowSpending[tx.transactionDate.weekday] ?? 0) + tx.amount;
         }
       }
     }
@@ -210,8 +204,15 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> with Single
       }
     }
 
-    final maxVal = [...incomeData.values, ...expenseData.values].fold(0.0, (a, b) => a > b ? a : b);
+    final maxIncome = incomeData.values.fold(0.0, (a, b) => a > b ? a : b);
+    final maxExpense = expenseData.values.fold(0.0, (a, b) => a > b ? a : b);
+    final maxVal = maxIncome > maxExpense ? maxIncome : maxExpense;
     final yMax = maxVal == 0 ? 100.0 : maxVal * 1.2;
+
+    double chartWidth = labels.length * 70.0;
+    if (chartWidth < MediaQuery.of(context).size.width - 64) {
+      chartWidth = MediaQuery.of(context).size.width - 64;
+    }
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -257,126 +258,88 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> with Single
 
         _buildChartCard(
           title: l10n.locale == 'vi' ? 'Tổng Thu & Chi' : 'Income & Expense',
-          child: BarChart(
-            BarChartData(
-              alignment: BarChartAlignment.spaceAround,
-              maxY: yMax,
-              barTouchData: BarTouchData(enabled: false),
-              titlesData: FlTitlesData(
-                show: true,
-                topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                bottomTitles: AxisTitles(
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    getTitlesWidget: (value, meta) {
-                      if (value.toInt() >= 0 && value.toInt() < labels.length) {
-                        return Padding(
-                          padding: const EdgeInsets.only(top: 8),
-                          child: Text(labels[value.toInt()], style: const TextStyle(fontSize: 10)),
-                        );
-                      }
-                      return const Text('');
-                    },
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: SizedBox(
+              width: chartWidth,
+              child: BarChart(
+                BarChartData(
+                  alignment: BarChartAlignment.spaceAround,
+                  maxY: yMax,
+                  barTouchData: BarTouchData(enabled: false),
+                  titlesData: FlTitlesData(
+                    show: true,
+                    topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    bottomTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        getTitlesWidget: (value, meta) {
+                          if (value.toInt() >= 0 && value.toInt() < labels.length) {
+                            return Padding(
+                              padding: const EdgeInsets.only(top: 8),
+                              child: Text(labels[value.toInt()], style: const TextStyle(fontSize: 10)),
+                            );
+                          }
+                          return const Text('');
+                        },
+                      ),
+                    ),
+                    leftTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        reservedSize: 40,
+                        getTitlesWidget: (value, meta) {
+                          return Text(_formatCompact(value), style: const TextStyle(fontSize: 10));
+                        },
+                      ),
+                    ),
                   ),
-                ),
-                leftTitles: AxisTitles(
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    reservedSize: 40,
-                    getTitlesWidget: (value, meta) {
-                      return Text(_formatCompact(value), style: const TextStyle(fontSize: 10));
-                    },
-                  ),
+                  borderData: FlBorderData(show: false),
+                  gridData: const FlGridData(show: true, drawVerticalLine: false),
+                  barGroups: List.generate(labels.length, (index) {
+                    final key = incomeData.keys.elementAt(index);
+                    return BarChartGroupData(
+                      x: index,
+                      barRods: [
+                        BarChartRodData(
+                          toY: incomeData[key]!,
+                          color: Colors.green,
+                          width: 12,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        BarChartRodData(
+                          toY: expenseData[key]!,
+                          color: Colors.red,
+                          width: 12,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ],
+                    );
+                  }),
                 ),
               ),
-              borderData: FlBorderData(show: false),
-              gridData: const FlGridData(show: true, drawVerticalLine: false),
-              barGroups: List.generate(labels.length, (index) {
-                final key = incomeData.keys.elementAt(index);
-                return BarChartGroupData(
-                  x: index,
-                  barRods: [
-                    BarChartRodData(
-                      toY: incomeData[key]!,
-                      color: Colors.green,
-                      width: 12,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    BarChartRodData(
-                      toY: expenseData[key]!,
-                      color: Colors.red,
-                      width: 12,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                  ],
-                );
-              }),
             ),
           ),
           bottomLegend: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              _buildLegend(Colors.green, l10n.locale == 'vi' ? 'Thu nhập' : 'Income'),
-              const SizedBox(width: 24),
-              _buildLegend(Colors.red, l10n.locale == 'vi' ? 'Chi tiêu' : 'Expense'),
-            ],
-          ),
-        ),
-        const SizedBox(height: 16),
-        _buildChartCard(
-          title: l10n.locale == 'vi' ? 'Chi tiêu theo Thứ' : 'Spending by Day of Week',
-          child: BarChart(
-            BarChartData(
-              alignment: BarChartAlignment.spaceAround,
-              barTouchData: BarTouchData(enabled: false),
-              titlesData: FlTitlesData(
-                show: true,
-                topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                bottomTitles: AxisTitles(
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    getTitlesWidget: (value, meta) {
-                      final daysVi = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
-                      final daysEn = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-                      final days = l10n.locale == 'vi' ? daysVi : daysEn;
-                      if (value.toInt() >= 0 && value.toInt() < 7) {
-                        return Padding(
-                          padding: const EdgeInsets.only(top: 8),
-                          child: Text(days[value.toInt()], style: const TextStyle(fontSize: 10)),
-                        );
-                      }
-                      return const Text('');
-                    },
-                  ),
-                ),
-                leftTitles: AxisTitles(
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    reservedSize: 40,
-                    getTitlesWidget: (value, meta) {
-                      return Text(_formatCompact(value), style: const TextStyle(fontSize: 10));
-                    },
-                  ),
-                ),
+              Row(
+                children: [
+                  Container(width: 12, height: 12, decoration: const BoxDecoration(color: Colors.green, shape: BoxShape.circle)),
+                  const SizedBox(width: 8),
+                  Text(l10n.locale == 'vi' ? 'Thu nhập' : 'Income', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+                ],
               ),
-              borderData: FlBorderData(show: false),
-              gridData: const FlGridData(show: true, drawVerticalLine: false),
-              barGroups: List.generate(7, (index) {
-                return BarChartGroupData(
-                  x: index,
-                  barRods: [
-                    BarChartRodData(
-                      toY: dowSpending[index + 1]!,
-                      color: (index == 5 || index == 6) ? Colors.orange : Theme.of(context).colorScheme.primary,
-                      width: 16,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                  ],
-                );
-              }),
-            ),
+              const SizedBox(width: 24),
+              Row(
+                children: [
+                  Container(width: 12, height: 12, decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle)),
+                  const SizedBox(width: 8),
+                  Text(l10n.locale == 'vi' ? 'Chi tiêu' : 'Expense', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+                ],
+              ),
+            ],
           ),
         ),
       ],
@@ -414,9 +377,20 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> with Single
   }
 
   Widget _buildCategoriesTab(List<Transaction> transactions, List<Category> categories, String currency, dynamic l10n) {
-    final startOfThisMonth = DateTime(DateTime.now().year, DateTime.now().month, 1);
+    final years = transactions.map((t) => t.transactionDate.year).toSet().toList()..sort();
+    if (years.isEmpty) years.add(DateTime.now().year);
+    if (!years.contains(_selectedCategoryYear)) _selectedCategoryYear = years.last;
+
+    final months = transactions.where((t) => t.transactionDate.year == _selectedCategoryYear).map((t) => t.transactionDate.month).toSet().toList()..sort();
+    if (months.isEmpty) months.add(DateTime.now().month);
+    if (!months.contains(_selectedCategoryMonth)) _selectedCategoryMonth = months.last;
+
     final txType = _showExpenseCategory ? 'expense' : 'income';
-    final recentTx = transactions.where((t) => t.type == txType && t.transactionDate.isAfter(startOfThisMonth)).toList();
+    final recentTx = transactions.where((t) {
+      return t.type == txType && 
+             t.transactionDate.year == _selectedCategoryYear && 
+             t.transactionDate.month == _selectedCategoryMonth;
+    }).toList();
 
     final Map<String, double> categoryTotals = {};
     for (var tx in recentTx) {
@@ -434,6 +408,53 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> with Single
 
     return Column(
       children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.chevron_left),
+                onPressed: () {
+                  setState(() {
+                    if (_selectedCategoryMonth == 1) {
+                      _selectedCategoryMonth = 12;
+                      _selectedCategoryYear--;
+                    } else {
+                      _selectedCategoryMonth--;
+                    }
+                  });
+                },
+              ),
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => _showMonthYearPicker(context, l10n),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    alignment: Alignment.center,
+                    child: Text(
+                      '${l10n.getMonthName(_selectedCategoryMonth)} $_selectedCategoryYear',
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.chevron_right),
+                onPressed: () {
+                  setState(() {
+                    if (_selectedCategoryMonth == 12) {
+                      _selectedCategoryMonth = 1;
+                      _selectedCategoryYear++;
+                    } else {
+                      _selectedCategoryMonth++;
+                    }
+                  });
+                },
+              ),
+            ],
+          ),
+        ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: Row(
@@ -508,6 +529,83 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> with Single
                 ),
         ),
       ],
+    );
+  }
+
+  void _showMonthYearPicker(BuildContext context, dynamic l10n) {
+    int tempYear = _selectedCategoryYear;
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.chevron_left),
+                          onPressed: () => setModalState(() => tempYear--),
+                        ),
+                        Text(tempYear.toString(), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                        IconButton(
+                          icon: const Icon(Icons.chevron_right),
+                          onPressed: () => setModalState(() => tempYear++),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 4,
+                        childAspectRatio: 2,
+                        crossAxisSpacing: 8,
+                        mainAxisSpacing: 8,
+                      ),
+                      itemCount: 12,
+                      itemBuilder: (context, index) {
+                        final month = index + 1;
+                        final isSelected = month == _selectedCategoryMonth && tempYear == _selectedCategoryYear;
+                        return InkWell(
+                          onTap: () {
+                            setState(() {
+                              _selectedCategoryMonth = month;
+                              _selectedCategoryYear = tempYear;
+                            });
+                            Navigator.pop(context);
+                          },
+                          child: Container(
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: isSelected ? Theme.of(context).colorScheme.primary : (Theme.of(context).brightness == Brightness.dark ? Colors.grey[800] : Colors.grey[200]),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              l10n.locale == 'vi' ? 'T$month' : DateFormat('MMM').format(DateTime(2020, month)),
+                              style: TextStyle(
+                                color: isSelected ? Colors.white : Theme.of(context).textTheme.bodyMedium?.color,
+                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 

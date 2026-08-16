@@ -22,6 +22,7 @@ import 'home_screen.dart';
 import 'settings_screen.dart';
 import '../widgets/voice_record_sheet.dart';
 import '../widgets/dashboard/quick_access_hub.dart';
+import '../widgets/category_icon_widget.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -357,6 +358,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         },
       ),
       floatingActionButton: FloatingActionButton(
+        heroTag: 'dashboard_fab',
         onPressed: () {
           Navigator.push(
             context,
@@ -1410,37 +1412,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   ? l10n.translateCategoryName(category.id, category.name)
                   : l10n.noCategory;
 
-              // Get icon and color
-              final iconData = category != null
-                  ? (CategoryIconData.getIcon(category.icon) ??
-                      (tx.type == 'income' ? Icons.arrow_downward : Icons.arrow_upward))
-                  : (tx.type == 'income' ? Icons.arrow_downward : Icons.arrow_upward);
-
-              Color backgroundColor;
-              if (category?.color != null && category!.color!.isNotEmpty) {
-                try {
-                  backgroundColor = Color(int.parse(category.color!.substring(1), radix: 16) + 0xFF000000);
-                } catch (e) {
-                  backgroundColor = tx.type == 'income' ? Colors.green : Colors.red;
-                }
-              } else {
-                backgroundColor = tx.type == 'income' ? Colors.green : Colors.red;
-              }
-
-              final iconColor = ThemeData.estimateBrightnessForColor(backgroundColor) == Brightness.light
-                  ? Colors.black
-                  : Colors.white;
-
               return ListTile(
                 contentPadding: EdgeInsets.zero,
-                leading: CircleAvatar(
-                  backgroundColor: backgroundColor,
-                  radius: 20,
-                  child: Icon(
-                    iconData,
-                    color: iconColor,
-                    size: 20,
-                  ),
+                leading: CategoryIconWidget(
+                  category: category,
+                  iconName: category == null ? (tx.type == 'income' ? 'attach_money' : 'shopping_cart') : null,
+                  size: 40,
                 ),
                 title: Text(
                   categoryName,

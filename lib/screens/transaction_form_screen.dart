@@ -9,6 +9,7 @@ import '../utils/icon_data.dart';
 import '../services/currency_service.dart';
 import 'home_screen.dart';
 import '../widgets/custom_num_pad.dart';
+import '../widgets/category_icon_widget.dart';
 
 class TransactionFormScreen extends ConsumerStatefulWidget {
   final String? editTransactionId;
@@ -297,41 +298,13 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                 ...filteredCategories.map((cat) {
                   final displayName = l10n.translateCategoryName(cat.id, cat.name);
 
-                  // Get icon and color
-                  final iconData = CategoryIconData.getIcon(cat.icon) ??
-                      (cat.type == 'income' ? Icons.arrow_downward : Icons.arrow_upward);
-
-                  Color backgroundColor;
-                  if (cat.color != null && cat.color!.isNotEmpty) {
-                    try {
-                      backgroundColor = Color(int.parse(cat.color!.substring(1), radix: 16) + 0xFF000000);
-                    } catch (e) {
-                      backgroundColor = cat.type == 'income' ? Colors.green : Colors.red;
-                    }
-                  } else {
-                    backgroundColor = cat.type == 'income' ? Colors.green : Colors.red;
-                  }
-
-                  final iconColor = ThemeData.estimateBrightnessForColor(backgroundColor) == Brightness.light
-                      ? Colors.black
-                      : Colors.white;
-
                   return DropdownMenuItem(
                     value: cat.id,
                     child: Row(
                       children: [
-                        Container(
-                          width: 32,
-                          height: 32,
-                          decoration: BoxDecoration(
-                            color: backgroundColor,
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            iconData,
-                            color: iconColor,
-                            size: 16,
-                          ),
+                        CategoryIconWidget(
+                          category: cat,
+                          size: 32,
                         ),
                         const SizedBox(width: 12),
                         Text(displayName),

@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../theme/app_colors.dart';
-import '../../screens/home_screen.dart';
-import '../../screens/category_screen.dart';
 import '../../screens/recurring_screen.dart';
 import '../../screens/statistics_screen.dart';
-import 'budget_sheet.dart';
+import '../../screens/category_budget_screen.dart';
 
 class QuickAccessHub extends StatelessWidget {
   final dynamic l10n;
@@ -24,29 +22,15 @@ class QuickAccessHub extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
             _buildAccessButton(
               context,
               icon: Icons.pie_chart_outline,
-              label: l10n.locale == 'vi' ? 'Ngân sách' : 'Budgets',
+              label: l10n.locale == 'vi' ? 'Ngân sách & Danh mục' : 'Budgets & Categories',
               color: AppColors.secondary,
               onTap: () {
-                showModalBottomSheet(
-                  context: context,
-                  isScrollControlled: true,
-                  backgroundColor: Colors.transparent,
-                  builder: (context) => const BudgetSheet(),
-                );
-              },
-            ),
-            _buildAccessButton(
-              context,
-              icon: Icons.category_outlined,
-              label: l10n.locale == 'vi' ? 'Danh mục' : 'Categories',
-              color: AppColors.warning,
-              onTap: () {
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const CategoryScreen()));
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const CategoryBudgetScreen()));
               },
             ),
             _buildAccessButton(
@@ -79,8 +63,10 @@ class QuickAccessHub extends StatelessWidget {
     required Color color,
     required VoidCallback onTap,
   }) {
-    return Column(
-      children: [
+    return SizedBox(
+      width: 80,
+      child: Column(
+        children: [
         Material(
           color: color.withOpacity(0.1),
           borderRadius: BorderRadius.circular(16),
@@ -102,6 +88,8 @@ class QuickAccessHub extends StatelessWidget {
         const SizedBox(height: 8),
         Text(
           label,
+          textAlign: TextAlign.center,
+          maxLines: 2,
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w600,
@@ -111,6 +99,7 @@ class QuickAccessHub extends StatelessWidget {
           ),
         ),
       ],
+    ),
     );
   }
 }
