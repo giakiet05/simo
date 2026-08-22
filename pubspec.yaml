@@ -66,6 +66,14 @@ dependencies:
   shimmer: ^3.0.0
   record: ^7.1.1
   http: ^1.6.0
+
+  # Export & Backup
+  excel: ^4.0.6
+  csv: ^6.0.0
+  pdf: ^3.11.1
+  printing: ^5.13.2
+  share_plus: ^10.1.4
+  file_picker: ^8.1.7
 dev_dependencies:
   flutter_test:
     sdk: flutter

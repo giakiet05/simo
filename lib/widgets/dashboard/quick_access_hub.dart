@@ -3,6 +3,7 @@ import '../../theme/app_colors.dart';
 import '../../screens/recurring_screen.dart';
 import '../../screens/statistics_screen.dart';
 import '../../screens/category_budget_screen.dart';
+import '../../screens/saving_goals_screen.dart';
 
 class QuickAccessHub extends StatelessWidget {
   final dynamic l10n;
@@ -22,15 +23,24 @@ class QuickAccessHub extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
             _buildAccessButton(
               context,
               icon: Icons.pie_chart_outline,
-              label: l10n.locale == 'vi' ? 'Ngân sách & Danh mục' : 'Budgets & Categories',
+              label: l10n.locale == 'vi' ? 'Ngân sách' : 'Budgets',
               color: AppColors.secondary,
               onTap: () {
                 Navigator.push(context, MaterialPageRoute(builder: (_) => const CategoryBudgetScreen()));
+              },
+            ),
+            _buildAccessButton(
+              context,
+              icon: Icons.savings_outlined,
+              label: l10n.locale == 'vi' ? 'Mục tiêu' : 'Goals',
+              color: Colors.teal,
+              onTap: () {
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const SavingGoalsScreen()));
               },
             ),
             _buildAccessButton(
@@ -64,23 +74,23 @@ class QuickAccessHub extends StatelessWidget {
     required VoidCallback onTap,
   }) {
     return SizedBox(
-      width: 80,
+      width: 72,
       child: Column(
         children: [
         Material(
-          color: color.withOpacity(0.1),
+          color: color.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(16),
           child: InkWell(
             onTap: onTap,
             borderRadius: BorderRadius.circular(16),
             child: Container(
-              width: 64,
-              height: 64,
+              width: 58,
+              height: 58,
               alignment: Alignment.center,
               child: Icon(
                 icon,
                 color: color,
-                size: 28,
+                size: 26,
               ),
             ),
           ),
@@ -100,6 +110,6 @@ class QuickAccessHub extends StatelessWidget {
         ),
       ],
     ),
-    );
-  }
+  );
+ }
 }

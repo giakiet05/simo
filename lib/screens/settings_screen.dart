@@ -11,6 +11,7 @@ import '../services/currency_service.dart';
 import '../widgets/banner_ad_widget.dart';
 import '../repositories/database_helper.dart';
 import 'about_screen.dart';
+import 'export_backup_screen.dart';
 import '../widgets/category_icon_widget.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -302,6 +303,47 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                             ),
                           ),
                         ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 24),
+                    
+                    // Sao lưu & Xuất dữ liệu
+                    Padding(
+                      padding: const EdgeInsets.only(left: 8, bottom: 8),
+                      child: Text(
+                        l10n.exportBackup,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      ),
+                    ),
+                    Card(
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        side: BorderSide(color: Colors.grey.withOpacity(0.2)),
+                      ),
+                      child: ListTile(
+                        leading: const CategoryIconWidget(
+                          colorOverride: Colors.indigo,
+                          iconDataOverride: Icons.import_export_rounded,
+                        ),
+                        title: Text(
+                          l10n.exportBackup,
+                          style: const TextStyle(fontWeight: FontWeight.w500),
+                        ),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const ExportBackupScreen(),
+                            ),
+                          );
+                        },
                       ),
                     ),
 

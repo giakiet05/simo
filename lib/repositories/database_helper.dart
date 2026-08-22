@@ -19,7 +19,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 12,
+      version: 13,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -153,6 +153,35 @@ class DatabaseHelper {
       )
     ''');
     await db.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_cat_monthly_budgets_cym ON category_monthly_budgets(category_id, year, month)');
+
+    await db.execute('''
+      CREATE TABLE saving_goals (
+        id $idType,
+        name $textType,
+        target_amount $realType,
+        current_amount REAL NOT NULL DEFAULT 0,
+        target_date TEXT,
+        color TEXT,
+        icon TEXT,
+        note TEXT,
+        status TEXT NOT NULL DEFAULT 'active',
+        created_at $textType,
+        updated_at $textType
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE saving_goal_logs (
+        id $idType,
+        goal_id $textType,
+        amount $realType,
+        type $textType,
+        log_date $textType,
+        note TEXT,
+        created_at $textType,
+        FOREIGN KEY (goal_id) REFERENCES saving_goals (id) ON DELETE CASCADE
+      )
+    ''');
   }
 
   Future<void> _upgradeDB(Database db, int oldVersion, int newVersion) async {
@@ -366,11 +395,49 @@ class DatabaseHelper {
       ''');
       await db.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_cat_monthly_budgets_cym ON category_monthly_budgets(category_id, year, month)');
     }
+
+    if (oldVersion < 13) {
+      print('[DB] Migration v13: Add saving_goals and saving_goal_logs tables');
+      const idType = 'TEXT PRIMARY KEY';
+      const textType = 'TEXT NOT NULL';
+      const realType = 'REAL NOT NULL';
+
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS saving_goals (
+          id $idType,
+          name $textType,
+          target_amount $realType,
+          current_amount REAL NOT NULL DEFAULT 0,
+          target_date TEXT,
+          color TEXT,
+          icon TEXT,
+          note TEXT,
+          status TEXT NOT NULL DEFAULT 'active',
+          created_at $textType,
+          updated_at $textType
+        )
+      ''');
+
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS saving_goal_logs (
+          id $idType,
+          goal_id $textType,
+          amount $realType,
+          type $textType,
+          log_date $textType,
+          note TEXT,
+          created_at $textType,
+          FOREIGN KEY (goal_id) REFERENCES saving_goals (id) ON DELETE CASCADE
+        )
+      ''');
+    }
   }
 
   Future<void> clearAllData() async {
     final db = await instance.database;
     await db.transaction((txn) async {
+      await txn.delete('saving_goal_logs');
+      await txn.delete('saving_goals');
       await txn.delete('category_monthly_budgets');
       await txn.delete('monthly_budgets');
       await txn.delete('loan_transactions');

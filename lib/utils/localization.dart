@@ -306,6 +306,75 @@ class AppLocalizations {
       'reset_all_data_confirm':
           'This action will delete all transactions, categories, and loans. Cannot be undone.\n\nType "delete" to confirm.',
       'reset_success': 'All data has been reset.',
+
+      // Export & Backup
+      'export_backup': 'Export & Backup',
+      'export_backup_desc': 'Export Excel, CSV, PDF & JSON backup',
+      'export_reports': 'Export Reports',
+      'backup_restore': 'Backup & Restore',
+      'export_excel': 'Excel (.xlsx)',
+      'export_excel_desc': 'Multi-sheet workbook with transactions, budgets, and loans',
+      'export_csv': 'CSV (.csv)',
+      'export_csv_desc': 'Universal format with UTF-8 BOM encoding',
+      'export_pdf': 'PDF Report (.pdf)',
+      'export_pdf_desc': 'Printable financial report with summaries and charts',
+      'create_backup': 'Create Backup',
+      'create_backup_desc': 'Full snapshot of all database records and settings',
+      'restore_backup': 'Restore Data',
+      'restore_backup_desc': 'Select a previously saved backup file to restore',
+      'restore_backup_hint': 'Select a previously saved .json backup file',
+      'export_format': 'Export Format',
+      'export_action': 'Export File',
+      'export_time_range': 'Export Time Range',
+      'export_success': 'Export completed successfully!',
+      'export_failed': 'Export failed',
+      'backup_created': 'Backup created successfully!',
+      'restore_success': 'Data restored successfully!',
+      'restore_failed': 'Restore failed',
+      'import_preview_title': 'Restore Preview',
+      'import_overwrite': 'Overwrite All Data',
+      'import_merge': 'Merge Data',
+      'import_invalid_file': 'Invalid backup file',
+      'total_categories_count': 'Categories',
+      'total_transactions_count': 'Transactions',
+      'total_budgets_count': 'Monthly Budgets',
+      'total_loans_count': 'Loans & Debts',
+      'total_recurring_count': 'Recurring Transactions',
+      'exporting_data': 'Exporting data...',
+      'restoring_data': 'Restoring data...',
+
+      // Saving Goals
+      'saving_goals': 'Saving Goals',
+      'add_saving_goal': 'Add Saving Goal',
+      'edit_saving_goal': 'Edit Saving Goal',
+      'delete_saving_goal': 'Delete Goal',
+      'delete_saving_goal_confirm':
+          'Are you sure you want to delete this saving goal? All history logs will also be deleted.',
+      'goal_name': 'Goal Name',
+      'target_amount': 'Target Amount',
+      'target_date': 'Target Date',
+      'optional_deadline': 'Optional Deadline',
+      'current_saved': 'Saved',
+      'remaining_to_save': 'Remaining',
+      'deposit': 'Deposit',
+      'withdraw': 'Withdraw',
+      'deposit_to_goal': 'Deposit Funds',
+      'withdraw_from_goal': 'Withdraw Funds',
+      'deposit_success': 'Deposit successful!',
+      'withdraw_success': 'Withdrawal successful!',
+      'goal_created': 'Saving goal created!',
+      'goal_updated': 'Saving goal updated!',
+      'goal_deleted': 'Saving goal deleted!',
+      'goal_completed': 'Completed',
+      'goal_in_progress': 'In Progress',
+      'all_goals': 'All Goals',
+      'total_target': 'Total Target',
+      'total_saved': 'Total Saved',
+      'no_saving_goals': 'No saving goals yet',
+      'no_saving_goals_desc':
+          'Create your first saving goal to track your dreams',
+      'history_logs': 'History Logs',
+      'no_history_logs': 'No deposit or withdrawal history yet',
     },
     'zh': {
       // Navigation
@@ -595,6 +664,73 @@ class AppLocalizations {
       'reset_all_data_confirm':
           '此操作将删除所有交易、分类和贷款，无法撤消。\n\n输入 "delete" 以确认。',
       'reset_success': '所有数据已重置。',
+
+      // Export & Backup
+      'export_backup': '导出与备份',
+      'export_backup_desc': '导出Excel、CSV、PDF和JSON备份',
+      'export_reports': '导出报告',
+      'backup_restore': '备份与恢复',
+      'export_excel': 'Excel (.xlsx)',
+      'export_excel_desc': '包含交易、预算和贷款的完整工作簿',
+      'export_csv': 'CSV (.csv)',
+      'export_csv_desc': '通用UTF-8 BOM编码格式',
+      'export_pdf': 'PDF 报告 (.pdf)',
+      'export_pdf_desc': '包含摘要和图表的可打印财务报表',
+      'create_backup': '创建备份',
+      'create_backup_desc': '所有数据库记录和设置的完整快照',
+      'restore_backup': '恢复数据',
+      'restore_backup_desc': '选择之前保存的备份文件进行恢复',
+      'restore_backup_hint': '请选择之前保存的 .json 备份文件',
+      'export_format': '导出格式',
+      'export_action': '导出文件',
+      'export_time_range': '导出时间范围',
+      'export_success': '导出成功！',
+      'export_failed': '导出失败',
+      'backup_created': '备份创建成功！',
+      'restore_success': '数据恢复成功！',
+      'restore_failed': '恢复失败',
+      'import_preview_title': '恢复预览',
+      'import_overwrite': '覆盖所有数据',
+      'import_merge': '合并数据',
+      'import_invalid_file': '无效的备份文件',
+      'total_categories_count': '类别',
+      'total_transactions_count': '交易',
+      'total_budgets_count': '月度预算',
+      'total_loans_count': '贷款与债务',
+      'total_recurring_count': '定期交易',
+      'exporting_data': '正在导出数据...',
+      'restoring_data': '正在恢复数据...',
+
+      // Saving Goals
+      'saving_goals': '储蓄目标',
+      'add_saving_goal': '添加储蓄目标',
+      'edit_saving_goal': '编辑储蓄目标',
+      'delete_saving_goal': '删除目标',
+      'delete_saving_goal_confirm': '您确定要删除此储蓄目标吗？所有存取款记录也将被删除。',
+      'goal_name': '目标名称',
+      'target_amount': '目标金额',
+      'target_date': '目标日期',
+      'optional_deadline': '截止日期（可选）',
+      'current_saved': '已储蓄',
+      'remaining_to_save': '剩余',
+      'deposit': '存入',
+      'withdraw': '取出',
+      'deposit_to_goal': '存入储蓄金',
+      'withdraw_from_goal': '取出储蓄金',
+      'deposit_success': '存入成功！',
+      'withdraw_success': '取出成功！',
+      'goal_created': '目标创建成功！',
+      'goal_updated': '目标已更新！',
+      'goal_deleted': '目标已删除！',
+      'goal_completed': '已完成',
+      'goal_in_progress': '进行中',
+      'all_goals': '所有目标',
+      'total_target': '总目标',
+      'total_saved': '已存总计',
+      'no_saving_goals': '暂无储蓄目标',
+      'no_saving_goals_desc': '创建您的第一个储蓄目标以追踪您的梦想',
+      'history_logs': '存取记录',
+      'no_history_logs': '暂无存取款记录',
     },
     'vi': {
       // Navigation
@@ -898,6 +1034,75 @@ class AppLocalizations {
       'reset_all_data_confirm':
           'Hành động này sẽ xóa tất cả giao dịch, danh mục, và khoản vay. Không thể khôi phục.\n\nNhập "xoa" để xác nhận.',
       'reset_success': 'Đã xóa toàn bộ dữ liệu.',
+
+      // Export & Backup
+      'export_backup': 'Xuất & Sao lưu dữ liệu',
+      'export_backup_desc': 'Xuất file Excel, CSV, PDF & Sao lưu JSON',
+      'export_reports': 'Xuất báo cáo',
+      'backup_restore': 'Sao lưu & Khôi phục',
+      'export_excel': 'Excel (.xlsx)',
+      'export_excel_desc': 'Đầy đủ sheet giao dịch, ngân sách và sổ nợ',
+      'export_csv': 'CSV (.csv)',
+      'export_csv_desc': 'Định dạng phổ biến chuẩn mã hóa UTF-8 BOM',
+      'export_pdf': 'Báo cáo PDF (.pdf)',
+      'export_pdf_desc': 'Bản báo cáo tài chính đẹp mắt sẵn sàng in ấn',
+      'create_backup': 'Tạo bản sao lưu',
+      'create_backup_desc': 'Lưu toàn bộ giao dịch, danh mục, ngân sách, sổ nợ',
+      'restore_backup': 'Khôi phục dữ liệu',
+      'restore_backup_desc': 'Chọn file sao lưu đã lưu trước đó để nạp lại',
+      'restore_backup_hint': 'Chọn file sao lưu có định dạng .json đã lưu trước đó',
+      'export_format': 'Định dạng xuất',
+      'export_action': 'Xuất file',
+      'export_time_range': 'Khoảng thời gian xuất',
+      'export_success': 'Xuất file thành công!',
+      'export_failed': 'Xuất file thất bại',
+      'backup_created': 'Đã tạo bản sao lưu thành công!',
+      'restore_success': 'Khôi phục dữ liệu thành công!',
+      'restore_failed': 'Khôi phục dữ liệu thất bại',
+      'import_preview_title': 'Xem trước bản sao lưu',
+      'import_overwrite': 'Ghi đè toàn bộ',
+      'import_merge': 'Gộp dữ liệu',
+      'import_invalid_file': 'File sao lưu không hợp lệ',
+      'total_categories_count': 'Danh mục',
+      'total_transactions_count': 'Giao dịch',
+      'total_budgets_count': 'Ngân sách tháng',
+      'total_loans_count': 'Khoản vay & Nợ',
+      'total_recurring_count': 'Giao dịch định kỳ',
+      'exporting_data': 'Đang xuất dữ liệu...',
+      'restoring_data': 'Đang khôi phục dữ liệu...',
+
+      // Saving Goals
+      'saving_goals': 'Mục tiêu tiết kiệm',
+      'add_saving_goal': 'Tạo mục tiêu',
+      'edit_saving_goal': 'Sửa mục tiêu',
+      'delete_saving_goal': 'Xóa mục tiêu',
+      'delete_saving_goal_confirm':
+          'Bạn có chắc chắn muốn xóa mục tiêu này? Toàn bộ lịch sử nạp/rút sẽ bị xóa theo.',
+      'goal_name': 'Tên mục tiêu',
+      'target_amount': 'Số tiền mục tiêu',
+      'target_date': 'Hạn chót',
+      'optional_deadline': 'Hạn chót (tùy chọn)',
+      'current_saved': 'Đã tích lũy',
+      'remaining_to_save': 'Còn thiếu',
+      'deposit': 'Nạp tiền',
+      'withdraw': 'Rút tiền',
+      'deposit_to_goal': 'Nạp tiền vào mục tiêu',
+      'withdraw_from_goal': 'Rút tiền từ mục tiêu',
+      'deposit_success': 'Nạp tiền thành công!',
+      'withdraw_success': 'Rút tiền thành công!',
+      'goal_created': 'Đã tạo mục tiêu thành công!',
+      'goal_updated': 'Đã cập nhật mục tiêu!',
+      'goal_deleted': 'Đã xóa mục tiêu!',
+      'goal_completed': 'Đã hoàn thành',
+      'goal_in_progress': 'Đang tích lũy',
+      'all_goals': 'Tất cả mục tiêu',
+      'total_target': 'Tổng mục tiêu',
+      'total_saved': 'Tổng đã gom',
+      'no_saving_goals': 'Chưa có mục tiêu tiết kiệm nào',
+      'no_saving_goals_desc':
+          'Tạo mục tiêu đầu tiên để tích lũy cho ước mơ của bạn',
+      'history_logs': 'Lịch sử nạp / rút',
+      'no_history_logs': 'Chưa có giao dịch nạp/rút nào',
     },
   };
 
@@ -1161,6 +1366,74 @@ class AppLocalizations {
   String get resetAllDataDesc => translate('reset_all_data_desc');
   String get resetAllDataConfirm => translate('reset_all_data_confirm');
   String get resetSuccess => translate('reset_success');
+
+  // Export & Backup Getters
+  String get exportBackup => translate('export_backup');
+  String get exportBackupDesc => translate('export_backup_desc');
+  String get exportReports => translate('export_reports');
+  String get backupRestore => translate('backup_restore');
+  String get exportExcel => translate('export_excel');
+  String get exportExcelDesc => translate('export_excel_desc');
+  String get exportCsv => translate('export_csv');
+  String get exportCsvDesc => translate('export_csv_desc');
+  String get exportPdf => translate('export_pdf');
+  String get exportPdfDesc => translate('export_pdf_desc');
+  String get createBackup => translate('create_backup');
+  String get createBackupDesc => translate('create_backup_desc');
+  String get restoreBackup => translate('restore_backup');
+  String get restoreBackupDesc => translate('restore_backup_desc');
+  String get exportTimeRange => translate('export_time_range');
+  String get exportSuccess => translate('export_success');
+  String get exportFailed => translate('export_failed');
+  String get backupCreated => translate('backup_created');
+  String get restoreSuccess => translate('restore_success');
+  String get restoreFailed => translate('restore_failed');
+  String get importPreviewTitle => translate('import_preview_title');
+  String get importOverwrite => translate('import_overwrite');
+  String get importMerge => translate('import_merge');
+  String get importInvalidFile => translate('import_invalid_file');
+  String get totalCategoriesCount => translate('total_categories_count');
+  String get totalTransactionsCount => translate('total_transactions_count');
+  String get totalBudgetsCount => translate('total_budgets_count');
+  String get totalLoansCount => translate('total_loans_count');
+  String get totalRecurringCount => translate('total_recurring_count');
+  String get exportingData => translate('exporting_data');
+  String get restoringData => translate('restoring_data');
+  String get restoreBackupHint => translate('restore_backup_hint');
+  String get exportFormat => translate('export_format');
+  String get exportAction => translate('export_action');
+
+  // Saving Goals Getters
+  String get savingGoals => translate('saving_goals');
+  String get addSavingGoal => translate('add_saving_goal');
+  String get editSavingGoal => translate('edit_saving_goal');
+  String get deleteSavingGoal => translate('delete_saving_goal');
+  String get deleteSavingGoalConfirm =>
+      translate('delete_saving_goal_confirm');
+  String get goalName => translate('goal_name');
+  String get targetAmount => translate('target_amount');
+  String get targetDate => translate('target_date');
+  String get optionalDeadline => translate('optional_deadline');
+  String get currentSaved => translate('current_saved');
+  String get remainingToSave => translate('remaining_to_save');
+  String get deposit => translate('deposit');
+  String get withdraw => translate('withdraw');
+  String get depositToGoal => translate('deposit_to_goal');
+  String get withdrawFromGoal => translate('withdraw_from_goal');
+  String get depositSuccess => translate('deposit_success');
+  String get withdrawSuccess => translate('withdraw_success');
+  String get goalCreated => translate('goal_created');
+  String get goalUpdated => translate('goal_updated');
+  String get goalDeleted => translate('goal_deleted');
+  String get goalCompleted => translate('goal_completed');
+  String get goalInProgress => translate('goal_in_progress');
+  String get allGoals => translate('all_goals');
+  String get totalTarget => translate('total_target');
+  String get totalSaved => translate('total_saved');
+  String get noSavingGoals => translate('no_saving_goals');
+  String get noSavingGoalsDesc => translate('no_saving_goals_desc');
+  String get historyLogs => translate('history_logs');
+  String get noHistoryLogs => translate('no_history_logs');
 
   // Translate default category name by ID
   String translateCategoryName(String categoryId, String defaultName) {
