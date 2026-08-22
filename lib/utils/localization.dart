@@ -13,6 +13,13 @@ class AppLocalizations {
       'expense': 'Expense',
       'monthly_budget': 'Monthly Budget',
       'budget_not_set': 'Budget not set',
+      'copy_previous_month_budget': "Copy previous month's budget",
+      'copy_budget_success': 'Copied budget from previous month successfully',
+      'no_budget_this_month': 'No budget set for this month',
+      'set_budget_for_month': 'Set budget for this month',
+      'select_month_year': 'Select Month & Year',
+      'category_budgets': 'Category Budgets',
+      'total_monthly_budget': 'Total Monthly Budget',
       'percent_used': '% used',
       'total_transactions': 'Transactions',
       'current_month': 'Current Month',
@@ -65,6 +72,13 @@ class AppLocalizations {
       'income_plus': 'Income (+)',
       'expense_minus': 'Expense (-)',
       'long_press_hint': 'Long press an item for more options',
+      'transaction_date': 'Transaction Date',
+      'created_at': 'Created At',
+      'updated_at': 'Updated At',
+      'tx_date_short': 'Tx',
+      'created_at_short': 'Created',
+      'updated_at_short': 'Updated',
+      'original_date': 'Original Date',
 
       // Filter
       'filter': 'Filter',
@@ -278,6 +292,20 @@ class AppLocalizations {
       'hours': 'hours',
       'minutes': 'minutes',
       'seconds': 'seconds',
+
+      // Mock & Reset Data
+      'data_and_testing': 'Data & Testing',
+      'generate_mock_data': 'Generate Mock Data',
+      'generate_mock_data_desc':
+          'Generate 100+ sample transactions across 6 months (Mar - Aug)',
+      'generate_mock_data_confirm':
+          'Generate rich sample data from March to August 2026?',
+      'mock_data_generated': 'Sample data generated successfully!',
+      'reset_all_data': 'Reset All Data',
+      'reset_all_data_desc': 'Delete all transactions, categories, and loans',
+      'reset_all_data_confirm':
+          'This action will delete all transactions, categories, and loans. Cannot be undone.\n\nType "delete" to confirm.',
+      'reset_success': 'All data has been reset.',
     },
     'zh': {
       // Navigation
@@ -292,6 +320,13 @@ class AppLocalizations {
       'expense': '支出',
       'monthly_budget': '月度预算',
       'budget_not_set': '未设置预算',
+      'copy_previous_month_budget': '复制上月预算',
+      'copy_budget_success': '已成功复制上月预算',
+      'no_budget_this_month': '本月未设置预算',
+      'set_budget_for_month': '设置本月预算',
+      'select_month_year': '选择月份和年份',
+      'category_budgets': '分类预算',
+      'total_monthly_budget': '总月度预算',
       'percent_used': '% 已用',
       'total_transactions': '交易',
       'current_month': '本月',
@@ -343,6 +378,13 @@ class AppLocalizations {
       'income_plus': '收入 (+)',
       'expense_minus': '支出 (-)',
       'long_press_hint': '长按项目以获取更多选项',
+      'transaction_date': '交易日期',
+      'created_at': '创建时间',
+      'updated_at': '更新时间',
+      'tx_date_short': '交易',
+      'created_at_short': '创建',
+      'updated_at_short': '更新',
+      'original_date': '原日期',
 
       // Filter
       'filter': '筛选',
@@ -541,6 +583,18 @@ class AppLocalizations {
       'hours': '小时',
       'minutes': '分钟',
       'seconds': '秒',
+
+      // Mock & Reset Data
+      'data_and_testing': '数据与测试',
+      'generate_mock_data': '生成模拟数据',
+      'generate_mock_data_desc': '生成6个月内的100多条模拟交易（3月至8月）',
+      'generate_mock_data_confirm': '生成2026年3月至8月的丰富模拟数据？',
+      'mock_data_generated': '模拟数据生成成功！',
+      'reset_all_data': '重置所有数据',
+      'reset_all_data_desc': '删除所有交易、分类和贷款',
+      'reset_all_data_confirm':
+          '此操作将删除所有交易、分类和贷款，无法撤消。\n\n输入 "delete" 以确认。',
+      'reset_success': '所有数据已重置。',
     },
     'vi': {
       // Navigation
@@ -555,6 +609,13 @@ class AppLocalizations {
       'expense': 'Chi tiêu',
       'monthly_budget': 'Giới hạn tháng',
       'budget_not_set': 'Chưa đặt giới hạn',
+      'copy_previous_month_budget': 'Sao chép ngân sách tháng trước',
+      'copy_budget_success': 'Đã sao chép ngân sách từ tháng trước',
+      'no_budget_this_month': 'Chưa đặt ngân sách cho tháng này',
+      'set_budget_for_month': 'Đặt ngân sách cho tháng này',
+      'select_month_year': 'Chọn tháng & năm',
+      'category_budgets': 'Ngân sách danh mục',
+      'total_monthly_budget': 'Tổng ngân sách tháng',
       'percent_used': '% đã dùng',
       'total_transactions': 'Giao dịch',
       'current_month': 'Tháng hiện tại',
@@ -606,6 +667,13 @@ class AppLocalizations {
       'income_plus': 'Thu nhập (+)',
       'expense_minus': 'Chi tiêu (-)',
       'long_press_hint': 'Nhấn giữ một mục để xem thêm tùy chọn',
+      'transaction_date': 'Ngày giao dịch',
+      'created_at': 'Ngày tạo',
+      'updated_at': 'Ngày cập nhật',
+      'tx_date_short': 'GD',
+      'created_at_short': 'Tạo',
+      'updated_at_short': 'CN',
+      'original_date': 'Ngày gốc',
 
       // Filter
       'filter': 'Lọc',
@@ -816,6 +884,20 @@ class AppLocalizations {
       'hours': 'giờ',
       'minutes': 'phút',
       'seconds': 'giây',
+
+      // Mock & Reset Data
+      'data_and_testing': 'Dữ liệu & Thử nghiệm',
+      'generate_mock_data': 'Tạo dữ liệu mẫu',
+      'generate_mock_data_desc':
+          'Tạo hơn 100 giao dịch mẫu trong 6 tháng (Tháng 3 - 8)',
+      'generate_mock_data_confirm':
+          'Tạo bộ dữ liệu mẫu phong phú từ tháng 3 đến tháng 8/2026?',
+      'mock_data_generated': 'Đã tạo thành công dữ liệu mẫu!',
+      'reset_all_data': 'Xóa toàn bộ dữ liệu',
+      'reset_all_data_desc': 'Xóa tất cả giao dịch, danh mục và khoản vay',
+      'reset_all_data_confirm':
+          'Hành động này sẽ xóa tất cả giao dịch, danh mục, và khoản vay. Không thể khôi phục.\n\nNhập "xoa" để xác nhận.',
+      'reset_success': 'Đã xóa toàn bộ dữ liệu.',
     },
   };
 
@@ -837,6 +919,13 @@ class AppLocalizations {
   String get expense => translate('expense');
   String get monthlyBudget => translate('monthly_budget');
   String get budgetNotSet => translate('budget_not_set');
+  String get copyPreviousMonthBudget => translate('copy_previous_month_budget');
+  String get copyBudgetSuccess => translate('copy_budget_success');
+  String get noBudgetThisMonth => translate('no_budget_this_month');
+  String get setBudgetForMonth => translate('set_budget_for_month');
+  String get selectMonthYear => translate('select_month_year');
+  String get categoryBudgets => translate('category_budgets');
+  String get totalMonthlyBudget => translate('total_monthly_budget');
   String get percentUsed => translate('percent_used');
   String get totalTransactions => translate('total_transactions');
   String get currentMonth => translate('current_month');
@@ -1041,6 +1130,13 @@ class AppLocalizations {
   String get activeFilters => translate('active_filters');
   String get loadMore => translate('load_more');
   String get selectMultiple => translate('select_multiple');
+  String get transactionDateLabel => translate('transaction_date');
+  String get createdAtLabel => translate('created_at');
+  String get updatedAtLabel => translate('updated_at');
+  String get txDateShort => translate('tx_date_short');
+  String get createdAtShort => translate('created_at_short');
+  String get updatedAtShort => translate('updated_at_short');
+  String get originalDate => translate('original_date');
 
   // Ad-Free
   String get watchAdRemoveAds => translate('watch_ad_remove_ads');
@@ -1053,6 +1149,18 @@ class AppLocalizations {
   String get hours => translate('hours');
   String get minutes => translate('minutes');
   String get seconds => translate('seconds');
+
+  // Mock & Reset Data
+  String get dataAndTesting => translate('data_and_testing');
+  String get generateMockData => translate('generate_mock_data');
+  String get generateMockDataDesc => translate('generate_mock_data_desc');
+  String get generateMockDataConfirm =>
+      translate('generate_mock_data_confirm');
+  String get mockDataGenerated => translate('mock_data_generated');
+  String get resetAllData => translate('reset_all_data');
+  String get resetAllDataDesc => translate('reset_all_data_desc');
+  String get resetAllDataConfirm => translate('reset_all_data_confirm');
+  String get resetSuccess => translate('reset_success');
 
   // Translate default category name by ID
   String translateCategoryName(String categoryId, String defaultName) {

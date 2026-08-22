@@ -19,10 +19,11 @@ import '../providers/ad_free_provider.dart';
 import '../widgets/banner_ad_widget.dart';
 import 'transaction_form_screen.dart';
 import 'home_screen.dart';
-import 'settings_screen.dart';
-import '../widgets/voice_record_sheet.dart';
 import '../widgets/dashboard/quick_access_hub.dart';
 import '../widgets/category_icon_widget.dart';
+import '../models/monthly_budget.dart';
+import '../providers/monthly_budget_provider.dart';
+import 'category_budget_screen.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -219,10 +220,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             error: (error, stack) => Center(child: Text('Error: $error')),
             data: (settings) {
               final currency = settings.currency;
-              final budget = settings.monthlyBudget;
-              final budgetUsed = totalExpense;
-              final budgetPercent =
-                  budget > 0 ? (budgetUsed / budget * 100).clamp(0, 100).toDouble() : 0.0;
+              final budgetKey = MonthYearKey(_selectedYear, _selectedMonth);
+              final budgetSummaryAsync = ref.watch(monthlyBudgetFamily(budgetKey));
 
               return categoriesAsync.when(
                 loading: () => const Center(child: CircularProgressIndicator()),
@@ -322,9 +321,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
                               _buildBudgetCard(
                                 context,
-                                budgetUsed,
-                                budget,
-                                budgetPercent,
+                                budgetSummaryAsync.value,
                                 currency,
                                 l10n,
                               ),
@@ -332,7 +329,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
                               // Category Budgets Progress
                               _buildCategoryBudgetsWidget(
-                                transactions,
+                                budgetSummaryAsync.value,
                                 categories,
                                 currency,
                                 l10n,
@@ -557,12 +554,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   Widget _buildBudgetCard(
     BuildContext context,
-    double used,
-    double budget,
-    double percent,
+    MonthlyBudgetSummary? summary,
     String currency,
-    l10n,
+    dynamic l10n,
   ) {
+    final double budget = summary?.totalBudget ?? 0.0;
+    final double used = summary?.totalSpent ?? 0.0;
+    final double percent = (summary?.percentageUsed ?? 0.0) * 100;
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -586,18 +585,18 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     l10n.budgetNotSet,
                     style: TextStyle(
                       fontSize: 14,
-                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
                     ),
                   ),
                   OutlinedButton.icon(
                     onPressed: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                        MaterialPageRoute(builder: (_) => const CategoryBudgetScreen()),
                       );
                     },
-                    icon: const Icon(Icons.settings, size: 18),
-                    label: Text(l10n.settings),
+                    icon: const Icon(Icons.add, size: 18),
+                    label: Text(l10n.locale == 'vi' ? 'Thiết lập' : 'Set Budget'),
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     ),
@@ -608,7 +607,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               Column(
                 children: [
                   LinearProgressIndicator(
-                    value: percent / 100,
+                    value: (percent / 100).clamp(0.0, 1.0),
                     backgroundColor: Theme.of(context).brightness == Brightness.dark ? Colors.grey[800] : Colors.grey[200],
                     color: percent >= 100
                         ? Colors.red
@@ -623,7 +622,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         '${percent.toStringAsFixed(1)}${l10n.percentUsed}',
                         style: TextStyle(
                           fontSize: 14,
-                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
                         ),
                       ),
                       Text(
@@ -645,22 +644,18 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 
   Widget _buildCategoryBudgetsWidget(
-    List<Transaction> transactions,
+    MonthlyBudgetSummary? summary,
     List<Category> categories,
     String currency,
     dynamic l10n,
   ) {
-    // Lọc ra các category có set budgetLimit > 0
-    final budgetCategories = categories.where((c) => c.budgetLimit != null && c.budgetLimit! > 0).toList();
-    if (budgetCategories.isEmpty) return const SizedBox.shrink();
+    if (summary == null) return const SizedBox.shrink();
 
-    // Tính toán số tiền đã dùng cho mỗi category
-    final Map<String, double> categorySpent = {};
-    for (var tx in transactions) {
-      if (tx.type == 'expense' && tx.categoryId != null) {
-        categorySpent[tx.categoryId!] = (categorySpent[tx.categoryId!] ?? 0) + tx.amount;
-      }
-    }
+    final budgetStatuses = summary.categoryStatuses.values
+        .where((s) => s.hasBudget)
+        .toList();
+
+    if (budgetStatuses.isEmpty) return const SizedBox.shrink();
 
     return Card(
       child: Padding(
@@ -669,7 +664,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Ngân sách danh mục',
+              l10n.locale == 'vi' ? 'Ngân sách danh mục' : 'Category Budgets',
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
@@ -680,83 +675,83 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(
-                children: budgetCategories.map((category) {
-                final budget = category.budgetLimit!;
-                final spent = categorySpent[category.id] ?? 0;
-                final percent = (spent / budget * 100).clamp(0, 100).toDouble();
+                children: budgetStatuses.map((status) {
+                  final category = categories.where((c) => c.id == status.categoryId).firstOrNull;
+                  final budget = status.budgetLimit;
+                  final spent = status.spent;
 
-                Color progressColor = Colors.green;
-                if (percent >= 100) {
-                  progressColor = Colors.red;
-                } else if (percent >= 80) {
-                  progressColor = Colors.orange;
-                } else if (percent >= 50) {
-                  progressColor = Colors.amber;
-                }
-
-                IconData? iconData = CategoryIconData.getIcon(category.icon);
-                Color iconColor = Colors.grey[600]!;
-                if (category.color != null && category.color!.isNotEmpty) {
-                  try {
-                    String hex = category.color!.replaceAll('#', '');
-                    if (hex.length == 6) hex = 'FF' + hex;
-                    iconColor = Color(int.parse(hex, radix: 16));
-                  } catch (e) {
-                    // ignore
+                  Color progressColor = Colors.green;
+                  if (status.isOverBudget) {
+                    progressColor = Colors.red;
+                  } else if (status.isNearLimit) {
+                    progressColor = Colors.orange;
                   }
-                }
 
-                final displayName = l10n.translateCategoryName(category.id, category.name);
+                  IconData? iconData = category != null ? CategoryIconData.getIcon(category.icon) : Icons.category;
+                  Color iconColor = Colors.grey[600]!;
+                  if (category?.color != null && category!.color!.isNotEmpty) {
+                    try {
+                      String hex = category.color!.replaceAll('#', '');
+                      if (hex.length == 6) hex = 'FF$hex';
+                      iconColor = Color(int.parse(hex, radix: 16));
+                    } catch (e) {
+                      // ignore
+                    }
+                  }
 
-                return Container(
-                  width: 160,
-                  margin: const EdgeInsets.only(right: 12),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).cardColor,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey.withOpacity(0.2)),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(iconData ?? Icons.category, color: iconColor, size: 16),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              displayName,
-                              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                  final displayName = category != null
+                      ? l10n.translateCategoryName(category.id, category.name)
+                      : 'Khác';
+
+                  return Container(
+                    width: 160,
+                    margin: const EdgeInsets.only(right: 12),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).cardColor,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(iconData ?? Icons.category, color: iconColor, size: 16),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                displayName,
+                                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          '${_formatAmount(spent, currency)} / ${_formatAmount(budget, currency)}',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: status.isOverBudget ? Colors.red : Colors.grey[600],
+                            fontWeight: status.isOverBudget ? FontWeight.bold : FontWeight.normal,
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        '${_formatAmount(spent, currency)} / ${_formatAmount(budget, currency)}',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: percent >= 100 ? Colors.red : Colors.grey[600],
-                          fontWeight: percent >= 100 ? FontWeight.bold : FontWeight.normal,
                         ),
-                      ),
-                      const SizedBox(height: 6),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(2),
-                        child: LinearProgressIndicator(
-                          value: percent / 100,
-                          backgroundColor: Theme.of(context).brightness == Brightness.dark ? Colors.grey[800] : Colors.grey[200],
-                          color: progressColor,
-                          minHeight: 4,
+                        const SizedBox(height: 6),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(2),
+                          child: LinearProgressIndicator(
+                            value: (status.percentage).clamp(0.0, 1.0),
+                            backgroundColor: Theme.of(context).brightness == Brightness.dark ? Colors.grey[800] : Colors.grey[200],
+                            color: progressColor,
+                            minHeight: 4,
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                );
-              }).toList(),
+                      ],
+                    ),
+                  );
+                }).toList(),
               ),
             ),
           ],
@@ -1423,9 +1418,22 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   categoryName,
                   style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
                 ),
-                subtitle: Text(
-                  DateFormat('dd/MM/yyyy').format(tx.transactionDate),
-                  style: const TextStyle(fontSize: 12),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${l10n.txDateShort}: ${DateFormat('dd/MM/yyyy').format(tx.transactionDate)}',
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                    ),
+                    Text(
+                      '${l10n.createdAtShort}: ${DateFormat('dd/MM/yyyy HH:mm:ss').format(tx.createdAt)}',
+                      style: const TextStyle(fontSize: 11, color: Colors.grey),
+                    ),
+                    Text(
+                      '${l10n.updatedAtShort}: ${DateFormat('dd/MM/yyyy HH:mm:ss').format(tx.updatedAt)}',
+                      style: const TextStyle(fontSize: 11, color: Colors.grey),
+                    ),
+                  ],
                 ),
                 trailing: Text(
                   '${tx.type == 'income' ? '+' : '-'}${_formatAmount(tx.amount, currency)}',
@@ -1604,6 +1612,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       builder: (context) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             ListTile(
               leading: const Icon(Icons.edit),
@@ -1638,6 +1647,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           editFormula: transaction.formula,
           editCategoryId: transaction.categoryId,
           editNote: transaction.note,
+          editTransactionDate: transaction.transactionDate,
+          editCreatedAt: transaction.createdAt,
         ),
       ),
     );

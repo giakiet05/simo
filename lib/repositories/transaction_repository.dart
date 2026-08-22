@@ -59,7 +59,7 @@ class TransactionRepository {
       'transactions',
       where: where,
       whereArgs: whereArgs,
-      orderBy: 'COALESCE(transaction_date, created_at) DESC',
+      orderBy: 'COALESCE(transaction_date, created_at) DESC, created_at DESC',
     );
 
     return maps.map((map) => Transaction.fromMap(map)).toList();

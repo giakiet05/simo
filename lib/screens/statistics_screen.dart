@@ -7,6 +7,7 @@ import '../providers/category_provider.dart';
 import '../providers/settings_provider.dart';
 import '../providers/localization_provider.dart';
 import '../providers/loan_provider.dart';
+import '../providers/monthly_budget_provider.dart';
 import '../models/transaction.dart';
 import '../models/category.dart';
 import '../models/loan_contact.dart';
@@ -23,7 +24,7 @@ class StatisticsScreen extends ConsumerStatefulWidget {
 
 class _StatisticsScreenState extends ConsumerState<StatisticsScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  int _selectedMonths = 6;
+  final ScrollController _chartScrollController = ScrollController();
   bool _showExpenseCategory = true;
   int _selectedCategoryMonth = DateTime.now().month;
   int _selectedCategoryYear = DateTime.now().year;
@@ -63,6 +64,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> with Single
   @override
   void dispose() {
     _tabController.dispose();
+    _chartScrollController.dispose();
     super.dispose();
   }
 
@@ -113,7 +115,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> with Single
             child: TabBarView(
               controller: _tabController,
               children: [
-                _buildOverviewTab(transactions, currency, l10n),
+                _buildOverviewTab(transactions, loans, currency, l10n),
                 _buildCategoriesTab(transactions, categories, currency, l10n),
                 _buildBudgetsTab(transactions, categories, currency, l10n),
                 _buildLoansTab(loans, currency, l10n),
@@ -125,54 +127,48 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> with Single
     );
   }
 
-  Widget _buildTimeFilter(dynamic l10n) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [3, 6, 12].map((months) {
-          final isSelected = _selectedMonths == months;
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: _buildCustomChip(
-              label: '$months ${l10n.locale == 'vi' ? 'tháng' : 'months'}',
-              isSelected: isSelected,
-              selectedColor: Theme.of(context).colorScheme.primary,
-              onTap: () => setState(() => _selectedMonths = months),
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-
-  Widget _buildOverviewTab(List<Transaction> transactions, String currency, dynamic l10n) {
+  Widget _buildOverviewTab(
+    List<Transaction> transactions,
+    List<LoanContact> loans,
+    String currency,
+    dynamic l10n,
+  ) {
     // Analytics calculations for current month
     final now = DateTime.now();
     final startOfThisMonth = DateTime(now.year, now.month, 1);
     final startOfLastMonth = DateTime(now.year, now.month - 1, 1);
     final startOfNextMonth = DateTime(now.year, now.month + 1, 1);
 
+    double thisMonthIncome = 0;
     double thisMonthExpense = 0;
     double lastMonthExpense = 0;
-    double topExpenseThisMonth = 0;
-    Set<int> daysSpent = {};
     
+    DateTime earliest = now;
     for (var tx in transactions) {
-      if (tx.type == 'expense') {
-        if (tx.transactionDate.isAfter(startOfThisMonth) && tx.transactionDate.isBefore(startOfNextMonth)) {
+      if (tx.transactionDate.isAfter(startOfThisMonth) && tx.transactionDate.isBefore(startOfNextMonth)) {
+        if (tx.type == 'income') {
+          thisMonthIncome += tx.amount;
+        } else if (tx.type == 'expense') {
           thisMonthExpense += tx.amount;
-          daysSpent.add(tx.transactionDate.day);
-          if (tx.amount > topExpenseThisMonth) topExpenseThisMonth = tx.amount;
-        } else if (tx.transactionDate.isAfter(startOfLastMonth) && tx.transactionDate.isBefore(startOfThisMonth)) {
+        }
+      } else if (tx.transactionDate.isAfter(startOfLastMonth) && tx.transactionDate.isBefore(startOfThisMonth)) {
+        if (tx.type == 'expense') {
           lastMonthExpense += tx.amount;
         }
       }
+      if (tx.transactionDate.isBefore(earliest)) {
+        earliest = tx.transactionDate;
+      }
     }
 
-    final currentDay = now.day;
-    final noSpendDays = currentDay - daysSpent.length;
-    final avgDaily = currentDay > 0 ? thisMonthExpense / currentDay : 0.0;
+    final balance = thisMonthIncome - thisMonthExpense;
+
+    double totalBorrow = 0;
+    double totalLend = 0;
+    for (var l in loans) {
+      if (l.type == 'borrowed') totalBorrow += l.remainingAmount;
+      if (l.type == 'lent') totalLend += l.remainingAmount;
+    }
     
     // Month over Month calculation
     double momDiff = 0;
@@ -180,15 +176,20 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> with Single
       momDiff = ((thisMonthExpense - lastMonthExpense) / lastMonthExpense) * 100;
     }
 
+    // Calculate dynamic month span from earliest transaction to now (min 6, max 24)
+    int totalMonths = (now.year - earliest.year) * 12 + (now.month - earliest.month) + 1;
+    if (totalMonths < 6) totalMonths = 6;
+    if (totalMonths > 24) totalMonths = 24;
+
     // Prepare chart data
     final Map<String, double> incomeData = {};
     final Map<String, double> expenseData = {};
     final List<String> labels = [];
 
-    for (int i = _selectedMonths - 1; i >= 0; i--) {
+    for (int i = totalMonths - 1; i >= 0; i--) {
       final m = DateTime(now.year, now.month - i, 1);
       final key = '${m.year}-${m.month.toString().padLeft(2, '0')}';
-      labels.add('${m.month}/${m.year}');
+      labels.add('T${m.month}/${m.year.toString().substring(2)}');
       incomeData[key] = 0;
       expenseData[key] = 0;
     }
@@ -209,56 +210,38 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> with Single
     final maxVal = maxIncome > maxExpense ? maxIncome : maxExpense;
     final yMax = maxVal == 0 ? 100.0 : maxVal * 1.2;
 
-    double chartWidth = labels.length * 70.0;
+    double chartWidth = labels.length * 64.0;
     if (chartWidth < MediaQuery.of(context).size.width - 64) {
       chartWidth = MediaQuery.of(context).size.width - 64;
     }
 
+    // Scroll to the most recent month initially
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_chartScrollController.hasClients) {
+        _chartScrollController.jumpTo(_chartScrollController.position.maxScrollExtent);
+      }
+    });
+
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        _buildTimeFilter(l10n),
-        // Quick Stats row
-        Row(
-          children: [
-            Expanded(child: _buildMiniStatCard(l10n.locale == 'vi' ? 'Tiêu TB/ngày' : 'Daily Avg', avgDaily, currency, Icons.calendar_today, Colors.blue)),
-            const SizedBox(width: 12),
-            Expanded(child: _buildMiniStatCard(l10n.locale == 'vi' ? 'Món to nhất' : 'Top Expense', topExpenseThisMonth, currency, Icons.trending_down, Colors.red)),
-            const SizedBox(width: 12),
-            Expanded(child: _buildMiniStatCard(l10n.locale == 'vi' ? 'Ngày 0đ' : 'No-Spend Days', noSpendDays.toDouble(), '', Icons.sentiment_very_satisfied, Colors.green, isAmount: false)),
-          ],
+        // Compact Overview Summary Card
+        _buildCompactOverviewSummary(
+          balance: balance,
+          income: thisMonthIncome,
+          expense: thisMonthExpense,
+          totalBorrow: totalBorrow,
+          totalLend: totalLend,
+          momDiff: momDiff,
+          currency: currency,
+          l10n: l10n,
         ),
         const SizedBox(height: 16),
-        
-        // Month over Month
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: momDiff > 0 ? Colors.red.withValues(alpha: 0.1) : Colors.green.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: momDiff > 0 ? Colors.red.withValues(alpha: 0.3) : Colors.green.withValues(alpha: 0.3)),
-          ),
-          child: Row(
-            children: [
-              Icon(momDiff > 0 ? Icons.warning_amber_rounded : Icons.check_circle_outline, 
-                color: momDiff > 0 ? Colors.red : Colors.green),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  l10n.locale == 'vi' 
-                    ? (momDiff > 0 ? 'Tháng này tiêu nhiều hơn tháng trước ${momDiff.toStringAsFixed(1)}%' : 'Tuyệt vời! Tháng này tiêu ít hơn tháng trước ${momDiff.abs().toStringAsFixed(1)}%')
-                    : (momDiff > 0 ? 'Spent ${momDiff.toStringAsFixed(1)}% more than last month' : 'Great! Spent ${momDiff.abs().toStringAsFixed(1)}% less than last month'),
-                  style: TextStyle(fontWeight: FontWeight.w600, color: momDiff > 0 ? Colors.red[700] : Colors.green[700]),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 24),
 
         _buildChartCard(
           title: l10n.locale == 'vi' ? 'Tổng Thu & Chi' : 'Income & Expense',
           child: SingleChildScrollView(
+            controller: _chartScrollController,
             scrollDirection: Axis.horizontal,
             child: SizedBox(
               width: chartWidth,
@@ -346,33 +329,162 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> with Single
     );
   }
 
-  Widget _buildMiniStatCard(String title, double value, String currency, IconData icon, Color color, {bool isAmount = true}) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Theme.of(context).brightness == Brightness.dark ? Colors.transparent : Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
+  Widget _buildCompactOverviewSummary({
+    required double balance,
+    required double income,
+    required double expense,
+    required double totalBorrow,
+    required double totalLend,
+    required double momDiff,
+    required String currency,
+    required dynamic l10n,
+  }) {
+    final bool isPositive = balance >= 0;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: Colors.grey.withValues(alpha: isDark ? 0.25 : 0.15)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: color, size: 20),
-          const SizedBox(height: 8),
-          Text(title, style: TextStyle(fontSize: 11, color: Theme.of(context).textTheme.bodySmall?.color), maxLines: 1, overflow: TextOverflow.ellipsis),
-          const SizedBox(height: 4),
-          Text(
-            isAmount ? _formatCompact(value) + CurrencyService.getSymbol(currency) : value.toInt().toString(),
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-          ),
-        ],
+      color: theme.colorScheme.surface,
+      child: Padding(
+        padding: const EdgeInsets.all(14.0),
+        child: Column(
+          children: [
+            // Row 1: Balance + MoM badge
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      l10n.balance,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: theme.textTheme.bodySmall?.color,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      balance >= 0
+                          ? '${NumberFormat('#,###').format(balance)} ${CurrencyService.getSymbol(currency)}'
+                          : '-${NumberFormat('#,###').format(balance.abs())} ${CurrencyService.getSymbol(currency)}',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: isPositive ? Colors.green : Colors.red,
+                      ),
+                    ),
+                  ],
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: (momDiff > 0 ? Colors.red : Colors.green).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        momDiff > 0 ? Icons.trending_up : Icons.trending_down,
+                        size: 14,
+                        color: momDiff > 0 ? Colors.red : Colors.green,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        l10n.locale == 'vi'
+                            ? (momDiff > 0 ? '+${momDiff.toStringAsFixed(1)}% chi' : '${momDiff.toStringAsFixed(1)}% chi')
+                            : (momDiff > 0 ? '+${momDiff.toStringAsFixed(1)}% exp' : '${momDiff.toStringAsFixed(1)}% exp'),
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: momDiff > 0 ? Colors.red[700] : Colors.green[700],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Divider(height: 1, color: Colors.grey.withValues(alpha: 0.15)),
+            const SizedBox(height: 10),
+            // Row 2: 4 mini stat columns (Thu, Chi, Nợ, Cho vay)
+            Row(
+              children: [
+                Expanded(
+                  child: _buildMiniStat(
+                    l10n.income,
+                    income,
+                    Colors.green,
+                    currency,
+                  ),
+                ),
+                Container(width: 1, height: 28, color: Colors.grey.withValues(alpha: 0.2)),
+                Expanded(
+                  child: _buildMiniStat(
+                    l10n.expense,
+                    expense,
+                    Colors.red,
+                    currency,
+                  ),
+                ),
+                Container(width: 1, height: 28, color: Colors.grey.withValues(alpha: 0.2)),
+                Expanded(
+                  child: _buildMiniStat(
+                    l10n.locale == 'vi' ? 'Nợ' : 'Borrow',
+                    totalBorrow,
+                    Colors.amber[800]!,
+                    currency,
+                  ),
+                ),
+                Container(width: 1, height: 28, color: Colors.grey.withValues(alpha: 0.2)),
+                Expanded(
+                  child: _buildMiniStat(
+                    l10n.locale == 'vi' ? 'Cho vay' : 'Lend',
+                    totalLend,
+                    Colors.blue,
+                    currency,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
+    );
+  }
+
+  Widget _buildMiniStat(String label, double amount, Color color, String currency) {
+    return Column(
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            color: Theme.of(context).textTheme.bodySmall?.color,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        const SizedBox(height: 2),
+        Text(
+          '${_formatCompact(amount)} ${CurrencyService.getSymbol(currency)}',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ],
     );
   }
 
@@ -609,94 +721,309 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> with Single
     );
   }
 
-  Widget _buildBudgetsTab(List<Transaction> transactions, List<Category> categories, String currency, dynamic l10n) {
-    // Only current month budget vs actual
-    final now = DateTime.now();
-    final startOfThisMonth = DateTime(now.year, now.month, 1);
+  Widget _buildBudgetsTab(
+    List<Transaction> transactions,
+    List<Category> categories,
+    String currency,
+    dynamic l10n,
+  ) {
+    final budgetKey = MonthYearKey(_selectedCategoryYear, _selectedCategoryMonth);
+    final summaryAsync = ref.watch(monthlyBudgetFamily(budgetKey));
 
-    final budgetCategories = categories.where((c) => c.budgetLimit != null && c.budgetLimit! > 0).toList();
-    
-    if (budgetCategories.isEmpty) {
-      return Center(child: Text(l10n.locale == 'vi' ? 'Bạn chưa đặt ngân sách nào' : 'No budgets set'));
-    }
-
-    final Map<String, double> categorySpent = {};
-    for (var tx in transactions) {
-      if (tx.type == 'expense' && tx.transactionDate.isAfter(startOfThisMonth)) {
-        final catId = tx.categoryId ?? 'other';
-        categorySpent[catId] = (categorySpent[catId] ?? 0) + tx.amount;
-      }
-    }
+    final monthName = l10n.locale == 'vi'
+        ? 'Tháng $_selectedCategoryMonth/$_selectedCategoryYear'
+        : '${DateFormat('MMMM').format(DateTime(_selectedCategoryYear, _selectedCategoryMonth))} $_selectedCategoryYear';
 
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        _buildChartCard(
-          title: l10n.locale == 'vi' ? 'Ngân sách vs Thực tế (Tháng này)' : 'Budget vs Actual (This Month)',
-          height: budgetCategories.length * 70.0,
-          child: ListView.builder(
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: budgetCategories.length,
-            itemBuilder: (context, index) {
-              final cat = budgetCategories[index];
-              final budget = cat.budgetLimit!;
-              final spent = categorySpent[cat.id] ?? 0.0;
-              final percent = (spent / budget).clamp(0.0, 1.0);
-              
-              Color progressColor = Colors.green;
-              if (percent >= 1.0) progressColor = Colors.red;
-              else if (percent >= 0.8) progressColor = Colors.orange;
-              
-              final catName = l10n.translateCategoryName(cat.id, cat.name);
-              final iconData = CategoryIconData.getIcon(cat.icon) ?? Icons.category;
+        // Month Selector Header - centered
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.chevron_left),
+                onPressed: () {
+                  setState(() {
+                    if (_selectedCategoryMonth == 1) {
+                      _selectedCategoryMonth = 12;
+                      _selectedCategoryYear -= 1;
+                    } else {
+                      _selectedCategoryMonth -= 1;
+                    }
+                  });
+                },
+              ),
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => _showMonthYearPicker(context, l10n),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    alignment: Alignment.center,
+                    child: Text(
+                      monthName,
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.chevron_right),
+                onPressed: () {
+                  setState(() {
+                    if (_selectedCategoryMonth == 12) {
+                      _selectedCategoryMonth = 1;
+                      _selectedCategoryYear += 1;
+                    } else {
+                      _selectedCategoryMonth += 1;
+                    }
+                  });
+                },
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+        summaryAsync.when(
+          data: (summary) {
+            final budgetStatuses = summary.categoryStatuses.values
+                .where((s) => s.hasBudget)
+                .toList();
 
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(iconData, size: 16, color: Theme.of(context).textTheme.bodySmall?.color),
-                        const SizedBox(width: 8),
-                        Expanded(child: Text(catName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13))),
-                        Text(
-                          '${_formatCompact(spent)} / ${_formatCompact(budget)} ${CurrencyService.getSymbol(currency)}',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: percent >= 1.0 ? FontWeight.bold : FontWeight.normal,
-                            color: percent >= 1.0 ? Colors.red : Theme.of(context).textTheme.bodySmall?.color,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: LinearProgressIndicator(
-                        value: percent,
-                        backgroundColor: Theme.of(context).brightness == Brightness.dark ? Colors.grey[800] : Colors.grey[200],
-                        color: progressColor,
-                        minHeight: 8,
-                      ),
-                    ),
-                  ],
+            if (budgetStatuses.isEmpty && !summary.hasBudget) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 40),
+                  child: Text(
+                    l10n.noBudgetThisMonth,
+                    style: const TextStyle(color: Colors.grey),
+                  ),
                 ),
               );
-            },
-          ),
+            }
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (summary.hasBudget) ...[
+                  Card(
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      side: BorderSide(
+                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
+                      ),
+                    ),
+                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  l10n.totalMonthlyBudget,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: Theme.of(context).colorScheme.primary,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                '${NumberFormat('#,###').format(summary.totalBudget)} ${CurrencyService.getSymbol(currency)}',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            child: LinearProgressIndicator(
+                              value: summary.percentageUsed.clamp(0.0, 1.0),
+                              backgroundColor: Theme.of(context).brightness == Brightness.dark
+                                  ? Colors.grey[800]
+                                  : Colors.grey[200],
+                              color: summary.isOverBudget
+                                  ? Colors.red
+                                  : (summary.percentageUsed >= 0.8 ? Colors.orange : Colors.green),
+                              minHeight: 8,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  '${l10n.locale == 'vi' ? 'Đã chi' : 'Spent'}: ${NumberFormat('#,###').format(summary.totalSpent)} ${CurrencyService.getSymbol(currency)} (${(summary.percentageUsed * 100).toStringAsFixed(1)}%)',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: summary.isOverBudget ? Colors.red : Colors.grey[700],
+                                    fontWeight: summary.isOverBudget ? FontWeight.bold : FontWeight.normal,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                '${l10n.locale == 'vi' ? 'Còn' : 'Remaining'}: ${NumberFormat('#,###').format(summary.remaining)} ${CurrencyService.getSymbol(currency)}',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: summary.remaining < 0 ? Colors.red : Colors.green[700],
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+                if (budgetStatuses.isNotEmpty)
+                  _buildChartCard(
+                    title: l10n.categoryBudgets,
+                    height: budgetStatuses.length * 75.0,
+                    child: ListView.builder(
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: budgetStatuses.length,
+                      itemBuilder: (context, index) {
+                        final status = budgetStatuses[index];
+                        final cat = categories
+                            .where((c) => c.id == status.categoryId)
+                            .firstOrNull;
+                        final budget = status.budgetLimit;
+                        final spent = status.spent;
+                        final percent = (status.percentage).clamp(0.0, 1.0);
+
+                        Color progressColor = Colors.green;
+                        if (status.isOverBudget) {
+                          progressColor = Colors.red;
+                        } else if (status.isNearLimit) {
+                          progressColor = Colors.orange;
+                        }
+
+                        final catName = cat != null
+                            ? l10n.translateCategoryName(cat.id, cat.name)
+                            : 'Khác';
+                        final iconData =
+                            cat != null ? CategoryIconData.getIcon(cat.icon) : Icons.category;
+
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(iconData,
+                                      size: 16,
+                                      color: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall
+                                          ?.color),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      catName,
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.w600, fontSize: 13),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    '${_formatCompact(spent)} / ${_formatCompact(budget)} ${CurrencyService.getSymbol(currency)} (${(status.percentage * 100).toStringAsFixed(0)}%)',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: status.isOverBudget
+                                          ? FontWeight.bold
+                                          : FontWeight.normal,
+                                      color: status.isOverBudget
+                                          ? Colors.red
+                                          : Theme.of(context)
+                                              .textTheme
+                                              .bodySmall
+                                              ?.color,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(4),
+                                child: LinearProgressIndicator(
+                                  value: percent,
+                                  backgroundColor:
+                                      Theme.of(context).brightness == Brightness.dark
+                                          ? Colors.grey[800]
+                                          : Colors.grey[200],
+                                  color: progressColor,
+                                  minHeight: 8,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+              ],
+            );
+          },
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => Center(child: Text('Error: $e')),
         ),
       ],
     );
   }
 
   Widget _buildLoansTab(List<LoanContact> loans, String currency, dynamic l10n) {
-    if (loans.isEmpty) {
-      return Center(child: Text(l10n.locale == 'vi' ? 'Không có dữ liệu sổ nợ' : 'No loan data'));
-    }
-
     final borrowedLoans = loans.where((l) => l.type == 'borrowed' && l.remainingAmount > 0).toList();
     final lentLoans = loans.where((l) => l.type == 'lent' && l.remainingAmount > 0).toList();
+
+    if (borrowedLoans.isEmpty && lentLoans.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.account_balance_wallet_outlined,
+                size: 64,
+                color: Colors.grey.withValues(alpha: 0.5),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                l10n.locale == 'vi'
+                    ? 'Không có khoản nợ hay cho vay nào cần theo dõi'
+                    : 'No active debts or loans',
+                style: const TextStyle(
+                  fontSize: 16,
+                  color: Colors.grey,
+                  fontWeight: FontWeight.w500,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -770,7 +1097,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> with Single
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Theme.of(context).brightness == Brightness.dark ? Colors.transparent : Colors.black.withOpacity(0.05),
+            color: Theme.of(context).brightness == Brightness.dark ? Colors.transparent : Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -785,16 +1112,6 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> with Single
           if (bottomLegend != null) bottomLegend,
         ],
       ),
-    );
-  }
-
-  Widget _buildLegend(Color color, String label) {
-    return Row(
-      children: [
-        Container(width: 12, height: 12, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-        const SizedBox(width: 8),
-        Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
-      ],
     );
   }
 

@@ -2,6 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/settings_provider.dart';
 import '../providers/localization_provider.dart';
+import '../providers/transaction_provider.dart';
+import '../providers/category_provider.dart';
+import '../providers/loan_provider.dart';
+import '../repositories/category_repository.dart';
+import '../utils/mock_data_generator.dart';
 import '../services/currency_service.dart';
 import '../widgets/banner_ad_widget.dart';
 import '../repositories/database_helper.dart';
@@ -36,6 +41,79 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     await ref.read(settingsProvider.notifier).updateThemeMode(theme);
   }
 
+  void _showGenerateMockDataDialog(BuildContext context, dynamic l10n) {
+    showDialog(
+      context: context,
+      builder: (dialogCtx) {
+        return AlertDialog(
+          title: Row(
+            children: [
+              const Icon(Icons.auto_awesome, color: Colors.teal),
+              const SizedBox(width: 8),
+              Text(l10n.generateMockData),
+            ],
+          ),
+          content: Text(l10n.generateMockDataConfirm),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogCtx),
+              child: Text(l10n.cancel),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.teal,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () async {
+                Navigator.pop(dialogCtx);
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Row(
+                      children: [
+                        const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white),
+                        ),
+                        const SizedBox(width: 12),
+                        Text(l10n.locale == 'vi'
+                            ? 'Đang tạo dữ liệu mẫu...'
+                            : 'Generating mock data...'),
+                      ],
+                    ),
+                    duration: const Duration(seconds: 2),
+                  ),
+                );
+
+                final generator = MockDataGenerator(CategoryRepository());
+                await generator.generateMockData();
+
+                // Reload all providers
+                await ref.read(categoryProvider.notifier).loadCategories();
+                await ref.read(transactionProvider.notifier).loadTransactions();
+                await ref.read(loanProvider.notifier).loadLoans();
+
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(l10n.mockDataGenerated),
+                      backgroundColor: Colors.teal,
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                }
+              },
+              child: Text(l10n.locale == 'vi' ? 'Tạo' : 'Generate'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   void _showResetDataDialog(BuildContext context, dynamic l10n) {
     final controller = TextEditingController();
     bool isMatched = false;
@@ -47,16 +125,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           builder: (context, setDialogState) {
             return AlertDialog(
               title: Text(
-                l10n.locale == 'vi' ? 'Xóa toàn bộ dữ liệu' : 'Reset All Data',
+                l10n.resetAllData,
                 style: const TextStyle(color: Colors.red),
               ),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    l10n.locale == 'vi'
-                        ? 'Hành động này sẽ xóa tất cả giao dịch, danh mục, và khoản vay. Không thể khôi phục.\n\nNhập "xoa" để xác nhận.'
-                        : 'This action will delete all transactions, categories, and loans. Cannot be undone.\n\nType "delete" to confirm.',
+                    l10n.resetAllDataConfirm,
                   ),
                   const SizedBox(height: 16),
                   TextField(
@@ -76,7 +152,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(context),
-                  child: Text(l10n.locale == 'vi' ? 'Hủy' : 'Cancel'),
+                  child: Text(l10n.cancel),
                 ),
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
@@ -84,14 +160,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       ? () async {
                           Navigator.pop(context);
                           await DatabaseHelper.instance.clearAllData();
-                          // Show success and require restart
+                          // Reload all providers
+                          await ref.read(categoryProvider.notifier).loadCategories();
+                          await ref.read(transactionProvider.notifier).loadTransactions();
+                          await ref.read(loanProvider.notifier).loadLoans();
+
                           if (context.mounted) {
-                            showDialog(
-                              context: context,
-                              barrierDismissible: false,
-                              builder: (context) => AlertDialog(
-                                title: Text(l10n.locale == 'vi' ? 'Thành công' : 'Success'),
-                                content: Text(l10n.locale == 'vi' ? 'Đã xóa toàn bộ dữ liệu. Vui lòng khởi động lại ứng dụng.' : 'All data cleared. Please restart the app.'),
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(l10n.resetSuccess),
+                                backgroundColor: Colors.red,
+                                behavior: SnackBarBehavior.floating,
                               ),
                             );
                           }
@@ -228,11 +307,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
                     const SizedBox(height: 24),
                     
-                    // Dữ liệu
+                    // Dữ liệu & Thử nghiệm
                     Padding(
                       padding: const EdgeInsets.only(left: 8, bottom: 8),
                       child: Text(
-                        l10n.locale == 'vi' ? 'Dữ liệu' : 'Data',
+                        l10n.dataAndTesting,
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
@@ -250,12 +329,33 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         children: [
                           ListTile(
                             leading: const CategoryIconWidget(
+                              colorOverride: Colors.teal,
+                              iconDataOverride: Icons.auto_awesome,
+                            ),
+                            title: Text(
+                              l10n.generateMockData,
+                              style: const TextStyle(fontWeight: FontWeight.w500),
+                            ),
+                            subtitle: Text(
+                              l10n.generateMockDataDesc,
+                              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                            ),
+                            trailing: const Icon(Icons.chevron_right),
+                            onTap: () => _showGenerateMockDataDialog(context, l10n),
+                          ),
+                          const Divider(height: 1, indent: 56),
+                          ListTile(
+                            leading: const CategoryIconWidget(
                               colorOverride: Colors.redAccent,
                               iconDataOverride: Icons.delete_forever,
                             ),
                             title: Text(
-                              l10n.locale == 'vi' ? 'Xóa toàn bộ dữ liệu' : 'Reset All Data', 
+                              l10n.resetAllData,
                               style: const TextStyle(fontWeight: FontWeight.w500, color: Colors.redAccent),
+                            ),
+                            subtitle: Text(
+                              l10n.resetAllDataDesc,
+                              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                             ),
                             trailing: const Icon(Icons.chevron_right),
                             onTap: () => _showResetDataDialog(context, l10n),

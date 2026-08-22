@@ -378,34 +378,18 @@ class TransactionScreenState extends ConsumerState<TransactionScreen> {
                             subtitle: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Builder(builder: (context) {
-                                  final txDate = transaction.transactionDate;
-                                  final createdDate = transaction.createdAt ?? txDate;
-                                  final isSameDay = txDate.year == createdDate.year && 
-                                                    txDate.month == createdDate.month && 
-                                                    txDate.day == createdDate.day;
-                                  
-                                  if (isSameDay) {
-                                    return Text(
-                                      DateFormat('dd/MM/yyyy HH:mm:ss').format(createdDate),
-                                      style: const TextStyle(fontSize: 12),
-                                    );
-                                  } else {
-                                    return Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          'GD: ${DateFormat('dd/MM/yyyy').format(txDate)}',
-                                          style: const TextStyle(fontSize: 12),
-                                        ),
-                                        Text(
-                                          'Tạo: ${DateFormat('dd/MM/yyyy HH:mm:ss').format(createdDate)}',
-                                          style: const TextStyle(fontSize: 12, color: Colors.grey),
-                                        ),
-                                      ],
-                                    );
-                                  }
-                                }),
+                                Text(
+                                  '${l10n.txDateShort}: ${DateFormat('dd/MM/yyyy').format(transaction.transactionDate)}',
+                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                                ),
+                                Text(
+                                  '${l10n.createdAtShort}: ${DateFormat('dd/MM/yyyy HH:mm:ss').format(transaction.createdAt)}',
+                                  style: const TextStyle(fontSize: 11, color: Colors.grey),
+                                ),
+                                Text(
+                                  '${l10n.updatedAtShort}: ${DateFormat('dd/MM/yyyy HH:mm:ss').format(transaction.updatedAt)}',
+                                  style: const TextStyle(fontSize: 11, color: Colors.grey),
+                                ),
                                 if (transaction.formula != null && transaction.formula!.isNotEmpty)
                                   Text(
                                     '${l10n.formula}: ${transaction.formula}',
@@ -984,6 +968,7 @@ class TransactionScreenState extends ConsumerState<TransactionScreen> {
       builder: (context) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             ListTile(
               leading: const Icon(Icons.edit),
@@ -1030,6 +1015,8 @@ class TransactionScreenState extends ConsumerState<TransactionScreen> {
           editFormula: transaction.formula,
           editCategoryId: transaction.categoryId,
           editNote: transaction.note,
+          editTransactionDate: transaction.transactionDate,
+          editCreatedAt: transaction.createdAt,
         ),
       ),
     );

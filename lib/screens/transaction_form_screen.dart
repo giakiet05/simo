@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import '../providers/transaction_provider.dart';
 import '../providers/category_provider.dart';
 import '../providers/localization_provider.dart';
@@ -18,6 +19,8 @@ class TransactionFormScreen extends ConsumerStatefulWidget {
   final String? editFormula;
   final String? editCategoryId;
   final String? editNote;
+  final DateTime? editTransactionDate;
+  final DateTime? editCreatedAt;
 
   const TransactionFormScreen({
     super.key,
@@ -27,6 +30,8 @@ class TransactionFormScreen extends ConsumerStatefulWidget {
     this.editFormula,
     this.editCategoryId,
     this.editNote,
+    this.editTransactionDate,
+    this.editCreatedAt,
   });
 
   @override
@@ -37,6 +42,7 @@ class TransactionFormScreen extends ConsumerStatefulWidget {
 class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   late final List<TransactionItem> _items;
   late final bool _isEditMode;
+  DateTime? _originalDate;
   final ScrollController _scrollController = ScrollController();
 
   @override
@@ -45,8 +51,10 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     _isEditMode = widget.editTransactionId != null;
 
     if (_isEditMode) {
+      _originalDate = widget.editTransactionDate ?? widget.editCreatedAt;
       final item = TransactionItem();
       item.type = widget.editType ?? 'expense';
+      item.transactionDate = _originalDate ?? DateTime.now();
 
       // Format amount để hiển thị với dấu phẩy
       String amountText = widget.editFormula ?? widget.editAmount ?? '';
@@ -358,7 +366,11 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 12),
+            if (_isEditMode && _originalDate != null) ...[
+              const SizedBox(height: 10),
+              _buildOriginalDateButton(item, _originalDate!, l10n.originalDate),
+            ],
+            const SizedBox(height: 10),
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(
@@ -373,6 +385,49 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildOriginalDateButton(TransactionItem item, DateTime originalDate, String label) {
+    final isSelected = item.transactionDate.year == originalDate.year &&
+                       item.transactionDate.month == originalDate.month &&
+                       item.transactionDate.day == originalDate.day;
+
+    final primaryColor = Theme.of(context).colorScheme.primary;
+
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        icon: Icon(
+          Icons.history,
+          size: 18,
+          color: isSelected ? primaryColor : Colors.grey[700],
+        ),
+        label: Text(
+          '$label: ${DateFormat('dd/MM/yyyy').format(originalDate)}',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+            color: isSelected ? primaryColor : null,
+          ),
+        ),
+        style: OutlinedButton.styleFrom(
+          backgroundColor: isSelected ? primaryColor.withValues(alpha: 0.12) : Colors.transparent,
+          side: BorderSide(
+            color: isSelected ? primaryColor : Colors.grey.shade300,
+            width: isSelected ? 1.5 : 1.0,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+        ),
+        onPressed: () {
+          setState(() {
+            item.transactionDate = originalDate;
+          });
+        },
       ),
     );
   }

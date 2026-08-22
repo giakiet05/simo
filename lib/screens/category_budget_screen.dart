@@ -3,12 +3,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../models/category.dart';
+import '../models/monthly_budget.dart';
 import '../providers/settings_provider.dart';
 import '../providers/category_provider.dart';
 import '../providers/localization_provider.dart';
-import '../theme/app_colors.dart';
+import '../providers/monthly_budget_provider.dart';
 import '../services/currency_service.dart';
-import '../utils/icon_data.dart';
 import '../widgets/icon_picker_dialog.dart';
 import '../widgets/color_picker_dialog.dart';
 import '../widgets/banner_ad_widget.dart';
@@ -21,40 +21,136 @@ class CategoryBudgetScreen extends ConsumerStatefulWidget {
   ConsumerState<CategoryBudgetScreen> createState() => _CategoryBudgetScreenState();
 }
 
-class _CategoryBudgetScreenState extends ConsumerState<CategoryBudgetScreen> with SingleTickerProviderStateMixin {
+class _CategoryBudgetScreenState extends ConsumerState<CategoryBudgetScreen>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  final TextEditingController _totalBudgetController = TextEditingController();
-  bool _isEditingTotal = false;
+  int _selectedYear = DateTime.now().year;
+  int _selectedMonth = DateTime.now().month;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final settingsAsync = ref.read(settingsProvider);
-      settingsAsync.whenData((settings) {
-        if (settings.monthlyBudget > 0) {
-          _totalBudgetController.text = settings.monthlyBudget.toInt().toString();
-        }
-      });
-    });
   }
 
   @override
   void dispose() {
     _tabController.dispose();
-    _totalBudgetController.dispose();
     super.dispose();
   }
 
-  void _saveTotalBudget() {
-    final val = double.tryParse(_totalBudgetController.text.replaceAll(',', ''));
-    if (val != null) {
-      ref.read(settingsProvider.notifier).updateBudget(val);
-    }
+  void _previousMonth() {
     setState(() {
-      _isEditingTotal = false;
+      if (_selectedMonth == 1) {
+        _selectedMonth = 12;
+        _selectedYear -= 1;
+      } else {
+        _selectedMonth -= 1;
+      }
     });
+  }
+
+  void _nextMonth() {
+    setState(() {
+      if (_selectedMonth == 12) {
+        _selectedMonth = 1;
+        _selectedYear += 1;
+      } else {
+        _selectedMonth += 1;
+      }
+    });
+  }
+
+  void _showMonthYearPicker(dynamic l10n) {
+    int tempYear = _selectedYear;
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.chevron_left),
+                          onPressed: () => setModalState(() => tempYear--),
+                        ),
+                        Text(
+                          tempYear.toString(),
+                          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.chevron_right),
+                          onPressed: () => setModalState(() => tempYear++),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 4,
+                        childAspectRatio: 2,
+                        crossAxisSpacing: 8,
+                        mainAxisSpacing: 8,
+                      ),
+                      itemCount: 12,
+                      itemBuilder: (context, index) {
+                        final month = index + 1;
+                        final isSelected =
+                            month == _selectedMonth && tempYear == _selectedYear;
+                        return InkWell(
+                          onTap: () {
+                            setState(() {
+                              _selectedMonth = month;
+                              _selectedYear = tempYear;
+                            });
+                            Navigator.pop(context);
+                          },
+                          child: Container(
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? Theme.of(context).colorScheme.primary
+                                  : (Theme.of(context).brightness == Brightness.dark
+                                      ? Colors.grey[800]
+                                      : Colors.grey[200]),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              l10n.locale == 'vi'
+                                  ? 'T$month'
+                                  : DateFormat('MMM').format(DateTime(2020, month)),
+                              style: TextStyle(
+                                color: isSelected
+                                    ? Colors.white
+                                    : Theme.of(context).textTheme.bodyMedium?.color,
+                                fontWeight:
+                                    isSelected ? FontWeight.bold : FontWeight.normal,
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   @override
@@ -62,9 +158,10 @@ class _CategoryBudgetScreenState extends ConsumerState<CategoryBudgetScreen> wit
     final l10n = ref.watch(localizationProvider);
     final settingsAsync = ref.watch(settingsProvider);
     final categoryAsync = ref.watch(categoryProvider);
+    final budgetKey = MonthYearKey(_selectedYear, _selectedMonth);
+    final budgetSummaryAsync = ref.watch(monthlyBudgetFamily(budgetKey));
 
     final String currency = settingsAsync.value?.currency ?? 'VND';
-    final double totalBudget = settingsAsync.value?.monthlyBudget ?? 0.0;
 
     return Scaffold(
       appBar: AppBar(
@@ -78,156 +175,383 @@ class _CategoryBudgetScreenState extends ConsumerState<CategoryBudgetScreen> wit
           ],
         ),
       ),
-      body: categoryAsync.when(
-        data: (categories) {
-          final expenseCats = categories.where((c) => c.type == 'expense').toList();
-          final incomeCats = categories.where((c) => c.type == 'income').toList();
+      body: Column(
+        children: [
+          // Month navigation bar
+          _buildMonthNavigationBar(l10n),
+          Expanded(
+            child: categoryAsync.when(
+              data: (categories) {
+                final expenseCats =
+                    categories.where((c) => c.type == 'expense').toList();
+                final incomeCats =
+                    categories.where((c) => c.type == 'income').toList();
 
-          return TabBarView(
-            controller: _tabController,
-            children: [
-              // Expense Tab
-              Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: _buildTotalBudgetSection(totalBudget, currency),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          l10n.locale == 'vi' ? 'Ngân sách từng danh mục' : 'Category Budgets',
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                        ),
-                        FilledButton.tonal(
-                          onPressed: () => _showAddCategoryDialog('expense'),
-                          style: FilledButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                            minimumSize: Size.zero,
-                          ),
-                          child: Text(l10n.locale == 'vi' ? '+ Thêm' : '+ Add'),
-                        ),
-                      ],
+                return TabBarView(
+                  controller: _tabController,
+                  children: [
+                    // Expense Tab
+                    budgetSummaryAsync.when(
+                      data: (summary) => _buildExpenseTab(
+                          expenseCats, summary, currency, l10n, budgetKey),
+                      loading: () => const Center(child: CircularProgressIndicator()),
+                      error: (e, _) => Center(child: Text('Error: $e')),
                     ),
-                  ),
-                  Expanded(
-                    child: expenseCats.isEmpty
-                        ? Center(child: Text(l10n.locale == 'vi' ? 'Chưa có danh mục chi tiêu' : 'No expense categories'))
-                        : ListView.builder(
-                            itemCount: expenseCats.length,
-                            itemBuilder: (context, index) {
-                              return _buildCategoryTile(expenseCats[index], currency);
-                            },
-                          ),
-                  ),
-                  const BannerAdWidget(key: ValueKey('cat_budget_banner_1')),
-                ],
-              ),
-              // Income Tab
-              Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          l10n.locale == 'vi' ? 'Danh mục thu nhập' : 'Income Categories',
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                        ),
-                        FilledButton.tonal(
-                          onPressed: () => _showAddCategoryDialog('income'),
-                          style: FilledButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                            minimumSize: Size.zero,
-                          ),
-                          child: Text(l10n.locale == 'vi' ? '+ Thêm' : '+ Add'),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Expanded(
-                    child: incomeCats.isEmpty
-                        ? Center(child: Text(l10n.locale == 'vi' ? 'Chưa có danh mục thu nhập' : 'No income categories'))
-                        : ListView.builder(
-                            itemCount: incomeCats.length,
-                            itemBuilder: (context, index) {
-                              return _buildCategoryTile(incomeCats[index], currency);
-                            },
-                          ),
-                  ),
-                  const BannerAdWidget(key: ValueKey('cat_budget_banner_2')),
-                ],
-              ),
-            ],
-          );
-        },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Error: $e')),
+                    // Income Tab
+                    _buildIncomeTab(incomeCats, currency, l10n),
+                  ],
+                );
+              },
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, _) => Center(child: Text('Error: $e')),
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildTotalBudgetSection(double totalBudget, String currency) {
-    if (_isEditingTotal) {
-      return Row(
+  Widget _buildMonthNavigationBar(dynamic l10n) {
+    final monthName = l10n.locale == 'vi'
+        ? 'Tháng $_selectedMonth/$_selectedYear'
+        : '${DateFormat('MMMM').format(DateTime(_selectedYear, _selectedMonth))} $_selectedYear';
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        border: Border(bottom: BorderSide(color: Colors.grey.withValues(alpha: 0.2))),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Expanded(
-            child: TextField(
-              controller: _totalBudgetController,
-              keyboardType: TextInputType.number,
-              inputFormatters: [CurrencyInputFormatter()],
-              decoration: InputDecoration(
-                prefixText: CurrencyService.getSymbol(currency) + ' ',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          IconButton(
+            icon: const Icon(Icons.chevron_left),
+            onPressed: _previousMonth,
+            tooltip: 'Tháng trước',
+          ),
+          InkWell(
+            onTap: () => _showMonthYearPicker(l10n),
+            borderRadius: BorderRadius.circular(20),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              child: Text(
+                monthName,
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
             ),
           ),
-          const SizedBox(width: 12),
-          ElevatedButton(
-            onPressed: _saveTotalBudget,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.primary,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-            child: const Icon(Icons.check),
+          IconButton(
+            icon: const Icon(Icons.chevron_right),
+            onPressed: _nextMonth,
+            tooltip: 'Tháng sau',
           ),
         ],
-      );
+      ),
+    );
+  }
+
+  Widget _buildExpenseTab(
+    List<Category> expenseCats,
+    MonthlyBudgetSummary summary,
+    String currency,
+    dynamic l10n,
+    MonthYearKey key,
+  ) {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+          child: _buildTotalBudgetSection(summary, currency, l10n, key),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 6.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                l10n.locale == 'vi' ? 'Ngân sách từng danh mục' : 'Category Budgets',
+                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+              ),
+              Row(
+                children: [
+                  if (!summary.hasBudget)
+                    TextButton.icon(
+                      onPressed: () async {
+                        await ref
+                            .read(monthlyBudgetFamily(key).notifier)
+                            .copyFromPreviousMonth();
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(l10n.copyBudgetSuccess),
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.copy, size: 14),
+                      label: Text(
+                        l10n.locale == 'vi' ? 'Chép tháng trước' : 'Copy Prev',
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                      style: TextButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                      ),
+                    ),
+                  FilledButton.tonal(
+                    onPressed: () => _showAddCategoryDialog('expense'),
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      minimumSize: Size.zero,
+                    ),
+                    child: Text(l10n.locale == 'vi' ? '+ Thêm' : '+ Add'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: expenseCats.isEmpty
+              ? Center(
+                  child: Text(l10n.locale == 'vi'
+                      ? 'Chưa có danh mục chi tiêu'
+                      : 'No expense categories'),
+                )
+              : ListView.builder(
+                  itemCount: expenseCats.length,
+                  itemBuilder: (context, index) {
+                    final cat = expenseCats[index];
+                    final status = summary.categoryStatuses[cat.id];
+                    return _buildCategoryTile(cat, status, currency, l10n, key);
+                  },
+                ),
+        ),
+        const BannerAdWidget(key: ValueKey('cat_budget_banner_1')),
+      ],
+    );
+  }
+
+  Widget _buildTotalBudgetSection(
+    MonthlyBudgetSummary summary,
+    String currency,
+    dynamic l10n,
+    MonthYearKey key,
+  ) {
+    final double totalBudget = summary.totalBudget;
+    final double totalSpent = summary.totalSpent;
+    final double remaining = summary.remaining;
+    final double percent = summary.percentageUsed.clamp(0.0, 1.0);
+
+    Color progressColor = Colors.green;
+    if (summary.isOverBudget) {
+      progressColor = Colors.red;
+    } else if (percent >= 0.8) {
+      progressColor = Colors.orange;
     }
 
     return InkWell(
-      onTap: () => setState(() => _isEditingTotal = true),
+      onTap: () => _showSetTotalBudgetDialog(totalBudget, key, l10n, currency),
       borderRadius: BorderRadius.circular(16),
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Theme.of(context).colorScheme.primary.withOpacity(0.2)),
+          border: Border.all(
+              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2)),
         ),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    l10n.totalMonthlyBudget,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                Icon(
+                  Icons.edit_outlined,
+                  size: 16,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
             Text(
               totalBudget > 0
                   ? '${CurrencyService.getSymbol(currency)} ${NumberFormat('#,###').format(totalBudget)}'
-                  : (ref.read(localizationProvider).locale == 'vi' ? 'Chưa đặt ngân sách tổng' : 'Total budget not set'),
+                  : (l10n.locale == 'vi'
+                      ? 'Chưa đặt ngân sách tổng'
+                      : 'Total budget not set'),
               style: TextStyle(
-                fontSize: 28,
+                fontSize: 24,
                 fontWeight: FontWeight.w800,
-                color: Theme.of(context).colorScheme.primary,
+                color: totalBudget > 0
+                    ? Theme.of(context).colorScheme.primary
+                    : Colors.grey,
               ),
             ),
-            const SizedBox(height: 4),
-            Text(
-              ref.read(localizationProvider).locale == 'vi' ? 'Chạm để sửa ngân sách tháng này' : 'Tap to edit monthly budget',
-              style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.primary.withOpacity(0.6)),
+            if (totalBudget > 0) ...[
+              const SizedBox(height: 10),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: percent,
+                  backgroundColor: Theme.of(context).brightness == Brightness.dark
+                      ? Colors.grey[800]
+                      : Colors.grey[200],
+                  color: progressColor,
+                  minHeight: 8,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Flexible(
+                    child: Text(
+                      '${l10n.locale == 'vi' ? 'Đã chi' : 'Spent'}: ${NumberFormat('#,###').format(totalSpent)} ${CurrencyService.getSymbol(currency)} (${(summary.percentageUsed * 100).toStringAsFixed(1)}%)',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: summary.isOverBudget ? Colors.red : Colors.grey[700],
+                        fontWeight:
+                            summary.isOverBudget ? FontWeight.bold : FontWeight.normal,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '${l10n.locale == 'vi' ? 'Còn lại' : 'Remaining'}: ${NumberFormat('#,###').format(remaining)} ${CurrencyService.getSymbol(currency)}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: remaining < 0 ? Colors.red : Colors.green[700],
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ] else ...[
+              const SizedBox(height: 4),
+              Text(
+                l10n.locale == 'vi'
+                    ? 'Chạm để thiết lập ngân sách cho tháng này'
+                    : 'Tap to set budget for this month',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.7),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCategoryTile(
+    Category category,
+    CategoryBudgetStatus? status,
+    String currency,
+    dynamic l10n,
+    MonthYearKey key,
+  ) {
+    final hasBudget = status != null && status.hasBudget;
+    final spent = status?.spent ?? 0.0;
+    final budgetLimit = status?.budgetLimit ?? 0.0;
+    final percent = (status?.percentage ?? 0.0).clamp(0.0, 1.0);
+
+    Color progressColor = Colors.green;
+    if (status?.isOverBudget ?? false) {
+      progressColor = Colors.red;
+    } else if (status?.isNearLimit ?? false) {
+      progressColor = Colors.orange;
+    }
+
+    return InkWell(
+      onTap: () => _showActionMenu(context, category, key, status),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            CategoryIconWidget(category: category, size: 40),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          l10n.translateCategoryName(category.id, category.name),
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w600, fontSize: 14),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      if (hasBudget)
+                        Text(
+                          '${NumberFormat('#,###').format(spent)} / ${NumberFormat('#,###').format(budgetLimit)} ${CurrencyService.getSymbol(currency)}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: status.isOverBudget
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                            color: status.isOverBudget
+                                ? Colors.red
+                                : Colors.grey[700],
+                          ),
+                        )
+                      else
+                        Text(
+                          l10n.locale == 'vi'
+                              ? 'Chưa đặt hạn mức'
+                              : 'No limit set',
+                          style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                        ),
+                    ],
+                  ),
+                  if (hasBudget) ...[
+                    const SizedBox(height: 6),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(3),
+                      child: LinearProgressIndicator(
+                        value: percent,
+                        backgroundColor:
+                            Theme.of(context).brightness == Brightness.dark
+                                ? Colors.grey[800]
+                                : Colors.grey[200],
+                        color: progressColor,
+                        minHeight: 6,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${(status.percentage * 100).toStringAsFixed(1)}% ${status.isOverBudget ? (l10n.locale == 'vi' ? '(Vượt hạn mức)' : '(Over limit)') : ''}',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: status.isOverBudget ? Colors.red : Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
             ),
           ],
         ),
@@ -235,29 +559,200 @@ class _CategoryBudgetScreenState extends ConsumerState<CategoryBudgetScreen> wit
     );
   }
 
-  Widget _buildCategoryTile(Category category, String currency) {
-    final hasBudget = category.budgetLimit != null && category.budgetLimit! > 0;
-    
-    final isSystem = category.id.startsWith('sys_');
+  Widget _buildIncomeTab(List<Category> incomeCats, String currency, dynamic l10n) {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                l10n.locale == 'vi' ? 'Danh mục thu nhập' : 'Income Categories',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              FilledButton.tonal(
+                onPressed: () => _showAddCategoryDialog('income'),
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  minimumSize: Size.zero,
+                ),
+                child: Text(l10n.locale == 'vi' ? '+ Thêm' : '+ Add'),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: incomeCats.isEmpty
+              ? Center(
+                  child: Text(l10n.locale == 'vi'
+                      ? 'Chưa có danh mục thu nhập'
+                      : 'No income categories'),
+                )
+              : ListView.builder(
+                  itemCount: incomeCats.length,
+                  itemBuilder: (context, index) {
+                    final cat = incomeCats[index];
+                    return InkWell(
+                      onTap: () => _showActionMenu(context, cat, null, null),
+                      child: ListTile(
+                        contentPadding:
+                            const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                        leading: CategoryIconWidget(category: cat),
+                        title: Text(
+                          l10n.translateCategoryName(cat.id, cat.name),
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+        ),
+        const BannerAdWidget(key: ValueKey('cat_budget_banner_2')),
+      ],
+    );
+  }
 
-    return InkWell(
-      onTap: () => _showActionMenu(context, category),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        leading: CategoryIconWidget(category: category),
-        title: Text(category.name, style: const TextStyle(fontWeight: FontWeight.w600)),
-        subtitle: category.type == 'expense'
-          ? (hasBudget 
-            ? Text('Ngân sách: ${NumberFormat('#,###').format(category.budgetLimit)} ${CurrencyService.getSymbol(currency)}')
-            : Text(ref.read(localizationProvider).locale == 'vi' ? 'Chưa đặt ngân sách' : 'Budget not set'))
-          : null,
+  void _showSetTotalBudgetDialog(
+    double currentBudget,
+    MonthYearKey key,
+    dynamic l10n,
+    String currency,
+  ) {
+    final controller = TextEditingController(
+      text: currentBudget > 0 ? currentBudget.toInt().toString() : '',
+    );
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        title: Text(
+          l10n.locale == 'vi'
+              ? 'Ngân sách tháng $_selectedMonth/$_selectedYear'
+              : 'Budget for $_selectedMonth/$_selectedYear',
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: controller,
+              keyboardType: TextInputType.number,
+              inputFormatters: [CurrencyInputFormatter()],
+              autofocus: true,
+              decoration: InputDecoration(
+                labelText: l10n.locale == 'vi' ? 'Số tiền ngân sách' : 'Budget Amount',
+                prefixText: '${CurrencyService.getSymbol(currency)} ',
+                border: const OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          if (currentBudget > 0)
+            TextButton(
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              onPressed: () async {
+                Navigator.pop(dialogCtx);
+                await ref.read(monthlyBudgetFamily(key).notifier).deleteTotalBudget();
+              },
+              child: Text(l10n.locale == 'vi' ? 'Xóa hạn mức' : 'Clear'),
+            ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx),
+            child: Text(l10n.cancel),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final val = double.tryParse(controller.text.replaceAll(',', ''));
+              if (val != null && val >= 0) {
+                Navigator.pop(dialogCtx);
+                await ref.read(monthlyBudgetFamily(key).notifier).setTotalBudget(val);
+              }
+            },
+            child: Text(l10n.save),
+          ),
+        ],
       ),
     );
   }
 
-  void _showActionMenu(BuildContext context, Category category) {
+  void _showSetCategoryBudgetDialog(
+    Category category,
+    MonthYearKey key,
+    CategoryBudgetStatus? status,
+    dynamic l10n,
+    String currency,
+  ) {
+    final currentAmount = status?.budgetLimit ?? 0.0;
+    final controller = TextEditingController(
+      text: currentAmount > 0 ? currentAmount.toInt().toString() : '',
+    );
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        title: Text(
+          '${l10n.locale == 'vi' ? 'Hạn mức' : 'Budget'}: ${l10n.translateCategoryName(category.id, category.name)} ($_selectedMonth/$_selectedYear)',
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: controller,
+              keyboardType: TextInputType.number,
+              inputFormatters: [CurrencyInputFormatter()],
+              autofocus: true,
+              decoration: InputDecoration(
+                labelText: l10n.locale == 'vi' ? 'Hạn mức chi tiêu' : 'Spending Limit',
+                prefixText: '${CurrencyService.getSymbol(currency)} ',
+                border: const OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          if (currentAmount > 0)
+            TextButton(
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              onPressed: () async {
+                Navigator.pop(dialogCtx);
+                await ref
+                    .read(monthlyBudgetFamily(key).notifier)
+                    .deleteCategoryBudget(category.id);
+              },
+              child: Text(l10n.locale == 'vi' ? 'Xóa hạn mức' : 'Clear'),
+            ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx),
+            child: Text(l10n.cancel),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final val = double.tryParse(controller.text.replaceAll(',', ''));
+              if (val != null && val >= 0) {
+                Navigator.pop(dialogCtx);
+                await ref
+                    .read(monthlyBudgetFamily(key).notifier)
+                    .setCategoryBudget(category.id, val);
+              }
+            },
+            child: Text(l10n.save),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showActionMenu(
+    BuildContext context,
+    Category category,
+    MonthYearKey? key,
+    CategoryBudgetStatus? status,
+  ) {
     final l10n = ref.read(localizationProvider);
     final isSystem = category.id.startsWith('sys_');
+    final settingsAsync = ref.read(settingsProvider);
+    final String currency = settingsAsync.value?.currency ?? 'VND';
 
     showModalBottomSheet(
       context: context,
@@ -265,9 +760,26 @@ class _CategoryBudgetScreenState extends ConsumerState<CategoryBudgetScreen> wit
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (category.type == 'expense' && key != null)
+              ListTile(
+                leading: const Icon(Icons.account_balance_wallet, color: Colors.teal),
+                title: Text(
+                  l10n.locale == 'vi'
+                      ? 'Đặt hạn mức tháng $_selectedMonth/$_selectedYear'
+                      : 'Set budget for $_selectedMonth/$_selectedYear',
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showSetCategoryBudgetDialog(category, key, status, l10n, currency);
+                },
+              ),
             ListTile(
               leading: const Icon(Icons.edit),
-              title: Text(isSystem ? (l10n.locale == 'vi' ? 'Sửa Icon/Màu (Hệ thống)' : 'Edit Icon/Color (System)') : l10n.edit),
+              title: Text(isSystem
+                  ? (l10n.locale == 'vi'
+                      ? 'Sửa Icon/Màu (Hệ thống)'
+                      : 'Edit Icon/Color (System)')
+                  : l10n.edit),
               onTap: () {
                 Navigator.pop(context);
                 _showEditCategoryDialog(category);
@@ -300,24 +812,6 @@ class _CategoryBudgetScreenState extends ConsumerState<CategoryBudgetScreen> wit
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setState) {
-          Color previewColor;
-          if (selectedColor != null && selectedColor!.isNotEmpty) {
-            try {
-              previewColor = Color(int.parse(selectedColor!.substring(1), radix: 16) + 0xFF000000);
-            } catch (e) {
-              previewColor = selectedType == 'income' ? Colors.green : Colors.red;
-            }
-          } else {
-            previewColor = selectedType == 'income' ? Colors.green : Colors.red;
-          }
-
-          final iconColor = ThemeData.estimateBrightnessForColor(previewColor) == Brightness.light
-              ? Colors.black
-              : Colors.white;
-
-          final previewIcon = CategoryIconData.getIcon(selectedIcon) ??
-              (selectedType == 'income' ? Icons.arrow_downward : Icons.arrow_upward);
-
           return Dialog(
             child: Container(
               constraints: const BoxConstraints(maxWidth: 500, maxHeight: 600),
@@ -342,7 +836,8 @@ class _CategoryBudgetScreenState extends ConsumerState<CategoryBudgetScreen> wit
                             decoration: InputDecoration(
                               labelText: l10n.categoryName,
                               border: const OutlineInputBorder(),
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                              contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 14),
                             ),
                             autofocus: true,
                           ),
@@ -353,9 +848,12 @@ class _CategoryBudgetScreenState extends ConsumerState<CategoryBudgetScreen> wit
                               keyboardType: TextInputType.number,
                               inputFormatters: [CurrencyInputFormatter()],
                               decoration: InputDecoration(
-                                labelText: l10n.locale == 'vi' ? 'Ngân sách tháng (Tùy chọn)' : 'Monthly Budget (Optional)',
+                                labelText: l10n.locale == 'vi'
+                                    ? 'Hạn mức tháng này (Tùy chọn)'
+                                    : 'Monthly Budget (Optional)',
                                 border: const OutlineInputBorder(),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                                contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 14),
                                 prefixIcon: const Icon(Icons.account_balance_wallet),
                               ),
                             ),
@@ -387,7 +885,9 @@ class _CategoryBudgetScreenState extends ConsumerState<CategoryBudgetScreen> wit
                                             categoryType: selectedType,
                                           ),
                                         );
-                                        if (result != null) setState(() => selectedIcon = result);
+                                        if (result != null) {
+                                          setState(() => selectedIcon = result);
+                                        }
                                       },
                                       icon: const Icon(Icons.interests),
                                       label: const Text('Icon'),
@@ -400,10 +900,12 @@ class _CategoryBudgetScreenState extends ConsumerState<CategoryBudgetScreen> wit
                                             selectedColor: selectedColor,
                                           ),
                                         );
-                                        if (result != null) setState(() => selectedColor = result);
+                                        if (result != null) {
+                                          setState(() => selectedColor = result);
+                                        }
                                       },
-                                      icon: const Icon(Icons.palette),
-                                      label: Text(l10n.locale == 'vi' ? 'Màu' : 'Color'),
+                                      icon: const Icon(Icons.color_lens),
+                                      label: const Text('Màu'),
                                     ),
                                   ],
                                 ),
@@ -415,7 +917,7 @@ class _CategoryBudgetScreenState extends ConsumerState<CategoryBudgetScreen> wit
                     ),
                   ),
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 4, 24, 12),
+                    padding: const EdgeInsets.all(16),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
@@ -429,28 +931,30 @@ class _CategoryBudgetScreenState extends ConsumerState<CategoryBudgetScreen> wit
                             final name = controller.text.trim();
                             if (name.isEmpty) return;
 
-                            try {
-                              final budgetStr = budgetController.text.replaceAll(',', '');
-                              final budget = double.tryParse(budgetStr);
-                              
-                              await ref.read(categoryProvider.notifier).createCategory(
-                                name, selectedType, icon: selectedIcon, color: selectedColor, budgetLimit: budget
-                              );
-                              if (context.mounted) {
-                                Navigator.pop(context);
-                                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l10n.categoryAdded)));
-                              }
-                            } catch (e) {
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${l10n.error}: $e')));
+                            final budgetText = budgetController.text.replaceAll(',', '').trim();
+                            final budget = budgetText.isNotEmpty ? double.tryParse(budgetText) : null;
+
+                            Navigator.pop(context);
+                            await ref.read(categoryProvider.notifier).createCategory(
+                                  name,
+                                  selectedType,
+                                  icon: selectedIcon,
+                                  color: selectedColor,
+                                  budgetLimit: budget,
+                                );
+
+                            if (budget != null && budget > 0 && selectedType == 'expense') {
+                              final key = MonthYearKey(_selectedYear, _selectedMonth);
+                              final cats = await ref.read(categoryRepositoryProvider).getAll();
+                              final createdCat = cats.where((c) => c.name == name).firstOrNull;
+                              if (createdCat != null) {
+                                await ref
+                                    .read(monthlyBudgetFamily(key).notifier)
+                                    .setCategoryBudget(createdCat.id, budget);
                               }
                             }
                           },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Theme.of(context).colorScheme.primary,
-                            foregroundColor: Colors.white,
-                          ),
-                          child: Text(l10n.add),
+                          child: Text(l10n.save),
                         ),
                       ],
                     ),
@@ -465,45 +969,19 @@ class _CategoryBudgetScreenState extends ConsumerState<CategoryBudgetScreen> wit
   }
 
   void _showEditCategoryDialog(Category category) {
+    final controller = TextEditingController(text: category.name);
     final l10n = ref.read(localizationProvider);
-    final displayName = l10n.translateCategoryName(category.id, category.name);
-    final controller = TextEditingController(text: displayName);
-    final formatter = NumberFormat('#,###');
-    final budgetController = TextEditingController(
-      text: category.budgetLimit != null && category.budgetLimit! > 0
-          ? formatter.format(category.budgetLimit)
-          : '',
-    );
-    String selectedType = category.type;
+    final isSystem = category.id.startsWith('sys_');
     String? selectedIcon = category.icon;
     String? selectedColor = category.color;
-    final isSystem = category.id.startsWith('sys_');
 
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setState) {
-          Color previewColor;
-          if (selectedColor != null && selectedColor!.isNotEmpty) {
-            try {
-              previewColor = Color(int.parse(selectedColor!.substring(1), radix: 16) + 0xFF000000);
-            } catch (e) {
-              previewColor = selectedType == 'income' ? Colors.green : Colors.red;
-            }
-          } else {
-            previewColor = selectedType == 'income' ? Colors.green : Colors.red;
-          }
-
-          final iconColor = ThemeData.estimateBrightnessForColor(previewColor) == Brightness.light
-              ? Colors.black
-              : Colors.white;
-
-          final previewIcon = CategoryIconData.getIcon(selectedIcon) ??
-              (selectedType == 'income' ? Icons.arrow_downward : Icons.arrow_upward);
-
           return Dialog(
             child: Container(
-              constraints: const BoxConstraints(maxWidth: 500, maxHeight: 600),
+              constraints: const BoxConstraints(maxWidth: 500, maxHeight: 500),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -520,43 +998,16 @@ class _CategoryBudgetScreenState extends ConsumerState<CategoryBudgetScreen> wit
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          TextField(
-                            controller: controller,
-                            decoration: InputDecoration(
-                              labelText: isSystem ? (l10n.locale == 'vi' ? 'Tên danh mục (Hệ thống)' : 'Category Name (System)') : l10n.categoryName,
-                              border: const OutlineInputBorder(),
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-                              filled: isSystem,
-                              fillColor: isSystem ? Colors.grey[200] : null,
-                            ),
-                            autofocus: !isSystem,
-                            enabled: !isSystem,
-                          ),
-                          const SizedBox(height: 12),
-                          if (!isSystem && selectedType == 'expense') ...[
+                          if (!isSystem) ...[
                             TextField(
-                              controller: budgetController,
-                              keyboardType: TextInputType.number,
-                              inputFormatters: [CurrencyInputFormatter()],
+                              controller: controller,
                               decoration: InputDecoration(
-                                labelText: l10n.locale == 'vi' ? 'Ngân sách tháng (Tùy chọn)' : 'Monthly Budget (Optional)',
+                                labelText: l10n.categoryName,
                                 border: const OutlineInputBorder(),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-                                prefixIcon: const Icon(Icons.account_balance_wallet),
+                                contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 14),
                               ),
-                            ),
-                            const SizedBox(height: 12),
-                          ] else if (isSystem && selectedType == 'expense') ...[
-                            TextField(
-                              controller: budgetController,
-                              keyboardType: TextInputType.number,
-                              inputFormatters: [CurrencyInputFormatter()],
-                              decoration: InputDecoration(
-                                labelText: l10n.locale == 'vi' ? 'Ngân sách tháng (Tùy chọn)' : 'Monthly Budget (Optional)',
-                                border: const OutlineInputBorder(),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-                                prefixIcon: const Icon(Icons.account_balance_wallet),
-                              ),
+                              autofocus: true,
                             ),
                             const SizedBox(height: 12),
                           ],
@@ -584,10 +1035,12 @@ class _CategoryBudgetScreenState extends ConsumerState<CategoryBudgetScreen> wit
                                           context: context,
                                           builder: (context) => IconPickerDialog(
                                             selectedIcon: selectedIcon,
-                                            categoryType: selectedType,
+                                            categoryType: category.type,
                                           ),
                                         );
-                                        if (result != null) setState(() => selectedIcon = result);
+                                        if (result != null) {
+                                          setState(() => selectedIcon = result);
+                                        }
                                       },
                                       icon: const Icon(Icons.interests),
                                       label: const Text('Icon'),
@@ -600,10 +1053,12 @@ class _CategoryBudgetScreenState extends ConsumerState<CategoryBudgetScreen> wit
                                             selectedColor: selectedColor,
                                           ),
                                         );
-                                        if (result != null) setState(() => selectedColor = result);
+                                        if (result != null) {
+                                          setState(() => selectedColor = result);
+                                        }
                                       },
-                                      icon: const Icon(Icons.palette),
-                                      label: Text(l10n.locale == 'vi' ? 'Màu' : 'Color'),
+                                      icon: const Icon(Icons.color_lens),
+                                      label: const Text('Màu'),
                                     ),
                                   ],
                                 ),
@@ -615,7 +1070,7 @@ class _CategoryBudgetScreenState extends ConsumerState<CategoryBudgetScreen> wit
                     ),
                   ),
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 4, 24, 12),
+                    padding: const EdgeInsets.all(16),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
@@ -629,32 +1084,16 @@ class _CategoryBudgetScreenState extends ConsumerState<CategoryBudgetScreen> wit
                             final name = controller.text.trim();
                             if (name.isEmpty && !isSystem) return;
 
-                            try {
-                              final budgetStr = budgetController.text.replaceAll(',', '');
-                              final budget = double.tryParse(budgetStr);
-
-                              await ref.read(categoryProvider.notifier).updateCategory(
-                                category.id, 
-                                isSystem ? category.name : name, 
-                                selectedType, 
-                                icon: selectedIcon, 
-                                color: selectedColor, 
-                                budgetLimit: budget
-                              );
-                              if (context.mounted) {
-                                Navigator.pop(context);
-                                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l10n.categoryUpdated)));
-                              }
-                            } catch (e) {
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${l10n.error}: $e')));
-                              }
-                            }
+                            Navigator.pop(context);
+                            await ref.read(categoryProvider.notifier).updateCategory(
+                                  category.id,
+                                  isSystem ? category.name : name,
+                                  category.type,
+                                  icon: selectedIcon,
+                                  color: selectedColor,
+                                  budgetLimit: category.budgetLimit,
+                                );
                           },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Theme.of(context).colorScheme.primary,
-                            foregroundColor: Colors.white,
-                          ),
                           child: Text(l10n.save),
                         ),
                       ],
@@ -671,33 +1110,26 @@ class _CategoryBudgetScreenState extends ConsumerState<CategoryBudgetScreen> wit
 
   void _showDeleteDialog(Category category) {
     final l10n = ref.read(localizationProvider);
-    final displayName = l10n.translateCategoryName(category.id, category.name);
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(l10n.deleteCategory),
-        content: Text('${l10n.deleteCategoryConfirm} "$displayName"?'),
+        content: Text(l10n.deleteCategoryConfirm),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: Text(l10n.cancel),
           ),
-          TextButton(
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
             onPressed: () async {
-              try {
-                await ref.read(categoryProvider.notifier).deleteCategory(category.id);
-                if (context.mounted) {
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l10n.categoryDeleted)));
-                }
-              } catch (e) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${l10n.error}: $e')));
-                }
-              }
+              Navigator.pop(context);
+              await ref.read(categoryProvider.notifier).deleteCategory(category.id);
             },
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
             child: Text(l10n.delete),
           ),
         ],
@@ -709,16 +1141,19 @@ class _CategoryBudgetScreenState extends ConsumerState<CategoryBudgetScreen> wit
 class CurrencyInputFormatter extends TextInputFormatter {
   @override
   TextEditingValue formatEditUpdate(
-      TextEditingValue oldValue, TextEditingValue newValue) {
-    if (newValue.selection.baseOffset == 0) return newValue;
-    String newText = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
-    if (newText.isEmpty) return newValue.copyWith(text: '');
-    double value = double.parse(newText);
-    final formatter = NumberFormat('#,###');
-    String newString = formatter.format(value);
-    return newValue.copyWith(
-      text: newString,
-      selection: TextSelection.collapsed(offset: newString.length),
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    if (newValue.text.isEmpty) return newValue;
+
+    String clean = newValue.text.replaceAll(',', '');
+    final number = int.tryParse(clean);
+    if (number == null) return oldValue;
+
+    final formatted = NumberFormat('#,###').format(number);
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
     );
   }
 }

@@ -65,6 +65,9 @@ class Transaction {
   }
 
   factory Transaction.fromMap(Map<String, dynamic> map) {
+    final createdAt = map['created_at'] != null
+        ? DateTime.parse(map['created_at'] as String)
+        : DateTime.now();
     return Transaction(
       id: map['id'] as String,
       categoryId: map['category_id'] as String?,
@@ -73,11 +76,13 @@ class Transaction {
       formula: map['formula'] as String?,
       note: map['note'] as String?,
       type: map['type'] as String,
-      transactionDate: map['transaction_date'] != null 
-          ? DateTime.parse(map['transaction_date'] as String) 
-          : DateTime.parse(map['created_at'] as String),
-      createdAt: DateTime.parse(map['created_at'] as String),
-      updatedAt: DateTime.parse(map['updated_at'] as String),
+      transactionDate: map['transaction_date'] != null
+          ? DateTime.parse(map['transaction_date'] as String)
+          : createdAt,
+      createdAt: createdAt,
+      updatedAt: map['updated_at'] != null
+          ? DateTime.parse(map['updated_at'] as String)
+          : createdAt,
     );
   }
 }

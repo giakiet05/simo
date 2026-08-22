@@ -19,7 +19,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 11,
+      version: 12,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -127,6 +127,32 @@ class DatabaseHelper {
         FOREIGN KEY (loan_id) REFERENCES loan_contacts (id) ON DELETE CASCADE
       )
     ''');
+
+    await db.execute('''
+      CREATE TABLE monthly_budgets (
+        id $idType,
+        year $intType,
+        month $intType,
+        amount $realType,
+        created_at $textType,
+        updated_at $textType
+      )
+    ''');
+    await db.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_monthly_budgets_ym ON monthly_budgets(year, month)');
+
+    await db.execute('''
+      CREATE TABLE category_monthly_budgets (
+        id $idType,
+        category_id TEXT NOT NULL,
+        year $intType,
+        month $intType,
+        amount $realType,
+        created_at $textType,
+        updated_at $textType,
+        FOREIGN KEY (category_id) REFERENCES categories (id) ON DELETE CASCADE
+      )
+    ''');
+    await db.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_cat_monthly_budgets_cym ON category_monthly_budgets(category_id, year, month)');
   }
 
   Future<void> _upgradeDB(Database db, int oldVersion, int newVersion) async {
@@ -306,11 +332,47 @@ class DatabaseHelper {
       print('[DB] Migration v11: Add transaction_date to transactions');
       await db.execute('ALTER TABLE transactions ADD COLUMN transaction_date TEXT');
     }
+
+    if (oldVersion < 12) {
+      print('[DB] Migration v12: Add monthly_budgets and category_monthly_budgets tables');
+      const idType = 'TEXT PRIMARY KEY';
+      const textType = 'TEXT NOT NULL';
+      const intType = 'INTEGER NOT NULL';
+      const realType = 'REAL NOT NULL';
+
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS monthly_budgets (
+          id $idType,
+          year $intType,
+          month $intType,
+          amount $realType,
+          created_at $textType,
+          updated_at $textType
+        )
+      ''');
+      await db.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_monthly_budgets_ym ON monthly_budgets(year, month)');
+
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS category_monthly_budgets (
+          id $idType,
+          category_id TEXT NOT NULL,
+          year $intType,
+          month $intType,
+          amount $realType,
+          created_at $textType,
+          updated_at $textType,
+          FOREIGN KEY (category_id) REFERENCES categories (id) ON DELETE CASCADE
+        )
+      ''');
+      await db.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_cat_monthly_budgets_cym ON category_monthly_budgets(category_id, year, month)');
+    }
   }
 
   Future<void> clearAllData() async {
     final db = await instance.database;
     await db.transaction((txn) async {
+      await txn.delete('category_monthly_budgets');
+      await txn.delete('monthly_budgets');
       await txn.delete('loan_transactions');
       await txn.delete('transactions');
       await txn.delete('recurring_configs');

@@ -9,15 +9,11 @@ android {
     namespace = "com.simolab.simo"
     compileSdk = flutter.compileSdkVersion
 
-    ndkVersion = "28.2.13676358"
+    ndkVersion = flutter.ndkVersion
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
-    }
-
-    kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_17.toString()
     }
 
     defaultConfig {
@@ -29,11 +25,16 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        manifestPlaceholders["appName"] = "Simo"
     }
 
     buildTypes {
+        debug {
+            applicationIdSuffix = ".dev"
+            manifestPlaceholders["appName"] = "Simo Dev"
+        }
         release {
-            // TODO: Add your own signing config for the release build.
+            manifestPlaceholders["appName"] = "Simo"
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
         }
