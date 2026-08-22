@@ -443,7 +443,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
 
     return ActionChip(
       label: Text(label),
-      backgroundColor: isSelected ? Theme.of(context).colorScheme.primary.withOpacity(0.2) : null,
+      backgroundColor: isSelected ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.2) : null,
       side: BorderSide(
         color: isSelected ? Theme.of(context).colorScheme.primary : Colors.grey.shade400,
       ),

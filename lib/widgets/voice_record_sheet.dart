@@ -270,7 +270,7 @@ class _VoiceRecordSheetState extends ConsumerState<VoiceRecordSheet> {
                   boxShadow: _isListening
                       ? [
                           BoxShadow(
-                            color: Colors.red.withOpacity(0.5),
+                            color: Colors.red.withValues(alpha: 0.5),
                             blurRadius: 20,
                             spreadRadius: 5,
                           )

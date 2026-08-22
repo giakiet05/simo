@@ -253,7 +253,7 @@ class _LoanDetailScreenState extends ConsumerState<LoanDetailScreen> {
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(20),
-                  color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
                   child: Column(
                     children: [
                       Text(
@@ -275,7 +275,7 @@ class _LoanDetailScreenState extends ConsumerState<LoanDetailScreen> {
                     color: Theme.of(context).colorScheme.surface,
                     boxShadow: [
                       BoxShadow(
-                        color: Theme.of(context).brightness == Brightness.dark ? Colors.transparent : Colors.black.withOpacity(0.05),
+                        color: Theme.of(context).brightness == Brightness.dark ? Colors.transparent : Colors.black.withValues(alpha: 0.05),
                         blurRadius: 5,
                         offset: const Offset(0, 5),
                       ),
@@ -328,7 +328,7 @@ class _LoanDetailScreenState extends ConsumerState<LoanDetailScreen> {
                         
                         return Card(
                           margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          color: isSelected ? Theme.of(context).colorScheme.primary.withOpacity(0.1) : null,
+                          color: isSelected ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.1) : null,
                           child: ListTile(
                             leading: _isSelectionMode
                               ? Checkbox(
@@ -341,7 +341,7 @@ class _LoanDetailScreenState extends ConsumerState<LoanDetailScreen> {
                                   }
                                 )
                               : CircleAvatar(
-                                  backgroundColor: isPositive ? Colors.red.withOpacity(0.2) : Colors.green.withOpacity(0.2),
+                                  backgroundColor: isPositive ? Colors.red.withValues(alpha: 0.2) : Colors.green.withValues(alpha: 0.2),
                                   child: Icon(isPositive ? Icons.add : Icons.remove, 
                                              color: isPositive ? Colors.red : Colors.green),
                                 ),

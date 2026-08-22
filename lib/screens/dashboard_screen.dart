@@ -532,7 +532,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   title,
                   style: TextStyle(
                     fontSize: 14,
-                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
                   ),
                 ),
               ],
@@ -1013,7 +1013,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         ),
                         belowBarData: BarAreaData(
                           show: true,
-                          color: color.withOpacity(0.1),
+                          color: color.withValues(alpha: 0.1),
                         ),
                       ),
                     ],
@@ -1216,7 +1216,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               const SizedBox(height: 16),
               Text(
                 l10n.noData,
-                style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6)),
+                style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)),
               ),
             ],
           ),
@@ -1367,7 +1367,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               const SizedBox(height: 16),
               Text(
                 l10n.noTransactions,
-                style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6)),
+                style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)),
               ),
             ],
           ),

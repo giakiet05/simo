@@ -93,7 +93,7 @@ class _IconPickerDialogState extends State<IconPickerDialog> {
                           child: Container(
                             decoration: BoxDecoration(
                               color: isSelected
-                                  ? Theme.of(context).colorScheme.primary.withOpacity(0.2)
+                                  ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.2)
                                   : Colors.grey[100],
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(

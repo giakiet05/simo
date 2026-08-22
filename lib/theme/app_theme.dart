@@ -9,12 +9,10 @@ class AppTheme {
       colorScheme: const ColorScheme.light(
         primary: AppColors.primary,
         secondary: AppColors.secondary,
-        background: AppColors.background,
         surface: AppColors.surface,
         error: AppColors.expense,
         onPrimary: Colors.white,
         onSecondary: Colors.white,
-        onBackground: AppColors.textPrimary,
         onSurface: AppColors.textPrimary,
         onError: Colors.white,
       ),
@@ -83,15 +81,13 @@ class AppTheme {
       colorScheme: const ColorScheme.dark(
         primary: AppColors.secondary, // Light blue looks better in dark mode
         secondary: AppColors.primary,
-        background: Color(0xFF121212),
         surface: Color(0xFF1E1E1E),
         error: AppColors.expense,
         onPrimary: Colors.white,
         onSecondary: Colors.white,
-        onBackground: Colors.white,
         onSurface: Colors.white,
         onError: Colors.white,
-        inversePrimary: const Color(0xFF1E1E1E),
+        inversePrimary: Color(0xFF1E1E1E),
       ),
       scaffoldBackgroundColor: const Color(0xFF121212),
       textTheme: GoogleFonts.interTextTheme(ThemeData.dark().textTheme).copyWith(

@@ -179,7 +179,7 @@ class _LoanTransactionModalState extends ConsumerState<LoanTransactionModal> {
                 child: TextButton(
                   onPressed: _addThousand,
                   style: TextButton.styleFrom(
-                    backgroundColor: Theme.of(context).primaryColor.withOpacity(0.1),
+                    backgroundColor: Theme.of(context).primaryColor.withValues(alpha: 0.1),
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   ),
                   child: const Text('000', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),

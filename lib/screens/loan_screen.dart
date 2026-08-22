@@ -26,16 +26,20 @@ class _LoanScreenState extends ConsumerState<LoanScreen> {
       child: Scaffold(
         appBar: AppBar(
           title: Text(l10n.locale == 'vi' ? 'Sổ Nợ' : 'Loans'),
-          backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+          elevation: 0,
           actions: [
             Builder(
               builder: (ctx) => IconButton(
                 icon: const Icon(Icons.person_add),
+                tooltip: l10n.locale == 'vi' ? 'Thêm người liên hệ' : 'Add contact',
                 onPressed: () {
                   final tabIndex = DefaultTabController.of(ctx).index;
                   showModalBottomSheet(
                     context: context,
                     isScrollControlled: true,
+                    shape: const RoundedRectangleBorder(
+                      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                    ),
                     builder: (context) => LoanContactModal(
                       initialType: tabIndex == 0 ? 'borrowed' : 'lent',
                     ),
@@ -115,7 +119,7 @@ class _LoanListViewState extends ConsumerState<_LoanListView> {
               children: [
                 Container(
                   padding: const EdgeInsets.all(16),
-                  color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -137,7 +141,7 @@ class _LoanListViewState extends ConsumerState<_LoanListView> {
                       final contact = contacts[index];
                       return ListTile(
                         leading: CircleAvatar(
-                          backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+                          backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
                           child: Text(
                             contact.contactName.isNotEmpty ? contact.contactName[0].toUpperCase() : '?',
                             style: TextStyle(

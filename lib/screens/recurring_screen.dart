@@ -26,21 +26,12 @@ class RecurringScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text(l10n.recurringTransactions),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        elevation: 0,
         actions: [
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 8.0),
-            child: Container(
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
-                borderRadius: BorderRadius.circular(24),
-              ),
-              child: TextButton.icon(
-                onPressed: () => _showAddDialog(context, ref),
-                icon: Icon(Icons.add, color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black),
-                label: Text(l10n.add, style: TextStyle(color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black)),
-              ),
-            ),
+          IconButton(
+            icon: const Icon(Icons.add),
+            tooltip: l10n.add,
+            onPressed: () => _showAddDialog(context, ref),
           ),
         ],
       ),

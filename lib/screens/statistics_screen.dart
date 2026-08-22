@@ -569,23 +569,26 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> with Single
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _buildCustomChip(
-                label: l10n.locale == 'vi' ? 'Chi tiêu' : 'Expense',
-                isSelected: _showExpenseCategory,
-                selectedColor: Colors.red,
-                onTap: () => setState(() => _showExpenseCategory = true),
-              ),
-              const SizedBox(width: 16),
-              _buildCustomChip(
-                label: l10n.locale == 'vi' ? 'Thu nhập' : 'Income',
-                isSelected: !_showExpenseCategory,
-                selectedColor: Colors.green,
-                onTap: () => setState(() => _showExpenseCategory = false),
-              ),
-            ],
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _buildCustomChip(
+                  label: l10n.locale == 'vi' ? 'Chi tiêu' : 'Expense',
+                  isSelected: _showExpenseCategory,
+                  selectedColor: Colors.red,
+                  onTap: () => setState(() => _showExpenseCategory = true),
+                ),
+                const SizedBox(width: 16),
+                _buildCustomChip(
+                  label: l10n.locale == 'vi' ? 'Thu nhập' : 'Income',
+                  isSelected: !_showExpenseCategory,
+                  selectedColor: Colors.green,
+                  onTap: () => setState(() => _showExpenseCategory = false),
+                ),
+              ],
+            ),
           ),
         ),
         Expanded(

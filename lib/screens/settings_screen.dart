@@ -235,7 +235,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       elevation: 0,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
-                        side: BorderSide(color: Colors.grey.withOpacity(0.2)),
+                        side: BorderSide(color: Colors.grey.withValues(alpha: 0.2)),
                       ),
                       child: Column(
                         children: [
@@ -259,7 +259,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                               },
                             ),
                           ),
-                          Divider(height: 1, color: Colors.grey.withOpacity(0.2)),
+                          Divider(height: 1, color: Colors.grey.withValues(alpha: 0.2)),
                           ListTile(
                             leading: const CategoryIconWidget(
                               colorOverride: Colors.blueAccent,
@@ -280,7 +280,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                               },
                             ),
                           ),
-                          Divider(height: 1, color: Colors.grey.withOpacity(0.2)),
+                          Divider(height: 1, color: Colors.grey.withValues(alpha: 0.2)),
                           ListTile(
                             leading: const CategoryIconWidget(
                               colorOverride: Colors.green,
@@ -324,7 +324,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       elevation: 0,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
-                        side: BorderSide(color: Colors.grey.withOpacity(0.2)),
+                        side: BorderSide(color: Colors.grey.withValues(alpha: 0.2)),
                       ),
                       child: ListTile(
                         leading: const CategoryIconWidget(
@@ -365,7 +365,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       elevation: 0,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
-                        side: BorderSide(color: Colors.grey.withOpacity(0.2)),
+                        side: BorderSide(color: Colors.grey.withValues(alpha: 0.2)),
                       ),
                       child: Column(
                         children: [
@@ -424,7 +424,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       elevation: 0,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
-                        side: BorderSide(color: Colors.grey.withOpacity(0.2)),
+                        side: BorderSide(color: Colors.grey.withValues(alpha: 0.2)),
                       ),
                       child: Column(
                         children: [
