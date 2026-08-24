@@ -1,14 +1,20 @@
 import 'package:uuid/uuid.dart';
 import '../models/transaction.dart';
 import 'database_helper.dart';
+import 'wallet_repository.dart';
 
 class TransactionRepository {
   final _uuid = const Uuid();
+  final WalletRepository _walletRepo;
+
+  TransactionRepository({WalletRepository? walletRepo})
+      : _walletRepo = walletRepo ?? WalletRepository();
 
   Future<List<Transaction>> getAll({
     DateTime? startDate,
     DateTime? endDate,
     String? categoryId,
+    String? walletId,
     String? type,
     String? keyword,
     double? minAmount,
@@ -32,6 +38,11 @@ class TransactionRepository {
     if (categoryId != null) {
       where += ' AND category_id = ?';
       whereArgs.add(categoryId);
+    }
+
+    if (walletId != null) {
+      where += ' AND wallet_id = ?';
+      whereArgs.add(walletId);
     }
 
     if (type != null) {
@@ -82,12 +93,20 @@ class TransactionRepository {
     final db = await DatabaseHelper.instance.database;
     final now = DateTime.now();
     final createdTransactions = <Transaction>[];
+    final affectedWalletIds = <String>{};
+
+    // If no wallet specified, resolve default wallet
+    final defaultWallet = await _walletRepo.getDefaultWallet();
 
     for (var data in transactionData) {
+      final targetWalletId =
+          (data['walletId'] as String?) ?? defaultWallet?.id;
+
       final transaction = Transaction(
         id: _uuid.v4(),
         categoryId: data['categoryId'] as String?,
         recurringConfigId: data['recurringConfigId'] as String?,
+        walletId: targetWalletId,
         amount: data['amount'] as double,
         formula: data['formula'] as String?,
         note: data['note'] as String?,
@@ -99,6 +118,14 @@ class TransactionRepository {
 
       await db.insert('transactions', transaction.toMap());
       createdTransactions.add(transaction);
+
+      if (targetWalletId != null) {
+        affectedWalletIds.add(targetWalletId);
+      }
+    }
+
+    for (final wid in affectedWalletIds) {
+      await _walletRepo.recalculateWalletBalance(wid);
     }
 
     return createdTransactions;
@@ -107,6 +134,7 @@ class TransactionRepository {
   Future<Transaction> update(
     String id, {
     String? categoryId,
+    String? walletId,
     double? amount,
     String? formula,
     String? note,
@@ -120,8 +148,12 @@ class TransactionRepository {
       throw Exception('Transaction not found');
     }
 
+    final oldWalletId = transaction.walletId;
+    final newWalletId = walletId ?? transaction.walletId;
+
     final updated = transaction.copyWith(
       categoryId: categoryId ?? transaction.categoryId,
+      walletId: newWalletId,
       amount: amount ?? transaction.amount,
       formula: formula ?? transaction.formula,
       note: note ?? transaction.note,
@@ -137,18 +169,34 @@ class TransactionRepository {
       whereArgs: [id],
     );
 
+    if (oldWalletId != null) {
+      await _walletRepo.recalculateWalletBalance(oldWalletId);
+    }
+    if (newWalletId != null && newWalletId != oldWalletId) {
+      await _walletRepo.recalculateWalletBalance(newWalletId);
+    }
+
     return updated;
   }
 
   Future<void> deleteMultiple(List<String> ids) async {
     final db = await DatabaseHelper.instance.database;
+    final affectedWalletIds = <String>{};
 
     for (var id in ids) {
+      final tx = await getById(id);
+      if (tx?.walletId != null) {
+        affectedWalletIds.add(tx!.walletId!);
+      }
       await db.delete(
         'transactions',
         where: 'id = ?',
         whereArgs: [id],
       );
+    }
+
+    for (final wid in affectedWalletIds) {
+      await _walletRepo.recalculateWalletBalance(wid);
     }
   }
 }

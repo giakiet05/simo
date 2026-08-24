@@ -15,6 +15,8 @@ class BackupSnapshot {
   final List<Map<String, dynamic>> recurringConfigs;
   final List<Map<String, dynamic>> savingGoals;
   final List<Map<String, dynamic>> savingGoalLogs;
+  final List<Map<String, dynamic>> wallets;
+  final List<Map<String, dynamic>> walletTransfers;
 
   const BackupSnapshot({
     this.version = 1,
@@ -31,6 +33,8 @@ class BackupSnapshot {
     required this.recurringConfigs,
     this.savingGoals = const [],
     this.savingGoalLogs = const [],
+    this.wallets = const [],
+    this.walletTransfers = const [],
   });
 
   Map<String, dynamic> toMap() {
@@ -50,6 +54,8 @@ class BackupSnapshot {
         'recurring_configs': recurringConfigs,
         'saving_goals': savingGoals,
         'saving_goal_logs': savingGoalLogs,
+        'wallets': wallets,
+        'wallet_transfers': walletTransfers,
       },
     };
   }
@@ -108,6 +114,14 @@ class BackupSnapshot {
               .toList() ??
           [],
       savingGoalLogs: (data['saving_goal_logs'] as List?)
+              ?.map((e) => Map<String, dynamic>.from(e as Map))
+              .toList() ??
+          [],
+      wallets: (data['wallets'] as List?)
+              ?.map((e) => Map<String, dynamic>.from(e as Map))
+              .toList() ??
+          [],
+      walletTransfers: (data['wallet_transfers'] as List?)
               ?.map((e) => Map<String, dynamic>.from(e as Map))
               .toList() ??
           [],

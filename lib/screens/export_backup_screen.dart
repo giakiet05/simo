@@ -16,6 +16,7 @@ import '../providers/recurring_provider.dart';
 import '../providers/saving_goal_provider.dart';
 import '../providers/settings_provider.dart';
 import '../providers/transaction_provider.dart';
+import '../providers/wallet_provider.dart';
 import '../widgets/banner_ad_widget.dart';
 
 enum ExportFormat {
@@ -102,6 +103,7 @@ class _ExportBackupScreenState extends ConsumerState<ExportBackupScreen> with Si
         loans: loans,
         recurringConfigs: recurringConfigs,
         savingGoals: savingGoals,
+        wallets: ref.read(walletProvider).value ?? [],
         filter: filter,
         l10n: l10n,
       );

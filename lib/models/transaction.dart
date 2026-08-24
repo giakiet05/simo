@@ -2,6 +2,7 @@ class Transaction {
   final String id;
   final String? categoryId;
   final String? recurringConfigId;
+  final String? walletId;
   final double amount;
   final String? formula;
   final String? note;
@@ -14,6 +15,7 @@ class Transaction {
     required this.id,
     this.categoryId,
     this.recurringConfigId,
+    this.walletId,
     required this.amount,
     this.formula,
     this.note,
@@ -27,6 +29,7 @@ class Transaction {
     String? id,
     String? categoryId,
     String? recurringConfigId,
+    String? walletId,
     double? amount,
     String? formula,
     String? note,
@@ -39,6 +42,7 @@ class Transaction {
       id: id ?? this.id,
       categoryId: categoryId ?? this.categoryId,
       recurringConfigId: recurringConfigId ?? this.recurringConfigId,
+      walletId: walletId ?? this.walletId,
       amount: amount ?? this.amount,
       formula: formula ?? this.formula,
       note: note ?? this.note,
@@ -54,6 +58,7 @@ class Transaction {
       'id': id,
       'category_id': categoryId,
       'recurring_config_id': recurringConfigId,
+      'wallet_id': walletId,
       'amount': amount,
       'formula': formula,
       'note': note,
@@ -72,6 +77,7 @@ class Transaction {
       id: map['id'] as String,
       categoryId: map['category_id'] as String?,
       recurringConfigId: map['recurring_config_id'] as String?,
+      walletId: map['wallet_id'] as String?,
       amount: (map['amount'] as num).toDouble(),
       formula: map['formula'] as String?,
       note: map['note'] as String?,

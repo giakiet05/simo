@@ -375,6 +375,51 @@ class AppLocalizations {
           'Create your first saving goal to track your dreams',
       'history_logs': 'History Logs',
       'no_history_logs': 'No deposit or withdrawal history yet',
+
+      // Multi-Wallet & Transfers
+      'wallets': 'Wallets',
+      'wallet': 'Wallet',
+      'add_wallet': 'Add Wallet',
+      'edit_wallet': 'Edit Wallet',
+      'delete_wallet': 'Delete Wallet',
+      'delete_wallet_confirm':
+          'Are you sure you want to delete this wallet? Associated transactions will remain unassigned.',
+      'wallet_name': 'Wallet Name',
+      'wallet_type': 'Account Type',
+      'initial_balance': 'Initial Balance',
+      'current_balance': 'Current Balance',
+      'total_net_worth': 'Total Net Worth',
+      'available_balance': 'Available Balance',
+      'is_default_wallet': 'Set as Default Wallet',
+      'default_wallet_badge': 'Default',
+      'exclude_from_total': 'Exclude from Total',
+      'wallet_cash': 'Cash',
+      'wallet_bank': 'Bank Account',
+      'wallet_ewallet': 'E-Wallet',
+      'wallet_credit': 'Credit Card',
+      'wallet_savings': 'Savings',
+      'wallet_other': 'Other',
+      'wallet_created': 'Wallet created successfully!',
+      'wallet_updated': 'Wallet updated successfully!',
+      'wallet_deleted': 'Wallet deleted!',
+      'no_wallets': 'No wallets found',
+      'no_wallets_desc':
+          'Create wallets to organize your money across cash, banks, and e-wallets',
+      'transfer': 'Transfer',
+      'transfer_funds': 'Transfer Funds',
+      'source_wallet': 'From Wallet',
+      'destination_wallet': 'To Wallet',
+      'transfer_amount': 'Transfer Amount',
+      'transfer_fee': 'Transfer Fee (Optional)',
+      'transfer_success': 'Transfer successful!',
+      'transfer_error_same_wallet':
+          'Source and destination wallets cannot be the same',
+      'transfer_error_insufficient_funds':
+          'Insufficient balance in source wallet',
+      'wallet_statement': 'Account Statement',
+      'total_inflow': 'Money In',
+      'total_outflow': 'Money Out',
+      'select_wallet': 'Select Wallet',
     },
     'zh': {
       // Navigation
@@ -731,6 +776,47 @@ class AppLocalizations {
       'no_saving_goals_desc': '创建您的第一个储蓄目标以追踪您的梦想',
       'history_logs': '存取记录',
       'no_history_logs': '暂无存取款记录',
+
+      // Multi-Wallet & Transfers
+      'wallets': '钱包',
+      'wallet': '钱包',
+      'add_wallet': '添加钱包',
+      'edit_wallet': '编辑钱包',
+      'delete_wallet': '删除钱包',
+      'delete_wallet_confirm': '确定要删除此钱包吗？关联交易将保留未分配。',
+      'wallet_name': '钱包名称',
+      'wallet_type': '账户类型',
+      'initial_balance': '初始余额',
+      'current_balance': '当前余额',
+      'total_net_worth': '总净资产',
+      'available_balance': '可用余额',
+      'is_default_wallet': '设为默认钱包',
+      'default_wallet_badge': '默认',
+      'exclude_from_total': '不计入总资产',
+      'wallet_cash': '现金',
+      'wallet_bank': '银行账户',
+      'wallet_ewallet': '电子钱包',
+      'wallet_credit': '信用卡',
+      'wallet_savings': '储蓄',
+      'wallet_other': '其他',
+      'wallet_created': '钱包创建成功！',
+      'wallet_updated': '钱包更新成功！',
+      'wallet_deleted': '钱包已删除！',
+      'no_wallets': '暂无钱包',
+      'no_wallets_desc': '创建钱包以管理现金、银行和电子钱包',
+      'transfer': '转账',
+      'transfer_funds': '资金转账',
+      'source_wallet': '转出钱包',
+      'destination_wallet': '转入钱包',
+      'transfer_amount': '转账金额',
+      'transfer_fee': '手续费（可选）',
+      'transfer_success': '转账成功！',
+      'transfer_error_same_wallet': '转出和转入钱包不能相同',
+      'transfer_error_insufficient_funds': '转出钱包余额不足',
+      'wallet_statement': '账户明细',
+      'total_inflow': '转入总额',
+      'total_outflow': '转出总额',
+      'select_wallet': '选择钱包',
     },
     'vi': {
       // Navigation
@@ -1103,6 +1189,51 @@ class AppLocalizations {
           'Tạo mục tiêu đầu tiên để tích lũy cho ước mơ của bạn',
       'history_logs': 'Lịch sử nạp / rút',
       'no_history_logs': 'Chưa có giao dịch nạp/rút nào',
+
+      // Multi-Wallet & Transfers
+      'wallets': 'Ví tiền',
+      'wallet': 'Ví',
+      'add_wallet': 'Thêm ví mới',
+      'edit_wallet': 'Sửa thông tin ví',
+      'delete_wallet': 'Xóa ví',
+      'delete_wallet_confirm':
+          'Bạn có chắc chắn muốn xóa ví này? Các giao dịch liên quan sẽ được giữ lại mà không thuộc ví nào.',
+      'wallet_name': 'Tên ví',
+      'wallet_type': 'Loại tài khoản',
+      'initial_balance': 'Số dư ban đầu',
+      'current_balance': 'Số dư hiện tại',
+      'total_net_worth': 'Tổng tài sản',
+      'available_balance': 'Số dư khả dụng',
+      'is_default_wallet': 'Đặt làm ví mặc định',
+      'default_wallet_badge': 'Mặc định',
+      'exclude_from_total': 'Không tính vào tổng tài sản',
+      'wallet_cash': 'Tiền mặt',
+      'wallet_bank': 'Tài khoản ngân hàng',
+      'wallet_ewallet': 'Ví điện tử',
+      'wallet_credit': 'Thẻ tín dụng',
+      'wallet_savings': 'Sổ tiết kiệm',
+      'wallet_other': 'Khác',
+      'wallet_created': 'Tạo ví mới thành công!',
+      'wallet_updated': 'Cập nhật ví thành công!',
+      'wallet_deleted': 'Đã xóa ví!',
+      'no_wallets': 'Chưa có ví nào',
+      'no_wallets_desc':
+          'Tạo các ví để quản lý tiền mặt, tài khoản ngân hàng và ví điện tử của bạn',
+      'transfer': 'Chuyển tiền',
+      'transfer_funds': 'Chuyển tiền giữa các ví',
+      'source_wallet': 'Từ ví',
+      'destination_wallet': 'Đến ví',
+      'transfer_amount': 'Số tiền chuyển',
+      'transfer_fee': 'Phí chuyển (Tùy chọn)',
+      'transfer_success': 'Chuyển tiền thành công!',
+      'transfer_error_same_wallet':
+          'Ví gửi và ví nhận không được trùng nhau',
+      'transfer_error_insufficient_funds':
+          'Số dư ví nguồn không đủ để thực hiện chuyển tiền',
+      'wallet_statement': 'Sao kê tài khoản',
+      'total_inflow': 'Tổng tiền vào',
+      'total_outflow': 'Tổng tiền ra',
+      'select_wallet': 'Chọn ví',
     },
   };
 
@@ -1434,6 +1565,47 @@ class AppLocalizations {
   String get noSavingGoalsDesc => translate('no_saving_goals_desc');
   String get historyLogs => translate('history_logs');
   String get noHistoryLogs => translate('no_history_logs');
+
+  String get wallets => translate('wallets');
+  String get wallet => translate('wallet');
+  String get addWallet => translate('add_wallet');
+  String get editWallet => translate('edit_wallet');
+  String get deleteWallet => translate('delete_wallet');
+  String get deleteWalletConfirm => translate('delete_wallet_confirm');
+  String get walletName => translate('wallet_name');
+  String get walletType => translate('wallet_type');
+  String get initialBalance => translate('initial_balance');
+  String get currentBalance => translate('current_balance');
+  String get totalNetWorth => translate('total_net_worth');
+  String get availableBalance => translate('available_balance');
+  String get isDefaultWallet => translate('is_default_wallet');
+  String get defaultWalletBadge => translate('default_wallet_badge');
+  String get excludeFromTotal => translate('exclude_from_total');
+  String get walletCash => translate('wallet_cash');
+  String get walletBank => translate('wallet_bank');
+  String get walletEwallet => translate('wallet_ewallet');
+  String get walletCredit => translate('wallet_credit');
+  String get walletSavings => translate('wallet_savings');
+  String get walletOther => translate('wallet_other');
+  String get walletCreated => translate('wallet_created');
+  String get walletUpdated => translate('wallet_updated');
+  String get walletDeleted => translate('wallet_deleted');
+  String get noWallets => translate('no_wallets');
+  String get noWalletsDesc => translate('no_wallets_desc');
+  String get transfer => translate('transfer');
+  String get transferFunds => translate('transfer_funds');
+  String get sourceWallet => translate('source_wallet');
+  String get destinationWallet => translate('destination_wallet');
+  String get transferAmount => translate('transfer_amount');
+  String get transferFee => translate('transfer_fee');
+  String get transferSuccess => translate('transfer_success');
+  String get transferErrorSameWallet => translate('transfer_error_same_wallet');
+  String get transferErrorInsufficientFunds =>
+      translate('transfer_error_insufficient_funds');
+  String get walletStatement => translate('wallet_statement');
+  String get totalInflow => translate('total_inflow');
+  String get totalOutflow => translate('total_outflow');
+  String get selectWallet => translate('select_wallet');
 
   // Translate default category name by ID
   String translateCategoryName(String categoryId, String defaultName) {

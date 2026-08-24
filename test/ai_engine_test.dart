@@ -88,23 +88,23 @@ void main() async {
         bool passCat = true;
 
         if (testCase.containsKey('expected_amount') && amount != testCase['expected_amount']) {
-          print('❌ FAILED Amount (Expected: \${testCase['expected_amount']}, Got: \$amount)');
+          print('❌ FAILED Amount (Expected: ${testCase["expected_amount"]}, Got: $amount)');
           passAmount = false;
         }
 
         if (testCase.containsKey('expected_category_semantic') && catName != testCase['expected_category_semantic']) {
-          print('❌ FAILED Category (Expected: \${testCase['expected_category_semantic']}, Got: \$catName)');
+          print('❌ FAILED Category (Expected: ${testCase["expected_category_semantic"]}, Got: $catName)');
           passCat = false;
         }
 
         if (passAmount && passCat) {
-          print('✅ PASSED (Amount: \$amount, Category: \$catName, Thought: \${result['thought']})');
+          print('✅ PASSED (Amount: $amount, Category: $catName, Thought: ${result["thought"]})');
           passed++;
         } else {
           failed++;
         }
       } else {
-        print('✅ PASSED (Rejected properly. Thought: \${result['thought']}, Message: \${result['message']})');
+        print('✅ PASSED (Rejected properly. Thought: ${result["thought"]}, Message: ${result["message"]})');
         passed++;
       }
     } catch (e) {

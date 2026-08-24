@@ -14,6 +14,7 @@ import '../models/loan_contact.dart';
 import '../models/recurring_config.dart';
 import '../models/monthly_budget.dart';
 import '../models/saving_goal.dart';
+import '../models/wallet.dart';
 import '../services/currency_service.dart';
 import 'file_helper.dart';
 
@@ -26,6 +27,7 @@ class ExportService {
     required List<LoanContact> loans,
     required List<RecurringConfig> recurringConfigs,
     List<SavingGoal> savingGoals = const [],
+    List<Wallet> wallets = const [],
     required ExportFilterParams filter,
     required dynamic l10n,
   }) async {
@@ -44,6 +46,7 @@ class ExportService {
       l10n.locale == 'vi' ? 'Giờ' : 'Time',
       l10n.locale == 'vi' ? 'Loại' : 'Type',
       l10n.locale == 'vi' ? 'Danh mục' : 'Category',
+      l10n.locale == 'vi' ? 'Ví thanh toán' : 'Wallet',
       l10n.locale == 'vi' ? 'Số tiền (${filter.currency})' : 'Amount (${filter.currency})',
       l10n.locale == 'vi' ? 'Ghi chú' : 'Note',
       l10n.locale == 'vi' ? 'Công thức' : 'Formula',
@@ -52,6 +55,7 @@ class ExportService {
     txSheet.appendRow(txHeaders.map((h) => TextCellValue(h)).toList());
 
     final categoryMap = {for (var c in categories) c.id: c};
+    final walletMap = {for (var w in wallets) w.id: w};
 
     double totalIncome = 0;
     double totalExpense = 0;
@@ -66,12 +70,14 @@ class ExportService {
 
       final cat = tx.categoryId != null ? categoryMap[tx.categoryId] : null;
       final catName = cat != null ? l10n.translateCategoryName(cat.id, cat.name) : (l10n.locale == 'vi' ? 'Khác' : 'Other');
+      final walletName = tx.walletId != null ? (walletMap[tx.walletId]?.name ?? '') : '';
 
       txSheet.appendRow([
         TextCellValue(DateFormat('yyyy-MM-dd').format(tx.transactionDate)),
         TextCellValue(DateFormat('HH:mm:ss').format(tx.transactionDate)),
         TextCellValue(isIncome ? (l10n.locale == 'vi' ? 'Thu nhập' : 'Income') : (l10n.locale == 'vi' ? 'Chi tiêu' : 'Expense')),
         TextCellValue(catName),
+        TextCellValue(walletName),
         DoubleCellValue(tx.amount),
         TextCellValue(tx.note ?? ''),
         TextCellValue(tx.formula ?? ''),
@@ -80,6 +86,7 @@ class ExportService {
 
     // Summary row in Transactions sheet
     txSheet.appendRow([
+      TextCellValue('---'),
       TextCellValue('---'),
       TextCellValue('---'),
       TextCellValue('---'),
@@ -171,6 +178,32 @@ class ExportService {
           TextCellValue('${(goal.progressPercentage * 100).toStringAsFixed(1)}%'),
           TextCellValue(goal.targetDate != null ? DateFormat('yyyy-MM-dd').format(goal.targetDate!) : ''),
           TextCellValue(goal.isCompleted ? (l10n.locale == 'vi' ? 'Đã hoàn thành' : 'Completed') : (l10n.locale == 'vi' ? 'Đang tích lũy' : 'In Progress')),
+        ]);
+      }
+    }
+
+    // 5. Wallets Sheet
+    if (wallets.isNotEmpty) {
+      final walletsSheetName = l10n.locale == 'vi' ? 'Danh sách ví' : 'Wallets';
+      final Sheet walletsSheet = excel[walletsSheetName];
+      final walletHeaders = [
+        l10n.locale == 'vi' ? 'Tên ví' : 'Wallet Name',
+        l10n.locale == 'vi' ? 'Loại tài khoản' : 'Account Type',
+        l10n.locale == 'vi' ? 'Số dư ban đầu (${filter.currency})' : 'Initial Balance (${filter.currency})',
+        l10n.locale == 'vi' ? 'Số dư hiện tại (${filter.currency})' : 'Current Balance (${filter.currency})',
+        l10n.locale == 'vi' ? 'Mặc định' : 'Default',
+        l10n.locale == 'vi' ? 'Không tính vào tổng' : 'Exclude from Total',
+      ];
+      walletsSheet.appendRow(walletHeaders.map((h) => TextCellValue(h)).toList());
+
+      for (final w in wallets) {
+        walletsSheet.appendRow([
+          TextCellValue(w.name),
+          TextCellValue(w.type),
+          DoubleCellValue(w.initialBalance),
+          DoubleCellValue(w.currentBalance),
+          TextCellValue(w.isDefault ? (l10n.locale == 'vi' ? 'Có' : 'Yes') : (l10n.locale == 'vi' ? 'Không' : 'No')),
+          TextCellValue(w.excludeFromTotal ? (l10n.locale == 'vi' ? 'Có' : 'Yes') : (l10n.locale == 'vi' ? 'Không' : 'No')),
         ]);
       }
     }

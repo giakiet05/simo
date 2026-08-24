@@ -13,18 +13,24 @@ class BackupService {
   BackupService({DatabaseHelper? dbHelper})
       : _dbHelper = dbHelper ?? DatabaseHelper.instance;
 
-  /// Creates a full JSON snapshot of all database tables and settings
-  Future<File> createBackupFile({String appVersion = '1.3.0'}) async {
-    final db = await _dbHelper.database;
-    final prefs = await SharedPreferences.getInstance();
+  /// Alias for backward compatibility with existing tests
+  Future<File> createBackupFile() => createBackupSnapshot();
 
-    final settings = {
+  /// Generates a full JSON backup snapshot and returns the temporary file
+  Future<File> createBackupSnapshot() async {
+    final db = await _dbHelper.database;
+    const appVersion = '1.0.0';
+
+    // 1. Gather all settings from SharedPreferences
+    final prefs = await SharedPreferences.getInstance();
+    final settings = <String, dynamic>{
       'currency': prefs.getString('currency') ?? 'VND',
       'language': prefs.getString('language') ?? 'vi',
       'theme': prefs.getString('theme_mode') ?? 'system',
-      'monthly_budget': prefs.getDouble('monthly_budget') ?? 0.0,
+      'monthly_budget': prefs.getDouble('monthly_budget'),
     };
 
+    // 2. Gather all database tables
     final categories = await db.query('categories');
     final transactions = await db.query('transactions');
     final monthlyBudgets = await db.query('monthly_budgets');
@@ -34,6 +40,8 @@ class BackupService {
     final recurringConfigs = await db.query('recurring_configs');
     final savingGoals = await db.query('saving_goals');
     final savingGoalLogs = await db.query('saving_goal_logs');
+    final wallets = await db.query('wallets');
+    final walletTransfers = await db.query('wallet_transfers');
 
     final snapshot = BackupSnapshot(
       version: 1,
@@ -59,6 +67,9 @@ class BackupService {
           savingGoals.map((e) => Map<String, dynamic>.from(e)).toList(),
       savingGoalLogs:
           savingGoalLogs.map((e) => Map<String, dynamic>.from(e)).toList(),
+      wallets: wallets.map((e) => Map<String, dynamic>.from(e)).toList(),
+      walletTransfers:
+          walletTransfers.map((e) => Map<String, dynamic>.from(e)).toList(),
     );
 
     final file = await FileHelper.createTempExportFile(
@@ -100,6 +111,8 @@ class BackupService {
         totalRecurringConfigs: snapshot.recurringConfigs.length,
         totalSavingGoals: snapshot.savingGoals.length,
         totalSavingGoalLogs: snapshot.savingGoalLogs.length,
+        totalWallets: snapshot.wallets.length,
+        totalWalletTransfers: snapshot.walletTransfers.length,
         isValid: true,
       );
     } catch (e) {
@@ -124,9 +137,11 @@ class BackupService {
     await db.transaction((txn) async {
       if (overwriteMode) {
         // Clear existing tables in reverse dependency order
+        await txn.delete('wallet_transfers');
         await txn.delete('saving_goal_logs');
         await txn.delete('saving_goals');
         await txn.delete('transactions');
+        await txn.delete('wallets');
         await txn.delete('category_monthly_budgets');
         await txn.delete('recurring_configs');
         await txn.delete('loan_transactions');
@@ -201,7 +216,29 @@ class BackupService {
         );
       }
 
-      // 7. Insert Transactions
+      // 7. Insert Wallets
+      for (final w in snapshot.wallets) {
+        await txn.insert(
+          'wallets',
+          w,
+          conflictAlgorithm: overwriteMode
+              ? ConflictAlgorithm.replace
+              : ConflictAlgorithm.ignore,
+        );
+      }
+
+      // 8. Insert Wallet Transfers
+      for (final wt in snapshot.walletTransfers) {
+        await txn.insert(
+          'wallet_transfers',
+          wt,
+          conflictAlgorithm: overwriteMode
+              ? ConflictAlgorithm.replace
+              : ConflictAlgorithm.ignore,
+        );
+      }
+
+      // 9. Insert Transactions
       for (final tx in snapshot.transactions) {
         await txn.insert(
           'transactions',
@@ -212,7 +249,7 @@ class BackupService {
         );
       }
 
-      // 8. Insert Saving Goals
+      // 10. Insert Saving Goals
       for (final sg in snapshot.savingGoals) {
         await txn.insert(
           'saving_goals',
@@ -223,7 +260,7 @@ class BackupService {
         );
       }
 
-      // 9. Insert Saving Goal Logs
+      // 11. Insert Saving Goal Logs
       for (final sgl in snapshot.savingGoalLogs) {
         await txn.insert(
           'saving_goal_logs',
@@ -235,7 +272,7 @@ class BackupService {
       }
     });
 
-    // 10. Restore Settings
+    // 12. Restore Settings
     if (snapshot.settings.isNotEmpty) {
       final prefs = await SharedPreferences.getInstance();
       if (snapshot.settings.containsKey('currency')) {

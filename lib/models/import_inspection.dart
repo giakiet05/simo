@@ -11,6 +11,8 @@ class ImportInspection {
   final int totalRecurringConfigs;
   final int totalSavingGoals;
   final int totalSavingGoalLogs;
+  final int totalWallets;
+  final int totalWalletTransfers;
   final bool isValid;
   final String? errorMessage;
 
@@ -27,6 +29,8 @@ class ImportInspection {
     required this.totalRecurringConfigs,
     this.totalSavingGoals = 0,
     this.totalSavingGoalLogs = 0,
+    this.totalWallets = 0,
+    this.totalWalletTransfers = 0,
     this.isValid = true,
     this.errorMessage,
   });
@@ -45,6 +49,8 @@ class ImportInspection {
       totalRecurringConfigs: 0,
       totalSavingGoals: 0,
       totalSavingGoalLogs: 0,
+      totalWallets: 0,
+      totalWalletTransfers: 0,
       isValid: false,
       errorMessage: error,
     );

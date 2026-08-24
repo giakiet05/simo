@@ -59,6 +59,12 @@ void main() {
         recurringConfigs: [
           {'id': 'rec_1', 'name': 'Tiền mạng', 'amount': 250000.0, 'type': 'expense'}
         ],
+        wallets: [
+          {'id': 'w_1', 'name': 'Vietcombank', 'type': 'bank', 'initial_balance': 5000000.0, 'current_balance': 5000000.0, 'color': '#0055FF', 'icon': 'account_balance'}
+        ],
+        walletTransfers: [
+          {'id': 'wt_1', 'source_wallet_id': 'w_1', 'destination_wallet_id': 'w_2', 'amount': 1000000.0, 'fee': 1100.0, 'transfer_date': '2026-08-22T10:00:00.000'}
+        ],
       );
 
       final jsonStr = snapshot.toJsonString();
@@ -73,6 +79,9 @@ void main() {
       expect(restored.monthlyBudgets.length, equals(1));
       expect(restored.loanContacts.length, equals(1));
       expect(restored.recurringConfigs.length, equals(1));
+      expect(restored.wallets.length, equals(1));
+      expect(restored.wallets.first['name'], equals('Vietcombank'));
+      expect(restored.walletTransfers.length, equals(1));
     });
   });
 

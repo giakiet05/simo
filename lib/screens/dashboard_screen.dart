@@ -1646,6 +1646,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           editAmount: transaction.amount.toString(),
           editFormula: transaction.formula,
           editCategoryId: transaction.categoryId,
+          editWalletId: transaction.walletId,
           editNote: transaction.note,
           editTransactionDate: transaction.transactionDate,
           editCreatedAt: transaction.createdAt,

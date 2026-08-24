@@ -5,7 +5,9 @@ import '../providers/transaction_provider.dart';
 import '../providers/category_provider.dart';
 import '../providers/localization_provider.dart';
 import '../providers/settings_provider.dart';
+import '../providers/wallet_provider.dart';
 import '../models/category.dart';
+import '../models/wallet.dart';
 import '../utils/icon_data.dart';
 import '../services/currency_service.dart';
 import 'home_screen.dart';
@@ -18,6 +20,7 @@ class TransactionFormScreen extends ConsumerStatefulWidget {
   final String? editAmount;
   final String? editFormula;
   final String? editCategoryId;
+  final String? editWalletId;
   final String? editNote;
   final DateTime? editTransactionDate;
   final DateTime? editCreatedAt;
@@ -29,6 +32,7 @@ class TransactionFormScreen extends ConsumerStatefulWidget {
     this.editAmount,
     this.editFormula,
     this.editCategoryId,
+    this.editWalletId,
     this.editNote,
     this.editTransactionDate,
     this.editCreatedAt,
@@ -71,6 +75,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
 
       item.amountController.text = amountText;
       item.categoryId = widget.editCategoryId;
+      item.walletId = widget.editWalletId;
       item.noteController.text = widget.editNote ?? '';
       _items = [item];
     } else {
@@ -328,6 +333,29 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
               },
             ),
             const SizedBox(height: 16),
+            // Wallet selection
+            DropdownButtonFormField<String?>(
+              value: item.walletId ?? ref.watch(defaultWalletProvider)?.id,
+              decoration: InputDecoration(
+                labelText: l10n.wallet,
+                border: const OutlineInputBorder(),
+                prefixIcon: const Icon(Icons.account_balance_wallet_outlined),
+              ),
+              items: [
+                ...(ref.watch(walletProvider).value ?? []).map((w) {
+                  return DropdownMenuItem<String?>(
+                    value: w.id,
+                    child: Text(w.name),
+                  );
+                }),
+              ],
+              onChanged: (value) {
+                setState(() {
+                  item.walletId = value;
+                });
+              },
+            ),
+            const SizedBox(height: 16),
             TextField(
               controller: item.noteController,
               decoration: InputDecoration(
@@ -500,6 +528,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
 
         transactionData.add({
           'categoryId': item.categoryId,
+          'walletId': item.walletId ?? ref.read(defaultWalletProvider)?.id,
           'amount': amount,
           'formula': formula,
           'note': item.noteController.text.trim().isEmpty
@@ -525,6 +554,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
         await ref.read(transactionProvider.notifier).updateTransaction(
               widget.editTransactionId!,
               categoryId: data['categoryId'],
+              walletId: data['walletId'],
               amount: data['amount'],
               formula: data['formula'],
               note: data['note'],
@@ -641,6 +671,7 @@ class TransactionItem {
   final TextEditingController amountController = TextEditingController();
   final TextEditingController noteController = TextEditingController();
   String? categoryId;
+  String? walletId;
   String type = 'expense';
   DateTime transactionDate = DateTime.now();
 

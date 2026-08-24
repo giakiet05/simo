@@ -19,7 +19,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 13,
+      version: 14,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -53,6 +53,7 @@ class DatabaseHelper {
         cloud_id TEXT,
         category_id TEXT,
         recurring_config_id TEXT,
+        wallet_id TEXT,
         amount $realType,
         formula TEXT,
         note TEXT,
@@ -62,7 +63,8 @@ class DatabaseHelper {
         created_at $textType,
         updated_at $textType,
         FOREIGN KEY (category_id) REFERENCES categories (id),
-        FOREIGN KEY (recurring_config_id) REFERENCES recurring_configs (id)
+        FOREIGN KEY (recurring_config_id) REFERENCES recurring_configs (id),
+        FOREIGN KEY (wallet_id) REFERENCES wallets (id)
       )
     ''');
 
@@ -182,6 +184,55 @@ class DatabaseHelper {
         FOREIGN KEY (goal_id) REFERENCES saving_goals (id) ON DELETE CASCADE
       )
     ''');
+
+    await db.execute('''
+      CREATE TABLE wallets (
+        id $idType,
+        name $textType,
+        type $textType,
+        initial_balance REAL NOT NULL DEFAULT 0.0,
+        current_balance REAL NOT NULL DEFAULT 0.0,
+        color $textType,
+        icon $textType,
+        currency TEXT,
+        is_default INTEGER NOT NULL DEFAULT 0,
+        exclude_from_total INTEGER NOT NULL DEFAULT 0,
+        created_at $textType,
+        updated_at $textType
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE wallet_transfers (
+        id $idType,
+        source_wallet_id $textType,
+        destination_wallet_id $textType,
+        amount $realType,
+        fee REAL NOT NULL DEFAULT 0.0,
+        transfer_date $textType,
+        note TEXT,
+        created_at $textType,
+        FOREIGN KEY (source_wallet_id) REFERENCES wallets (id) ON DELETE CASCADE,
+        FOREIGN KEY (destination_wallet_id) REFERENCES wallets (id) ON DELETE CASCADE
+      )
+    ''');
+
+    // Insert default Cash Wallet
+    final now = DateTime.now().toIso8601String();
+    await db.insert('wallets', {
+      'id': 'default_cash_wallet',
+      'name': 'Ví tiền mặt',
+      'type': 'cash',
+      'initial_balance': 0.0,
+      'current_balance': 0.0,
+      'color': '#10B981',
+      'icon': 'wallet',
+      'currency': null,
+      'is_default': 1,
+      'exclude_from_total': 0,
+      'created_at': now,
+      'updated_at': now,
+    });
   }
 
   Future<void> _upgradeDB(Database db, int oldVersion, int newVersion) async {
@@ -431,11 +482,92 @@ class DatabaseHelper {
         )
       ''');
     }
+
+    if (oldVersion < 14) {
+      const idType = 'TEXT PRIMARY KEY';
+      const textType = 'TEXT NOT NULL';
+      const realType = 'REAL NOT NULL';
+
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS wallets (
+          id $idType,
+          name $textType,
+          type $textType,
+          initial_balance REAL NOT NULL DEFAULT 0.0,
+          current_balance REAL NOT NULL DEFAULT 0.0,
+          color $textType,
+          icon $textType,
+          currency TEXT,
+          is_default INTEGER NOT NULL DEFAULT 0,
+          exclude_from_total INTEGER NOT NULL DEFAULT 0,
+          created_at $textType,
+          updated_at $textType
+        )
+      ''');
+
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS wallet_transfers (
+          id $idType,
+          source_wallet_id $textType,
+          destination_wallet_id $textType,
+          amount $realType,
+          fee REAL NOT NULL DEFAULT 0.0,
+          transfer_date $textType,
+          note TEXT,
+          created_at $textType,
+          FOREIGN KEY (source_wallet_id) REFERENCES wallets (id) ON DELETE CASCADE,
+          FOREIGN KEY (destination_wallet_id) REFERENCES wallets (id) ON DELETE CASCADE
+        )
+      ''');
+
+      // Check if wallet_id column exists in transactions
+      final tableInfo = await db.rawQuery('PRAGMA table_info(transactions)');
+      final hasWalletId = tableInfo.any((col) => col['name'] == 'wallet_id');
+      if (!hasWalletId) {
+        await db.execute('ALTER TABLE transactions ADD COLUMN wallet_id TEXT');
+      }
+
+      // Check if wallets table has any wallet; if empty, insert default cash wallet
+      final existingWallets = await db.query('wallets');
+      if (existingWallets.isEmpty) {
+        final now = DateTime.now().toIso8601String();
+        const defaultWalletId = 'default_cash_wallet';
+        await db.insert('wallets', {
+          'id': defaultWalletId,
+          'name': 'Ví tiền mặt',
+          'type': 'cash',
+          'initial_balance': 0.0,
+          'current_balance': 0.0,
+          'color': '#10B981',
+          'icon': 'wallet',
+          'currency': null,
+          'is_default': 1,
+          'exclude_from_total': 0,
+          'created_at': now,
+          'updated_at': now,
+        });
+
+        // Link legacy transactions to default wallet
+        await db.rawUpdate('UPDATE transactions SET wallet_id = ? WHERE wallet_id IS NULL', [defaultWalletId]);
+
+        // Calculate current balance of default wallet
+        final result = await db.rawQuery('''
+          SELECT 
+            COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE -amount END), 0.0) as balance
+          FROM transactions 
+          WHERE wallet_id = ?
+        ''', [defaultWalletId]);
+        final balance = (result.first['balance'] as num?)?.toDouble() ?? 0.0;
+        await db.update('wallets', {'current_balance': balance}, where: 'id = ?', whereArgs: [defaultWalletId]);
+      }
+    }
   }
 
   Future<void> clearAllData() async {
     final db = await instance.database;
     await db.transaction((txn) async {
+      await txn.delete('wallet_transfers');
+      await txn.delete('wallets');
       await txn.delete('saving_goal_logs');
       await txn.delete('saving_goals');
       await txn.delete('category_monthly_budgets');
