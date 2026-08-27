@@ -420,6 +420,15 @@ class AppLocalizations {
       'total_inflow': 'Money In',
       'total_outflow': 'Money Out',
       'select_wallet': 'Select Wallet',
+      'monthly_cashflow': 'Monthly Cash Flow',
+      'monthly_surplus': 'Monthly Surplus',
+      'monthly_deficit': 'Monthly Deficit',
+      'hide_balance': 'Hide Balance',
+      'show_balance': 'Show Balance',
+      'all_wallets': 'All Wallets',
+      'manage_wallets': 'Manage',
+      'transfer_short': 'Transfer',
+      'savings_rate': 'Savings Rate',
     },
     'zh': {
       // Navigation
@@ -817,6 +826,15 @@ class AppLocalizations {
       'total_inflow': '转入总额',
       'total_outflow': '转出总额',
       'select_wallet': '选择钱包',
+      'monthly_cashflow': '月度资金流',
+      'monthly_surplus': '月度盈余',
+      'monthly_deficit': '月度赤字',
+      'hide_balance': '隐藏余额',
+      'show_balance': '显示余额',
+      'all_wallets': '所有钱包',
+      'manage_wallets': '管理',
+      'transfer_short': '转账',
+      'savings_rate': '储蓄率',
     },
     'vi': {
       // Navigation
@@ -1234,6 +1252,15 @@ class AppLocalizations {
       'total_inflow': 'Tổng tiền vào',
       'total_outflow': 'Tổng tiền ra',
       'select_wallet': 'Chọn ví',
+      'monthly_cashflow': 'Dòng tiền tháng',
+      'monthly_surplus': 'Thặng dư tháng',
+      'monthly_deficit': 'Dòng tiền âm',
+      'hide_balance': 'Ẩn số dư',
+      'show_balance': 'Hiện số dư',
+      'all_wallets': 'Tất cả ví',
+      'manage_wallets': 'Quản lý',
+      'transfer_short': 'Chuyển tiền',
+      'savings_rate': 'Tỷ lệ tích lũy',
     },
   };
 
@@ -1606,6 +1633,15 @@ class AppLocalizations {
   String get totalInflow => translate('total_inflow');
   String get totalOutflow => translate('total_outflow');
   String get selectWallet => translate('select_wallet');
+  String get monthlyCashflow => translate('monthly_cashflow');
+  String get monthlySurplus => translate('monthly_surplus');
+  String get monthlyDeficit => translate('monthly_deficit');
+  String get hideBalance => translate('hide_balance');
+  String get showBalance => translate('show_balance');
+  String get allWallets => translate('all_wallets');
+  String get manageWallets => translate('manage_wallets');
+  String get transferShort => translate('transfer_short');
+  String get savingsRate => translate('savings_rate');
 
   // Translate default category name by ID
   String translateCategoryName(String categoryId, String defaultName) {

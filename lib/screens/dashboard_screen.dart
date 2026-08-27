@@ -19,10 +19,18 @@ import '../providers/ad_free_provider.dart';
 import '../widgets/banner_ad_widget.dart';
 import 'transaction_form_screen.dart';
 import 'home_screen.dart';
+import 'wallets_screen.dart';
+import 'wallet_detail_screen.dart';
 import '../widgets/dashboard/quick_access_hub.dart';
+import '../widgets/dashboard/dashboard_net_worth_card.dart';
+import '../widgets/dashboard/mini_wallet_carousel.dart';
+import '../widgets/dashboard/monthly_cashflow_card.dart';
+import '../widgets/wallet_transfer_modal.dart';
+import '../widgets/wallet_form_modal.dart';
 import '../widgets/category_icon_widget.dart';
 import '../models/monthly_budget.dart';
 import '../providers/monthly_budget_provider.dart';
+import '../providers/wallet_provider.dart';
 import 'category_budget_screen.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
@@ -231,14 +239,79 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     loading: () => const Center(child: CircularProgressIndicator()),
                     error: (error, stack) => Center(child: Text('Error: $error')),
                     data: (loans) {
-                      return Column(
-                        children: [
+                  final walletsAsync = ref.watch(walletProvider);
+                  final totalNetWorth = ref.watch(totalNetWorthProvider);
+                  final isBalanceHidden = ref.watch(isBalanceHiddenProvider);
+                  final allWallets = walletsAsync.value ?? [];
+
+                  return Column(
+                    children: [
                       Expanded(
                         child: SingleChildScrollView(
                           padding: const EdgeInsets.all(16),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
+                              // ================= TIER 1: GLOBAL NET WORTH & WALLETS =================
+                              // 1. Total Net Worth Hero Card
+                              DashboardNetWorthCard(
+                                netWorth: totalNetWorth,
+                                currency: currency,
+                                isHidden: isBalanceHidden,
+                                onTogglePrivacy: () {
+                                  ref.read(isBalanceHiddenProvider.notifier).state =
+                                      !isBalanceHidden;
+                                },
+                                onTransferTap: () =>
+                                    WalletTransferModal.show(context),
+                                onViewAllWalletsTap: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const WalletsScreen(),
+                                  ),
+                                ),
+                                l10n: l10n,
+                              ),
+                              const SizedBox(height: 16),
+
+                              // 2. Mini Wallet Carousel
+                              MiniWalletCarousel(
+                                wallets: allWallets,
+                                currency: currency,
+                                isHidden: isBalanceHidden,
+                                onWalletTap: (wallet) => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => WalletDetailScreen(
+                                      walletId: wallet.id,
+                                    ),
+                                  ),
+                                ),
+                                onAddWalletTap: () =>
+                                    WalletFormModal.show(context),
+                                onViewAllTap: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const WalletsScreen(),
+                                  ),
+                                ),
+                                l10n: l10n,
+                              ),
+                              const SizedBox(height: 20),
+
+                              // Quick Access Hub
+                              QuickAccessHub(l10n: l10n),
+                              const SizedBox(height: 24),
+
+                              Divider(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .outline
+                                    .withValues(alpha: 0.15),
+                              ),
+                              const SizedBox(height: 12),
+
+                              // ================= TIER 2: MONTHLY CASH FLOW & BUDGETS =================
                               // Month/Year Selector
                               Row(
                                 children: [
@@ -300,23 +373,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                               ),
                               const SizedBox(height: 16),
 
-                              // Balance Card
-                              _buildBalanceCard(balance, currency, l10n),
-                              const SizedBox(height: 16),
-
-                              // Income & Expense Cards
-                              _buildSummaryCards(
-                                totalIncome,
-                                totalExpense,
-                                balance,
-                                currency,
-                                l10n,
+                              // Monthly Cashflow Card (Income, Expense, Net Flow)
+                              MonthlyCashflowCard(
+                                income: totalIncome,
+                                expense: totalExpense,
+                                netCashflow: balance,
+                                currency: currency,
+                                l10n: l10n,
                               ),
                               const SizedBox(height: 16),
                               _buildLoanSummaryCards(loans, currency, l10n),
-                              const SizedBox(height: 24),
-                              
-                              QuickAccessHub(l10n: l10n),
                               const SizedBox(height: 16),
 
                               _buildBudgetCard(

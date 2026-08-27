@@ -114,3 +114,6 @@ final allTransfersProvider = FutureProvider<List<WalletTransfer>>((ref) async {
   final repo = ref.watch(walletRepositoryProvider);
   return await repo.getAllTransfers();
 });
+
+final isBalanceHiddenProvider = StateProvider<bool>((ref) => false);
+
