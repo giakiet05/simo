@@ -33,12 +33,10 @@ class MiniWalletCarousel extends StatelessWidget {
   }
 
   String _formatAmount(double amount) {
-    final formatter = NumberFormat.currency(
-      locale: 'vi_VN',
-      symbol: currency == 'VND' ? '₫' : currency,
-      decimalDigits: currency == 'VND' ? 0 : 2,
-    );
-    return formatter.format(amount);
+    final symbol = currency == 'VND' ? '₫' : currency;
+    final isNegative = amount < 0;
+    final absFormatted = NumberFormat('#,###', 'en_US').format(amount.abs());
+    return '${isNegative ? '-' : ''}$absFormatted $symbol';
   }
 
   IconData _getWalletIcon(String iconKey) {

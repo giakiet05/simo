@@ -5,6 +5,7 @@ import '../models/transaction.dart';
 import '../models/wallet.dart';
 import '../models/wallet_transfer.dart';
 import '../providers/category_provider.dart';
+import '../providers/localization_provider.dart';
 import '../providers/settings_provider.dart';
 import '../providers/transaction_provider.dart';
 import '../providers/wallet_provider.dart';
@@ -13,10 +14,18 @@ import '../widgets/banner_ad_widget.dart';
 import '../widgets/wallet_form_modal.dart';
 import '../widgets/wallet_transfer_modal.dart';
 
-class WalletDetailScreen extends ConsumerWidget {
+class WalletDetailScreen extends ConsumerStatefulWidget {
   final String walletId;
 
   const WalletDetailScreen({super.key, required this.walletId});
+
+  @override
+  ConsumerState<WalletDetailScreen> createState() => _WalletDetailScreenState();
+}
+
+class _WalletDetailScreenState extends ConsumerState<WalletDetailScreen> {
+  String _typeFilter = 'all'; // 'all', 'income', 'expense', 'transfer'
+  DateTime? _selectedMonth = DateTime(DateTime.now().year, DateTime.now().month);
 
   Color _parseColor(String colorStr) {
     try {
@@ -28,12 +37,10 @@ class WalletDetailScreen extends ConsumerWidget {
   }
 
   String _formatAmount(double amount, String currency) {
-    final formatter = NumberFormat.currency(
-      locale: 'vi_VN',
-      symbol: currency == 'VND' ? '₫' : currency,
-      decimalDigits: currency == 'VND' ? 0 : 2,
-    );
-    return formatter.format(amount);
+    final symbol = currency == 'VND' ? '₫' : currency;
+    final isNegative = amount < 0;
+    final absFormatted = NumberFormat('#,###', 'en_US').format(amount.abs());
+    return '${isNegative ? '-' : ''}$absFormatted $symbol';
   }
 
   String _getTypeLabel(String type, AppLocalizations l10n) {
@@ -54,16 +61,41 @@ class WalletDetailScreen extends ConsumerWidget {
     }
   }
 
+  void _previousMonth() {
+    if (_selectedMonth == null) {
+      setState(() {
+        _selectedMonth = DateTime(DateTime.now().year, DateTime.now().month);
+      });
+      return;
+    }
+    setState(() {
+      _selectedMonth = DateTime(_selectedMonth!.year, _selectedMonth!.month - 1);
+    });
+  }
+
+  void _nextMonth() {
+    if (_selectedMonth == null) {
+      setState(() {
+        _selectedMonth = DateTime(DateTime.now().year, DateTime.now().month);
+      });
+      return;
+    }
+    setState(() {
+      _selectedMonth = DateTime(_selectedMonth!.year, _selectedMonth!.month + 1);
+    });
+  }
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final l10n = AppLocalizations(Localizations.localeOf(context).languageCode);
+  Widget build(BuildContext context) {
+    final l10n = ref.watch(localizationProvider);
     final walletsAsync = ref.watch(walletProvider);
     final transactionsAsync = ref.watch(transactionNotifierProvider);
     final categoriesAsync = ref.watch(categoryProvider);
-    final transfersAsync = ref.watch(walletTransfersProvider(walletId));
+    final transfersAsync = ref.watch(walletTransfersProvider(widget.walletId));
     final settingsAsync = ref.watch(settingsProvider);
     final currency = settingsAsync.value?.currency ?? 'VND';
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
     return walletsAsync.when(
       loading: () => const Scaffold(
@@ -73,7 +105,7 @@ class WalletDetailScreen extends ConsumerWidget {
       data: (wallets) {
         Wallet? wallet;
         try {
-          wallet = wallets.firstWhere((w) => w.id == walletId);
+          wallet = wallets.firstWhere((w) => w.id == widget.walletId);
         } catch (_) {
           wallet = null;
         }
@@ -85,18 +117,40 @@ class WalletDetailScreen extends ConsumerWidget {
           );
         }
 
-        final color = _parseColor(wallet.color);
+        final isNegative = wallet.currentBalance < 0;
+        final walletColor = _parseColor(wallet.color);
+
+        // Dynamic Hero gradient
+        final primaryColor = isNegative
+            ? (isDark ? const Color(0xFF991B1B) : const Color(0xFFDC2626))
+            : walletColor;
+        final secondaryColor = isNegative
+            ? (isDark ? const Color(0xFFB91C1C) : const Color(0xFFEF4444))
+            : walletColor.withValues(alpha: 0.82);
 
         // Filter transactions for this wallet
         final allTx = transactionsAsync.value ?? [];
-        final walletTx = allTx.where((tx) => tx.walletId == wallet!.id).toList();
+        final allWalletTx = allTx.where((tx) => tx.walletId == wallet!.id).toList();
+        final allTransfers = transfersAsync.value ?? [];
 
-        // Calculate Inflow and Outflow
-        final transfers = transfersAsync.value ?? [];
+        // Apply Time Filter
+        final timeFilteredTx = allWalletTx.where((tx) {
+          if (_selectedMonth == null) return true;
+          return tx.transactionDate.year == _selectedMonth!.year &&
+              tx.transactionDate.month == _selectedMonth!.month;
+        }).toList();
+
+        final timeFilteredTransfers = allTransfers.where((tf) {
+          if (_selectedMonth == null) return true;
+          return tf.transferDate.year == _selectedMonth!.year &&
+              tf.transferDate.month == _selectedMonth!.month;
+        }).toList();
+
+        // Calculate Inflow and Outflow for selected time
         double totalIn = 0.0;
         double totalOut = 0.0;
 
-        for (final tx in walletTx) {
+        for (final tx in timeFilteredTx) {
           if (tx.type == 'income') {
             totalIn += tx.amount;
           } else {
@@ -104,12 +158,32 @@ class WalletDetailScreen extends ConsumerWidget {
           }
         }
 
-        for (final tf in transfers) {
+        for (final tf in timeFilteredTransfers) {
           if (tf.destinationWalletId == wallet.id) {
             totalIn += tf.amount;
           } else if (tf.sourceWalletId == wallet.id) {
             totalOut += (tf.amount + tf.fee);
           }
+        }
+
+        // Apply Type Filter
+        List<Transaction> displayTx = [];
+        List<WalletTransfer> displayTransfers = [];
+
+        if (_typeFilter == 'all') {
+          displayTx = timeFilteredTx;
+          displayTransfers = timeFilteredTransfers;
+        } else if (_typeFilter == 'income') {
+          displayTx = timeFilteredTx.where((tx) => tx.type == 'income').toList();
+          displayTransfers = timeFilteredTransfers
+              .where((tf) => tf.destinationWalletId == wallet!.id)
+              .toList();
+        } else if (_typeFilter == 'expense') {
+          displayTx = timeFilteredTx.where((tx) => tx.type == 'expense').toList();
+          displayTransfers = [];
+        } else if (_typeFilter == 'transfer') {
+          displayTx = [];
+          displayTransfers = timeFilteredTransfers;
         }
 
         final categories = categoriesAsync.value ?? [];
@@ -150,14 +224,14 @@ class WalletDetailScreen extends ConsumerWidget {
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
-                          colors: [color, color.withValues(alpha: 0.8)],
+                          colors: [primaryColor, secondaryColor],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
                         borderRadius: BorderRadius.circular(20),
                         boxShadow: [
                           BoxShadow(
-                            color: color.withValues(alpha: 0.3),
+                            color: secondaryColor.withValues(alpha: 0.28),
                             blurRadius: 10,
                             offset: const Offset(0, 4),
                           ),
@@ -199,12 +273,16 @@ class WalletDetailScreen extends ConsumerWidget {
                             ],
                           ),
                           const SizedBox(height: 8),
-                          Text(
-                            _formatAmount(wallet.currentBalance, currency),
-                            style: const TextStyle(
-                              fontSize: 32,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              _formatAmount(wallet.currentBalance, currency),
+                              style: const TextStyle(
+                                fontSize: 32,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
                             ),
                           ),
                           const SizedBox(height: 16),
@@ -279,11 +357,89 @@ class WalletDetailScreen extends ConsumerWidget {
                       ),
                     ),
 
+                    // Time Period Selector Row
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.chevron_left_rounded),
+                            onPressed: _selectedMonth != null ? _previousMonth : null,
+                          ),
+                          InkWell(
+                            onTap: () {
+                              setState(() {
+                                if (_selectedMonth == null) {
+                                  _selectedMonth = DateTime(
+                                    DateTime.now().year,
+                                    DateTime.now().month,
+                                  );
+                                } else {
+                                  _selectedMonth = null;
+                                }
+                              });
+                            },
+                            borderRadius: BorderRadius.circular(8),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.calendar_today_rounded,
+                                    size: 16,
+                                    color: theme.colorScheme.primary,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    _selectedMonth != null
+                                        ? '${l10n.getMonthName(_selectedMonth!.month)} ${_selectedMonth!.year}'
+                                        : l10n.allTime,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                      color: theme.colorScheme.primary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.chevron_right_rounded),
+                            onPressed: _selectedMonth != null ? _nextMonth : null,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+
+                    // Type Filter Chips
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Row(
+                        children: [
+                          _buildFilterChip('all', l10n.filterAll, theme),
+                          const SizedBox(width: 8),
+                          _buildFilterChip('income', l10n.filterIncome, theme),
+                          const SizedBox(width: 8),
+                          _buildFilterChip('expense', l10n.filterExpense, theme),
+                          const SizedBox(width: 8),
+                          _buildFilterChip('transfer', l10n.filterTransfers, theme),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
                     // Section Title
                     Padding(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 20,
-                        vertical: 8,
+                        vertical: 6,
                       ),
                       child: Text(
                         l10n.walletStatement,
@@ -295,7 +451,7 @@ class WalletDetailScreen extends ConsumerWidget {
                     ),
 
                     // Statement List (Transactions + Transfers)
-                    if (walletTx.isEmpty && transfers.isEmpty)
+                    if (displayTx.isEmpty && displayTransfers.isEmpty)
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: 36),
                         child: Center(
@@ -309,8 +465,8 @@ class WalletDetailScreen extends ConsumerWidget {
                       ..._buildTimelineItems(
                         context: context,
                         wallet: wallet,
-                        transactions: walletTx,
-                        transfers: transfers,
+                        transactions: displayTx,
+                        transfers: displayTransfers,
                         categoryMap: categoryMap,
                         currency: currency,
                         l10n: l10n,
@@ -326,6 +482,25 @@ class WalletDetailScreen extends ConsumerWidget {
     );
   }
 
+  Widget _buildFilterChip(String key, String label, ThemeData theme) {
+    final isSelected = _typeFilter == key;
+    return ChoiceChip(
+      label: Text(label),
+      selected: isSelected,
+      selectedColor: theme.colorScheme.primary.withValues(alpha: 0.15),
+      labelStyle: TextStyle(
+        fontSize: 12,
+        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+        color: isSelected ? theme.colorScheme.primary : null,
+      ),
+      onSelected: (selected) {
+        if (selected) {
+          setState(() => _typeFilter = key);
+        }
+      },
+    );
+  }
+
   List<Widget> _buildTimelineItems({
     required BuildContext context,
     required Wallet wallet,
@@ -335,7 +510,6 @@ class WalletDetailScreen extends ConsumerWidget {
     required String currency,
     required AppLocalizations l10n,
   }) {
-    // Combine and sort by date descending
     final items = <_TimelineItem>[];
 
     for (final tx in transactions) {
@@ -395,12 +569,19 @@ class WalletDetailScreen extends ConsumerWidget {
               '${DateFormat('dd/MM/yyyy HH:mm').format(tx.transactionDate)} • $catName',
               style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
             ),
-            trailing: Text(
-              '${isIncome ? '+' : '-'}${_formatAmount(tx.amount, currency)}',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
-                color: isIncome ? Colors.green : Colors.red,
+            trailing: SizedBox(
+              width: 105,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerRight,
+                child: Text(
+                  '${isIncome ? '+' : '-'}${_formatAmount(tx.amount, currency)}',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    color: isIncome ? Colors.green : Colors.red,
+                  ),
+                ),
               ),
             ),
           ),
@@ -424,19 +605,26 @@ class WalletDetailScreen extends ConsumerWidget {
               child: const Icon(Icons.swap_horiz, color: Colors.blue, size: 20),
             ),
             title: Text(
-              isIncoming ? 'Chuyển tiền đến ví' : 'Chuyển tiền đi',
+              isIncoming ? l10n.transferIn : l10n.transferOut,
               style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
             ),
             subtitle: Text(
-              '${DateFormat('dd/MM/yyyy HH:mm').format(tf.transferDate)}${tf.note?.isNotEmpty == true ? ' • ${tf.note}' : ''}${tf.fee > 0 ? ' (Phí: ${_formatAmount(tf.fee, currency)})' : ''}',
+              '${DateFormat('dd/MM/yyyy HH:mm').format(tf.transferDate)}${tf.note?.isNotEmpty == true ? ' • ${tf.note}' : ''}${tf.fee > 0 ? ' (${l10n.feeLabel}: ${_formatAmount(tf.fee, currency)})' : ''}',
               style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
             ),
-            trailing: Text(
-              '${isIncoming ? '+' : '-'}${_formatAmount(isIncoming ? tf.amount : (tf.amount + tf.fee), currency)}',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
-                color: isIncoming ? Colors.blue : Colors.orange.shade800,
+            trailing: SizedBox(
+              width: 105,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerRight,
+                child: Text(
+                  '${isIncoming ? '+' : '-'}${_formatAmount(isIncoming ? tf.amount : (tf.amount + tf.fee), currency)}',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    color: isIncoming ? Colors.blue : Colors.orange.shade800,
+                  ),
+                ),
               ),
             ),
           ),

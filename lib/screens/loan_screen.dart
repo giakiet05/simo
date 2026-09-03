@@ -10,60 +10,77 @@ import '../widgets/loan_contact_modal.dart';
 import 'loan_detail_screen.dart';
 
 class LoanScreen extends ConsumerStatefulWidget {
-  const LoanScreen({super.key});
+  final int initialTab;
+  const LoanScreen({super.key, this.initialTab = 0});
 
   @override
   ConsumerState<LoanScreen> createState() => _LoanScreenState();
 }
 
-class _LoanScreenState extends ConsumerState<LoanScreen> {
+class _LoanScreenState extends ConsumerState<LoanScreen>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(
+      length: 2,
+      initialIndex: widget.initialTab.clamp(0, 1),
+      vsync: this,
+    );
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = ref.watch(localizationProvider);
 
-    return DefaultTabController(
-      length: 2,
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text(l10n.locale == 'vi' ? 'Sổ Nợ' : 'Loans'),
-          elevation: 0,
-          actions: [
-            Builder(
-              builder: (ctx) => IconButton(
-                icon: const Icon(Icons.person_add),
-                tooltip: l10n.locale == 'vi' ? 'Thêm người liên hệ' : 'Add contact',
-                onPressed: () {
-                  final tabIndex = DefaultTabController.of(ctx).index;
-                  showModalBottomSheet(
-                    context: context,
-                    isScrollControlled: true,
-                    shape: const RoundedRectangleBorder(
-                      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-                    ),
-                    builder: (context) => LoanContactModal(
-                      initialType: tabIndex == 0 ? 'borrowed' : 'lent',
-                    ),
-                  );
-                },
-              ),
-            ),
-          ],
-          bottom: TabBar(
-            labelColor: Theme.of(context).colorScheme.primary,
-            unselectedLabelColor: Colors.grey,
-            indicatorColor: Theme.of(context).colorScheme.primary,
-            tabs: [
-              Tab(text: l10n.locale == 'vi' ? 'Nợ (Phải trả)' : 'Borrowed (Payables)'),
-              Tab(text: l10n.locale == 'vi' ? 'Cho vay (Phải thu)' : 'Lent (Receivables)'),
-            ],
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(l10n.locale == 'vi' ? 'Sổ Nợ' : 'Loans'),
+        elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.person_add),
+            tooltip: l10n.locale == 'vi' ? 'Thêm người liên hệ' : 'Add contact',
+            onPressed: () {
+              final tabIndex = _tabController.index;
+              showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                shape: const RoundedRectangleBorder(
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                ),
+                builder: (context) => LoanContactModal(
+                  initialType: tabIndex == 0 ? 'borrowed' : 'lent',
+                ),
+              );
+            },
           ),
-        ),
-        body: const TabBarView(
-          children: [
-            _LoanListView(type: 'borrowed'),
-            _LoanListView(type: 'lent'),
+        ],
+        bottom: TabBar(
+          controller: _tabController,
+          labelColor: Theme.of(context).colorScheme.primary,
+          unselectedLabelColor: Colors.grey,
+          indicatorColor: Theme.of(context).colorScheme.primary,
+          tabs: [
+            Tab(text: l10n.locale == 'vi' ? 'Nợ (Phải trả)' : 'Borrowed (Payables)'),
+            Tab(text: l10n.locale == 'vi' ? 'Cho vay (Phải thu)' : 'Lent (Receivables)'),
           ],
         ),
+      ),
+      body: TabBarView(
+        controller: _tabController,
+        children: const [
+          _LoanListView(type: 'borrowed'),
+          _LoanListView(type: 'lent'),
+        ],
       ),
     );
   }

@@ -7,8 +7,6 @@ class DashboardNetWorthCard extends StatelessWidget {
   final String currency;
   final bool isHidden;
   final VoidCallback onTogglePrivacy;
-  final VoidCallback onTransferTap;
-  final VoidCallback onViewAllWalletsTap;
   final dynamic l10n;
 
   const DashboardNetWorthCard({
@@ -17,31 +15,29 @@ class DashboardNetWorthCard extends StatelessWidget {
     required this.currency,
     required this.isHidden,
     required this.onTogglePrivacy,
-    required this.onTransferTap,
-    required this.onViewAllWalletsTap,
     required this.l10n,
   });
 
   String _formatCurrency(double amount) {
-    final formatter = NumberFormat.currency(
-      locale: 'vi_VN',
-      symbol: currency == 'VND' ? '₫' : currency,
-      decimalDigits: currency == 'VND' ? 0 : 2,
-    );
-    return formatter.format(amount);
+    final symbol = currency == 'VND' ? '₫' : currency;
+    final isNegative = amount < 0;
+    final absFormatted = NumberFormat('#,###', 'en_US').format(amount.abs());
+    return '${isNegative ? '-' : ''}$absFormatted $symbol';
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final isNegative = netWorth < 0;
 
-    final primaryColor = isDark
-        ? const Color(0xFF065F46)
-        : const Color(0xFF059669);
-    final secondaryColor = isDark
-        ? const Color(0xFF047857)
-        : const Color(0xFF10B981);
+    // Dynamic gradient: Green for >= 0, Red for < 0
+    final primaryColor = isNegative
+        ? (isDark ? const Color(0xFF991B1B) : const Color(0xFFDC2626))
+        : (isDark ? const Color(0xFF065F46) : const Color(0xFF059669));
+    final secondaryColor = isNegative
+        ? (isDark ? const Color(0xFFB91C1C) : const Color(0xFFEF4444))
+        : (isDark ? const Color(0xFF047857) : const Color(0xFF10B981));
 
     return Container(
       width: double.infinity,
@@ -55,7 +51,7 @@ class DashboardNetWorthCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: secondaryColor.withValues(alpha: 0.3),
+            color: secondaryColor.withValues(alpha: 0.28),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -106,93 +102,19 @@ class DashboardNetWorthCard extends StatelessWidget {
           ),
           const SizedBox(height: 10),
 
-          // Net Worth Display
-          Text(
-            isHidden ? '••••••••' : _formatCurrency(netWorth),
-            style: const TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-              letterSpacing: 0.5,
+          // Net Worth Display with FittedBox
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              isHidden ? '••••••••' : _formatCurrency(netWorth),
+              style: const TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+                letterSpacing: 0.5,
+              ),
             ),
-          ),
-          const SizedBox(height: 18),
-
-          // Quick Action Buttons
-          Row(
-            children: [
-              Expanded(
-                child: Material(
-                  color: Colors.white.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(12),
-                  child: InkWell(
-                    onTap: onTransferTap,
-                    borderRadius: BorderRadius.circular(12),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      alignment: Alignment.center,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(
-                            Icons.swap_horiz_rounded,
-                            color: Colors.white,
-                            size: 18,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            l10n is AppLocalizations
-                                ? l10n.transferShort
-                                : (l10n.locale == 'vi' ? 'Chuyển tiền' : 'Transfer'),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 13,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Material(
-                  color: Colors.white.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(12),
-                  child: InkWell(
-                    onTap: onViewAllWalletsTap,
-                    borderRadius: BorderRadius.circular(12),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      alignment: Alignment.center,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(
-                            Icons.account_balance_wallet_outlined,
-                            color: Colors.white,
-                            size: 18,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            l10n is AppLocalizations
-                                ? l10n.allWallets
-                                : (l10n.locale == 'vi' ? 'Ví tiền' : 'Wallets'),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 13,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
           ),
         ],
       ),

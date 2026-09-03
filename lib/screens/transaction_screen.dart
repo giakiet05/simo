@@ -14,7 +14,8 @@ import 'transaction_form_screen.dart';
 import '../widgets/category_icon_widget.dart';
 
 class TransactionScreen extends ConsumerStatefulWidget {
-  const TransactionScreen({super.key});
+  final String? initialTypeFilter;
+  const TransactionScreen({super.key, this.initialTypeFilter});
 
   @override
   ConsumerState<TransactionScreen> createState() => TransactionScreenState();
@@ -52,6 +53,9 @@ class TransactionScreenState extends ConsumerState<TransactionScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.initialTypeFilter != null) {
+      _typeFilter = widget.initialTypeFilter;
+    }
     _scrollController.addListener(_onScroll);
   }
 
@@ -406,16 +410,26 @@ class TransactionScreenState extends ConsumerState<TransactionScreen> {
                               loading: () => const SizedBox.shrink(),
                               error: (_, __) => const SizedBox.shrink(),
                               data: (settings) {
-                                final symbol = CurrencyService.getSymbol(settings.currency);
-                                final formattedAmount = NumberFormat('#,###').format(transaction.amount);
-                                return Text(
-                                  '${transaction.type == 'income' ? '+' : '-'}$formattedAmount $symbol',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    color: transaction.type == 'income'
-                                        ? Colors.green
-                                        : Colors.red,
+                                final symbol =
+                                    CurrencyService.getSymbol(settings.currency);
+                                final formattedAmount =
+                                    NumberFormat('#,###', 'en_US')
+                                        .format(transaction.amount);
+                                return SizedBox(
+                                  width: 105,
+                                  child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    alignment: Alignment.centerRight,
+                                    child: Text(
+                                      '${transaction.type == 'income' ? '+' : '-'}$formattedAmount $symbol',
+                                      style: TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.bold,
+                                        color: transaction.type == 'income'
+                                            ? Colors.green
+                                            : Colors.red,
+                                      ),
+                                    ),
                                   ),
                                 );
                               },

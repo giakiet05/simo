@@ -429,6 +429,21 @@ class AppLocalizations {
       'manage_wallets': 'Manage',
       'transfer_short': 'Transfer',
       'savings_rate': 'Savings Rate',
+      'wallet_color': 'Color',
+      'wallet_icon': 'Icon',
+      'transfer_in': 'Transfer In',
+      'transfer_out': 'Transfer Out',
+      'swap_wallets': 'Swap Wallets',
+      'transfer_date': 'Transfer Date',
+      'fee_label': 'Fee',
+      'overdraft_warning_title': 'Balance Warning',
+      'overdraft_warning_message': 'Source wallet balance is insufficient. The balance will become negative after transfer. Do you want to proceed?',
+      'proceed_transfer': 'Proceed Transfer',
+      'filter_all': 'All',
+      'filter_income': 'Income',
+      'filter_expense': 'Expense',
+      'filter_transfers': 'Transfers',
+      'all_time': 'All time',
     },
     'zh': {
       // Navigation
@@ -835,6 +850,21 @@ class AppLocalizations {
       'manage_wallets': '管理',
       'transfer_short': '转账',
       'savings_rate': '储蓄率',
+      'wallet_color': '代表颜色',
+      'wallet_icon': '图标',
+      'transfer_in': '转入钱包',
+      'transfer_out': '转出钱包',
+      'swap_wallets': '切换钱包',
+      'transfer_date': '转账时间',
+      'fee_label': '手续费',
+      'overdraft_warning_title': '余额警告',
+      'overdraft_warning_message': '源钱包余额不足。转账后余额将变为负数。您确定要继续吗？',
+      'proceed_transfer': '继续转账',
+      'filter_all': '全部',
+      'filter_income': '收入',
+      'filter_expense': '支出',
+      'filter_transfers': '转账',
+      'all_time': '所有时间',
     },
     'vi': {
       // Navigation
@@ -1261,6 +1291,21 @@ class AppLocalizations {
       'manage_wallets': 'Quản lý',
       'transfer_short': 'Chuyển tiền',
       'savings_rate': 'Tỷ lệ tích lũy',
+      'wallet_color': 'Màu đại diện',
+      'wallet_icon': 'Biểu tượng',
+      'transfer_in': 'Chuyển tiền đến ví',
+      'transfer_out': 'Chuyển tiền đi',
+      'swap_wallets': 'Đổi chiều ví',
+      'transfer_date': 'Ngày giờ chuyển',
+      'fee_label': 'Phí',
+      'overdraft_warning_title': 'Cảnh báo số dư',
+      'overdraft_warning_message': 'Số dư ví nguồn không đủ. Số dư ví sẽ bị âm sau khi chuyển. Bạn có chắc chắn muốn tiếp tục?',
+      'proceed_transfer': 'Tiếp tục chuyển',
+      'filter_all': 'Tất cả',
+      'filter_income': 'Thu nhập',
+      'filter_expense': 'Chi tiêu',
+      'filter_transfers': 'Chuyển tiền',
+      'all_time': 'Tất cả thời gian',
     },
   };
 
@@ -1642,6 +1687,21 @@ class AppLocalizations {
   String get manageWallets => translate('manage_wallets');
   String get transferShort => translate('transfer_short');
   String get savingsRate => translate('savings_rate');
+  String get walletColor => translate('wallet_color');
+  String get walletIcon => translate('wallet_icon');
+  String get transferIn => translate('transfer_in');
+  String get transferOut => translate('transfer_out');
+  String get swapWallets => translate('swap_wallets');
+  String get transferDate => translate('transfer_date');
+  String get feeLabel => translate('fee_label');
+  String get overdraftWarningTitle => translate('overdraft_warning_title');
+  String get overdraftWarningMessage => translate('overdraft_warning_message');
+  String get proceedTransfer => translate('proceed_transfer');
+  String get filterAll => translate('filter_all');
+  String get filterIncome => translate('filter_income');
+  String get filterExpense => translate('filter_expense');
+  String get filterTransfers => translate('filter_transfers');
+  String get allTime => translate('all_time');
 
   // Translate default category name by ID
   String translateCategoryName(String categoryId, String defaultName) {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../models/wallet.dart';
+import '../providers/localization_provider.dart';
 import '../providers/settings_provider.dart';
 import '../providers/wallet_provider.dart';
 import '../utils/localization.dart';
@@ -22,12 +23,10 @@ class _WalletsScreenState extends ConsumerState<WalletsScreen> {
   String? _selectedTypeFilter; // null = all
 
   String _formatAmount(double amount, String currency) {
-    final formatter = NumberFormat.currency(
-      locale: 'vi_VN',
-      symbol: currency == 'VND' ? '₫' : currency,
-      decimalDigits: currency == 'VND' ? 0 : 2,
-    );
-    return formatter.format(amount);
+    final symbol = currency == 'VND' ? '₫' : currency;
+    final isNegative = amount < 0;
+    final absFormatted = NumberFormat('#,###', 'en_US').format(amount.abs());
+    return '${isNegative ? '-' : ''}$absFormatted $symbol';
   }
 
   void _showDeleteConfirm(BuildContext context, Wallet wallet, AppLocalizations l10n) {
@@ -57,7 +56,7 @@ class _WalletsScreenState extends ConsumerState<WalletsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations(Localizations.localeOf(context).languageCode);
+    final l10n = ref.watch(localizationProvider);
     final theme = Theme.of(context);
     final walletsAsync = ref.watch(walletProvider);
     final totalNetWorth = ref.watch(totalNetWorthProvider);
@@ -98,58 +97,90 @@ class _WalletsScreenState extends ConsumerState<WalletsScreen> {
                     padding: const EdgeInsets.only(bottom: 24),
                     children: [
                       // Hero Net Worth Overview Card
-                      Container(
-                        margin: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              theme.colorScheme.primary,
-                              theme.colorScheme.primary.withValues(alpha: 0.8),
-                            ],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          borderRadius: BorderRadius.circular(20),
-                          boxShadow: [
-                            BoxShadow(
-                              color: theme.colorScheme.primary
-                                  .withValues(alpha: 0.25),
-                              blurRadius: 10,
-                              offset: const Offset(0, 4),
+                      Builder(
+                        builder: (context) {
+                          final isDark = theme.brightness == Brightness.dark;
+                          final isNegative = totalNetWorth < 0;
+                          final primaryColor = isNegative
+                              ? (isDark
+                                  ? const Color(0xFF991B1B)
+                                  : const Color(0xFFDC2626))
+                              : (isDark
+                                  ? const Color(0xFF065F46)
+                                  : const Color(0xFF059669));
+                          final secondaryColor = isNegative
+                              ? (isDark
+                                  ? const Color(0xFFB91C1C)
+                                  : const Color(0xFFEF4444))
+                              : (isDark
+                                  ? const Color(0xFF047857)
+                                  : const Color(0xFF10B981));
+
+                          return Container(
+                            margin: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 12,
                             ),
-                          ],
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  l10n.totalNetWorth,
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w500,
-                                    color: Colors.white70,
-                                  ),
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [primaryColor, secondaryColor],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(20),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: secondaryColor.withValues(alpha: 0.28),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4),
                                 ),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withValues(alpha: 0.2),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
+                              ],
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      l10n.totalNetWorth,
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500,
+                                        color: Colors.white70,
+                                      ),
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 4,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color:
+                                            Colors.white.withValues(alpha: 0.2),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Text(
+                                        '${allWallets.length} ${l10n.wallets.toLowerCase()}',
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  alignment: Alignment.centerLeft,
                                   child: Text(
-                                    '${allWallets.length} ${l10n.wallets.toLowerCase()}',
+                                    _formatAmount(totalNetWorth, currency),
                                     style: const TextStyle(
-                                      fontSize: 12,
+                                      fontSize: 30,
                                       fontWeight: FontWeight.bold,
                                       color: Colors.white,
                                     ),
@@ -157,64 +188,8 @@ class _WalletsScreenState extends ConsumerState<WalletsScreen> {
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 8),
-                            Text(
-                              _formatAmount(totalNetWorth, currency),
-                              style: const TextStyle(
-                                fontSize: 30,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: ElevatedButton.icon(
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.white,
-                                      foregroundColor: theme.colorScheme.primary,
-                                      elevation: 0,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(10),
-                                      ),
-                                    ),
-                                    icon: const Icon(Icons.swap_horiz, size: 18),
-                                    label: Text(
-                                      l10n.transfer,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    onPressed: () =>
-                                        WalletTransferModal.show(context),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: OutlinedButton.icon(
-                                    style: OutlinedButton.styleFrom(
-                                      foregroundColor: Colors.white,
-                                      side: const BorderSide(color: Colors.white),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(10),
-                                      ),
-                                    ),
-                                    icon: const Icon(Icons.add, size: 18),
-                                    label: Text(
-                                      l10n.addWallet,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    onPressed: () =>
-                                        WalletFormModal.show(context),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
+                          );
+                        },
                       ),
 
                       // Horizontal Filter Chips

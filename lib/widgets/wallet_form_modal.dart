@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 import '../models/wallet.dart';
+import '../providers/localization_provider.dart';
 import '../providers/wallet_provider.dart';
 import '../utils/currency_input_formatter.dart';
 import '../utils/localization.dart';
@@ -163,7 +164,7 @@ class _WalletFormModalState extends ConsumerState<WalletFormModal> {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations(Localizations.localeOf(context).languageCode);
+    final l10n = ref.watch(localizationProvider);
     final isEdit = widget.walletToEdit != null;
     final theme = Theme.of(context);
 
@@ -273,9 +274,9 @@ class _WalletFormModalState extends ConsumerState<WalletFormModal> {
               const SizedBox(height: 16),
 
               // Color Palette Picker
-              const Text(
-                'Màu đại diện',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+              Text(
+                l10n.walletColor,
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 8),
               Wrap(
@@ -309,9 +310,9 @@ class _WalletFormModalState extends ConsumerState<WalletFormModal> {
               const SizedBox(height: 16),
 
               // Icon Picker
-              const Text(
-                'Biểu tượng',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+              Text(
+                l10n.walletIcon,
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 8),
               Row(

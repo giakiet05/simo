@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../models/wallet.dart';
+import '../providers/localization_provider.dart';
 import '../providers/settings_provider.dart';
 import '../providers/wallet_provider.dart';
 import '../utils/currency_input_formatter.dart';
@@ -67,12 +68,10 @@ class _WalletTransferModalState extends ConsumerState<WalletTransferModal> {
   }
 
   String _formatAmount(double amount, String currency) {
-    final formatter = NumberFormat.currency(
-      locale: 'vi_VN',
-      symbol: currency == 'VND' ? '₫' : currency,
-      decimalDigits: currency == 'VND' ? 0 : 2,
-    );
-    return formatter.format(amount);
+    final symbol = currency == 'VND' ? '₫' : currency;
+    final isNegative = amount < 0;
+    final absFormatted = NumberFormat('#,###', 'en_US').format(amount.abs());
+    return '${isNegative ? '-' : ''}$absFormatted $symbol';
   }
 
   void _swapWallets() {
@@ -138,6 +137,48 @@ class _WalletTransferModalState extends ConsumerState<WalletTransferModal> {
     final feeRaw = _feeController.text.replaceAll(',', '').trim();
     final fee = double.tryParse(feeRaw) ?? 0.0;
 
+    // Check if source wallet will overdraft
+    final sourceWallet = wallets.firstWhere(
+      (w) => w.id == _sourceWalletId,
+      orElse: () => wallets.first,
+    );
+    final totalDeduction = amount + fee;
+    if (sourceWallet.currentBalance < totalDeduction) {
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              const Icon(Icons.warning_amber_rounded, color: Colors.orange),
+              const SizedBox(width: 8),
+              Expanded(child: Text(l10n.overdraftWarningTitle)),
+            ],
+          ),
+          content: Text(l10n.overdraftWarningMessage),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: Text(l10n.cancel),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange.shade700,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: Text(l10n.proceedTransfer),
+            ),
+          ],
+        ),
+      );
+
+      if (confirm != true) return;
+    }
+
     await ref.read(walletProvider.notifier).transferFunds(
           sourceWalletId: _sourceWalletId!,
           destinationWalletId: _destinationWalletId!,
@@ -162,7 +203,7 @@ class _WalletTransferModalState extends ConsumerState<WalletTransferModal> {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations(Localizations.localeOf(context).languageCode);
+    final l10n = ref.watch(localizationProvider);
     final walletsAsync = ref.watch(walletProvider);
     final settingsAsync = ref.watch(settingsProvider);
     final currency = settingsAsync.value?.currency ?? 'VND';
@@ -189,7 +230,7 @@ class _WalletTransferModalState extends ConsumerState<WalletTransferModal> {
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Text(
-                    'Cần ít nhất 2 ví để thực hiện chuyển tiền.\nHãy tạo thêm ví mới!',
+                    l10n.noWalletsDesc,
                     textAlign: TextAlign.center,
                     style: TextStyle(color: Colors.grey.shade600),
                   ),
@@ -271,7 +312,7 @@ class _WalletTransferModalState extends ConsumerState<WalletTransferModal> {
                             const Expanded(child: Divider()),
                             IconButton(
                               icon: const Icon(Icons.swap_vert_rounded),
-                              tooltip: 'Đổi chiều ví',
+                              tooltip: l10n.swapWallets,
                               onPressed: _swapWallets,
                             ),
                             const Expanded(child: Divider()),
@@ -348,7 +389,7 @@ class _WalletTransferModalState extends ConsumerState<WalletTransferModal> {
                   ListTile(
                     contentPadding: EdgeInsets.zero,
                     leading: const Icon(Icons.calendar_today_rounded),
-                    title: Text(l10n.locale == 'vi' ? 'Ngày giờ chuyển' : 'Transfer Date'),
+                    title: Text(l10n.transferDate),
                     subtitle: Text(
                       DateFormat('dd/MM/yyyy HH:mm').format(_transferDate),
                     ),

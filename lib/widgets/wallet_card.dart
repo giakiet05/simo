@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../models/wallet.dart';
+import '../providers/localization_provider.dart';
 import '../utils/localization.dart';
 
-class WalletCard extends StatelessWidget {
+class WalletCard extends ConsumerWidget {
   final Wallet wallet;
   final String currency;
   final VoidCallback? onTap;
@@ -67,17 +69,15 @@ class WalletCard extends StatelessWidget {
   }
 
   String _formatAmount(double amount, String curr) {
-    final formatter = NumberFormat.currency(
-      locale: 'vi_VN',
-      symbol: curr == 'VND' ? '₫' : curr,
-      decimalDigits: curr == 'VND' ? 0 : 2,
-    );
-    return formatter.format(amount);
+    final symbol = curr == 'VND' ? '₫' : curr;
+    final isNegative = amount < 0;
+    final absFormatted = NumberFormat('#,###', 'en_US').format(amount.abs());
+    return '${isNegative ? '-' : ''}$absFormatted $symbol';
   }
 
   @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations(Localizations.localeOf(context).languageCode);
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = ref.watch(localizationProvider);
     final theme = Theme.of(context);
     final color = _parseColor(wallet.color);
 
@@ -102,8 +102,8 @@ class WalletCard extends StatelessWidget {
             children: [
               // Squircle Icon
               Container(
-                width: 48,
-                height: 48,
+                width: 44,
+                height: 44,
                 decoration: BoxDecoration(
                   color: color.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(12),
@@ -111,40 +111,51 @@ class WalletCard extends StatelessWidget {
                 child: Icon(
                   _getIconData(wallet.icon),
                   color: color,
-                  size: 26,
+                  size: 24,
                 ),
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: 12),
 
-              // Info column
+              // Info column (Name + Type/Badges)
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
+                    Text(
+                      wallet.name,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        height: 1.25,
+                      ),
+                      maxLines: 2,
+                      softWrap: true,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Wrap(
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 6,
+                      runSpacing: 2,
                       children: [
-                        Flexible(
-                          child: Text(
-                            wallet.name,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                        Text(
+                          _getTypeLabel(wallet.type, l10n),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: theme.colorScheme.onSurface
+                                .withValues(alpha: 0.6),
                           ),
                         ),
-                        if (wallet.isDefault) ...[
-                          const SizedBox(width: 6),
+                        if (wallet.isDefault)
                           Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 6,
-                              vertical: 2,
+                              vertical: 1.5,
                             ),
                             decoration: BoxDecoration(
                               color: theme.colorScheme.primary
                                   .withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(6),
+                              borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
                               l10n.defaultWalletBadge,
@@ -155,22 +166,7 @@ class WalletCard extends StatelessWidget {
                               ),
                             ),
                           ),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Text(
-                          _getTypeLabel(wallet.type, l10n),
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: theme.colorScheme.onSurface
-                                .withValues(alpha: 0.6),
-                          ),
-                        ),
-                        if (wallet.excludeFromTotal) ...[
-                          const SizedBox(width: 4),
+                        if (wallet.excludeFromTotal)
                           Text(
                             '• (${l10n.excludeFromTotal})',
                             style: TextStyle(
@@ -178,21 +174,23 @@ class WalletCard extends StatelessWidget {
                               color: Colors.grey.shade500,
                             ),
                           ),
-                        ],
                       ],
                     ),
                   ],
                 ),
               ),
+              const SizedBox(width: 8),
 
-              // Balance & menu
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
+              // Balance (Fixed Width Auto-scaling Box)
+              SizedBox(
+                width: 105,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerRight,
+                  child: Text(
                     _formatAmount(wallet.currentBalance, currency),
                     style: TextStyle(
-                      fontSize: 16,
+                      fontSize: 15,
                       fontWeight: FontWeight.bold,
                       color: wallet.currentBalance < 0
                           ? Colors.red
@@ -201,7 +199,7 @@ class WalletCard extends StatelessWidget {
                               : Colors.black87),
                     ),
                   ),
-                ],
+                ),
               ),
 
               // Popup Menu
@@ -211,6 +209,8 @@ class WalletCard extends StatelessWidget {
                   size: 20,
                   color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                 ),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),

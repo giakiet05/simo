@@ -31,7 +31,11 @@ import '../widgets/category_icon_widget.dart';
 import '../models/monthly_budget.dart';
 import '../providers/monthly_budget_provider.dart';
 import '../providers/wallet_provider.dart';
+import '../widgets/dashboard/monthly_metrics_grid.dart';
 import 'category_budget_screen.dart';
+import 'loan_screen.dart';
+import 'statistics_screen.dart';
+import 'transaction_screen.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -262,14 +266,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                   ref.read(isBalanceHiddenProvider.notifier).state =
                                       !isBalanceHidden;
                                 },
-                                onTransferTap: () =>
-                                    WalletTransferModal.show(context),
-                                onViewAllWalletsTap: () => Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => const WalletsScreen(),
-                                  ),
-                                ),
                                 l10n: l10n,
                               ),
                               const SizedBox(height: 16),
@@ -373,16 +369,78 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                               ),
                               const SizedBox(height: 16),
 
-                              // Monthly Cashflow Card (Income, Expense, Net Flow)
+                              // Monthly Cashflow Card (Thặng dư / Thâm hụt)
                               MonthlyCashflowCard(
+                                netCashflow: balance,
                                 income: totalIncome,
                                 expense: totalExpense,
-                                netCashflow: balance,
                                 currency: currency,
+                                isHidden: isBalanceHidden,
                                 l10n: l10n,
+                                onTap: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const StatisticsScreen(),
+                                  ),
+                                ),
                               ),
-                              const SizedBox(height: 16),
-                              _buildLoanSummaryCards(loans, currency, l10n),
+                              const SizedBox(height: 12),
+
+                              // 2x2 Monthly Metrics Grid (Thu nhập, Chi tiêu, Cần thu hồi, Nợ phải trả)
+                              Builder(
+                                builder: (context) {
+                                  double totalBorrow = 0;
+                                  double totalLend = 0;
+                                  for (var l in loans) {
+                                    if (l.type == 'borrowed') {
+                                      totalBorrow += l.remainingAmount;
+                                    }
+                                    if (l.type == 'lent') {
+                                      totalLend += l.remainingAmount;
+                                    }
+                                  }
+
+                                  return MonthlyMetricsGrid(
+                                    income: totalIncome,
+                                    expense: totalExpense,
+                                    totalLent: totalLend,
+                                    totalBorrowed: totalBorrow,
+                                    currency: currency,
+                                    isHidden: isBalanceHidden,
+                                    l10n: l10n,
+                                    onIncomeTap: () => Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => const TransactionScreen(
+                                          initialTypeFilter: 'income',
+                                        ),
+                                      ),
+                                    ),
+                                    onExpenseTap: () => Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => const TransactionScreen(
+                                          initialTypeFilter: 'expense',
+                                        ),
+                                      ),
+                                    ),
+                                    onLentTap: () => Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) =>
+                                            const LoanScreen(initialTab: 1),
+                                      ),
+                                    ),
+                                    onBorrowedTap: () => Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) =>
+                                            const LoanScreen(initialTab: 0),
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
                               const SizedBox(height: 16),
 
                               _buildBudgetCard(
@@ -433,37 +491,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
   }
 
-  Widget _buildLoanSummaryCards(List<LoanContact> loans, String currency, dynamic l10n) {
-    double totalBorrow = 0;
-    double totalLend = 0;
-    for (var l in loans) {
-      if (l.type == 'borrowed') totalBorrow += l.remainingAmount;
-      if (l.type == 'lent') totalLend += l.remainingAmount;
-    }
-    return Row(
-      children: [
-        Expanded(
-          child: _buildStatCard(
-            l10n.locale == 'vi' ? 'Nợ' : 'Borrow',
-            totalBorrow,
-            currency,
-            Colors.amber,
-            Icons.account_balance_wallet,
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: _buildStatCard(
-            l10n.locale == 'vi' ? 'Cho vay' : 'Lend',
-            totalLend,
-            currency,
-            Colors.blue,
-            Icons.account_balance_wallet_outlined,
-          ),
-        ),
-      ],
-    );
-  }
+
 
   Widget _buildLoanPieChartCard({
     required String title,
@@ -629,81 +657,90 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final double percent = (summary?.percentageUsed ?? 0.0) * 100;
 
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              l10n.monthlyBudget,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).colorScheme.onSurface,
+      child: InkWell(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const CategoryBudgetScreen()),
+          );
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                l10n.monthlyBudget,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
-            if (budget == 0)
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    l10n.budgetNotSet,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-                    ),
-                  ),
-                  OutlinedButton.icon(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const CategoryBudgetScreen()),
-                      );
-                    },
-                    icon: const Icon(Icons.add, size: 18),
-                    label: Text(l10n.locale == 'vi' ? 'Thiết lập' : 'Set Budget'),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    ),
-                  ),
-                ],
-              )
-            else
-              Column(
-                children: [
-                  LinearProgressIndicator(
-                    value: (percent / 100).clamp(0.0, 1.0),
-                    backgroundColor: Theme.of(context).brightness == Brightness.dark ? Colors.grey[800] : Colors.grey[200],
-                    color: percent >= 100
-                        ? Colors.red
-                        : (percent >= 80 ? Colors.orange : Colors.green),
-                    minHeight: 8,
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        '${percent.toStringAsFixed(1)}${l10n.percentUsed}',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-                        ),
+              const SizedBox(height: 16),
+              if (budget == 0)
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      l10n.budgetNotSet,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
                       ),
-                      Text(
-                        '${_formatAmount(used, currency)} / ${_formatAmount(budget, currency)}',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context).colorScheme.onSurface,
-                        ),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const CategoryBudgetScreen()),
+                        );
+                      },
+                      icon: const Icon(Icons.add, size: 18),
+                      label: Text(l10n.locale == 'vi' ? 'Thiết lập' : 'Set Budget'),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       ),
-                    ],
-                  ),
-                ],
-              ),
-          ],
+                    ),
+                  ],
+                )
+              else
+                Column(
+                  children: [
+                    LinearProgressIndicator(
+                      value: (percent / 100).clamp(0.0, 1.0),
+                      backgroundColor: Theme.of(context).brightness == Brightness.dark ? Colors.grey[800] : Colors.grey[200],
+                      color: percent >= 100
+                          ? Colors.red
+                          : (percent >= 80 ? Colors.orange : Colors.green),
+                      minHeight: 8,
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '${percent.toStringAsFixed(1)}${l10n.percentUsed}',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                          ),
+                        ),
+                        Text(
+                          '${_formatAmount(used, currency)} / ${_formatAmount(budget, currency)}',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).colorScheme.onSurface,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -724,19 +761,27 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     if (budgetStatuses.isEmpty) return const SizedBox.shrink();
 
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              l10n.locale == 'vi' ? 'Ngân sách danh mục' : 'Category Budgets',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).colorScheme.onSurface,
+      child: InkWell(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const CategoryBudgetScreen()),
+          );
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                l10n.locale == 'vi' ? 'Ngân sách danh mục' : 'Category Budgets',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
               ),
-            ),
             const SizedBox(height: 16),
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
@@ -823,8 +868,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildBalanceCard(double balance, String currency, l10n) {
     final isPositive = balance >= 0;
@@ -1501,12 +1547,19 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     ),
                   ],
                 ),
-                trailing: Text(
-                  '${tx.type == 'income' ? '+' : '-'}${_formatAmount(tx.amount, currency)}',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: tx.type == 'income' ? Colors.green : Colors.red,
+                trailing: SizedBox(
+                  width: 105,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerRight,
+                    child: Text(
+                      '${tx.type == 'income' ? '+' : '-'}${_formatAmount(tx.amount, currency)}',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: tx.type == 'income' ? Colors.green : Colors.red,
+                      ),
+                    ),
                   ),
                 ),
                 onTap: () => _showActionMenu(context, ref, tx),
