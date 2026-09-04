@@ -9,7 +9,6 @@ class MiniWalletCarousel extends StatelessWidget {
   final bool isHidden;
   final Function(Wallet wallet) onWalletTap;
   final VoidCallback onAddWalletTap;
-  final VoidCallback onViewAllTap;
   final dynamic l10n;
 
   const MiniWalletCarousel({
@@ -19,7 +18,6 @@ class MiniWalletCarousel extends StatelessWidget {
     required this.isHidden,
     required this.onWalletTap,
     required this.onAddWalletTap,
-    required this.onViewAllTap,
     required this.l10n,
   });
 
@@ -62,214 +60,166 @@ class MiniWalletCarousel extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Section Header
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                l10n is AppLocalizations
-                    ? l10n.allWallets
-                    : (l10n.locale == 'vi' ? 'Tài khoản & Ví' : 'Accounts & Wallets'),
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              TextButton(
-                onPressed: onViewAllTap,
-                style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                child: Text(
-                  l10n is AppLocalizations
-                      ? l10n.manageWallets
-                      : (l10n.locale == 'vi' ? 'Quản lý' : 'Manage'),
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: theme.colorScheme.primary,
+    return SizedBox(
+      height: 64,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        itemCount: wallets.length + 1,
+        separatorBuilder: (context, index) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          if (index == wallets.length) {
+            // Add Wallet Button Card
+            return Material(
+              color: isDark
+                  ? Colors.grey.shade900
+                  : Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(12),
+              child: InkWell(
+                onTap: onAddWalletTap,
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  width: 96,
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: theme.colorScheme.outline.withValues(alpha: 0.15),
+                      style: BorderStyle.solid,
+                    ),
                   ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 10),
-
-        // Horizontal Carousel
-        SizedBox(
-          height: 100,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            physics: const BouncingScrollPhysics(),
-            itemCount: wallets.length + 1,
-            separatorBuilder: (context, index) => const SizedBox(width: 10),
-            itemBuilder: (context, index) {
-              if (index == wallets.length) {
-                // Add Wallet Button Card
-                return Material(
-                  color: isDark
-                      ? Colors.grey.shade900
-                      : Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(16),
-                  child: InkWell(
-                    onTap: onAddWalletTap,
-                    borderRadius: BorderRadius.circular(16),
-                    child: Container(
-                      width: 110,
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: theme.colorScheme.outline.withValues(alpha: 0.15),
-                          style: BorderStyle.solid,
-                        ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.add_circle_outline_rounded,
+                        size: 15,
+                        color: theme.colorScheme.primary,
                       ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.add_circle_outline_rounded,
-                            size: 26,
+                      const SizedBox(width: 4),
+                      Flexible(
+                        child: Text(
+                          l10n is AppLocalizations
+                              ? l10n.addWallet
+                              : (l10n.locale == 'vi' ? 'Thêm ví' : 'Add'),
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
                             color: theme.colorScheme.primary,
                           ),
-                          const SizedBox(height: 6),
-                          Text(
-                            l10n is AppLocalizations
-                                ? l10n.addWallet
-                                : (l10n.locale == 'vi' ? 'Thêm ví' : 'Add Wallet'),
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: theme.colorScheme.primary,
-                            ),
-                          ),
-                        ],
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                    ),
-                  ),
-                );
-              }
-
-              final wallet = wallets[index];
-              final color = _parseColor(wallet.color);
-
-              return Material(
-                color: isDark
-                    ? const Color(0xFF1E293B)
-                    : Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                child: InkWell(
-                  onTap: () => onWalletTap(wallet),
-                  borderRadius: BorderRadius.circular(16),
-                  child: Container(
-                    width: 155,
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: color.withValues(alpha: 0.35),
-                        width: 1.2,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
-                          blurRadius: 6,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(6),
-                              decoration: BoxDecoration(
-                                color: color.withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Icon(
-                                _getWalletIcon(wallet.icon),
-                                color: color,
-                                size: 18,
-                              ),
-                            ),
-                            if (wallet.isDefault)
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: color.withValues(alpha: 0.15),
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Text(
-                                  l10n is AppLocalizations
-                                      ? l10n.defaultWalletBadge
-                                      : 'Mặc định',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                    color: color,
-                                  ),
-                                ),
-                              )
-                            else if (wallet.excludeFromTotal)
-                              Icon(
-                                Icons.visibility_off_outlined,
-                                size: 14,
-                                color: Colors.grey.shade500,
-                              ),
-                          ],
-                        ),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              wallet.name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              isHidden ? '••••••' : _formatAmount(wallet.currentBalance),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
-                                color: wallet.currentBalance < 0
-                                    ? Colors.red
-                                    : (isDark ? Colors.white : Colors.black87),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
+                    ],
                   ),
                 ),
-              );
-            },
-          ),
-        ),
-      ],
+              ),
+            );
+          }
+
+          final wallet = wallets[index];
+          final color = _parseColor(wallet.color);
+
+          return Material(
+            color: isDark
+                ? const Color(0xFF1E293B)
+                : Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            child: InkWell(
+              onTap: () => onWalletTap(wallet),
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                width: 145,
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: color.withValues(alpha: 0.35),
+                    width: 1.2,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Row 1: Icon + Name on same line
+                    Row(
+                      children: [
+                        Container(
+                          width: 22,
+                          height: 22,
+                          decoration: BoxDecoration(
+                            color: color.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(5),
+                          ),
+                          alignment: Alignment.center,
+                          child: Icon(
+                            _getWalletIcon(wallet.icon),
+                            color: color,
+                            size: 13,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            wallet.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        if (wallet.isDefault)
+                          Container(
+                            width: 6,
+                            height: 6,
+                            decoration: BoxDecoration(
+                              color: color,
+                              shape: BoxShape.circle,
+                            ),
+                          )
+                        else if (wallet.excludeFromTotal)
+                          Icon(
+                            Icons.visibility_off_outlined,
+                            size: 11,
+                            color: Colors.grey.shade500,
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 5),
+
+                    // Row 2: Balance
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        isHidden ? '••••••' : _formatAmount(wallet.currentBalance),
+                        maxLines: 1,
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.bold,
+                          color: wallet.currentBalance < 0
+                              ? Colors.red
+                              : (isDark ? Colors.white : Colors.black87),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 }

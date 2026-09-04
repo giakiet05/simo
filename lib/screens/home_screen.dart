@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/localization_provider.dart';
+import '../utils/localization.dart';
 import '../providers/category_provider.dart';
 import '../providers/transaction_provider.dart';
 import '../providers/recurring_provider.dart';
 import '../providers/settings_provider.dart';
 import 'dashboard_screen.dart';
 import 'transaction_screen.dart';
-import 'loan_screen.dart';
+import 'features_screen.dart';
 import 'settings_screen.dart';
 import 'transaction_form_screen.dart';
 
@@ -30,7 +31,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   final List<Widget> _screens = [
     const DashboardScreen(),
     TransactionScreen(key: transactionScreenKey),
-    const LoanScreen(),
+    const FeaturesScreen(),
     const SettingsScreen(),
   ];
 
@@ -126,8 +127,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               label: '',
             ),
             BottomNavigationBarItem(
-              icon: const Icon(Icons.account_balance_wallet),
-              label: l10n.locale == 'vi' ? 'Sổ nợ' : 'Loans',
+              icon: const Icon(Icons.grid_view_rounded),
+              label: l10n is AppLocalizations
+                  ? l10n.featuresHub
+                  : (l10n.locale == 'vi' ? 'Chức năng' : 'Features'),
             ),
             BottomNavigationBarItem(
               icon: const Icon(Icons.settings),

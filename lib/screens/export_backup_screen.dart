@@ -26,7 +26,8 @@ enum ExportFormat {
 }
 
 class ExportBackupScreen extends ConsumerStatefulWidget {
-  const ExportBackupScreen({super.key});
+  final int initialTab;
+  const ExportBackupScreen({super.key, this.initialTab = 0});
 
   @override
   ConsumerState<ExportBackupScreen> createState() => _ExportBackupScreenState();
@@ -42,7 +43,11 @@ class _ExportBackupScreenState extends ConsumerState<ExportBackupScreen> with Si
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(
+      length: 2,
+      initialIndex: widget.initialTab.clamp(0, 1),
+      vsync: this,
+    );
   }
 
   @override

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../theme/app_colors.dart';
 import '../../screens/category_budget_screen.dart';
+import '../../screens/loan_screen.dart';
 import '../../screens/recurring_screen.dart';
 import '../../screens/saving_goals_screen.dart';
 import '../../screens/statistics_screen.dart';
@@ -22,16 +23,17 @@ class QuickAccessHub extends StatelessWidget {
                 fontWeight: FontWeight.bold,
               ),
         ),
-        const SizedBox(height: 12),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
-              _buildAccessButton(
+        const SizedBox(height: 14),
+
+        // Row 1: Ví tiền | Ngân sách | Sổ nợ
+        Row(
+          children: [
+            Expanded(
+              child: _buildAccessButton(
                 context,
-                icon: Icons.account_balance_wallet_outlined,
+                icon: Icons.account_balance_wallet_rounded,
                 label: l10n.locale == 'vi' ? 'Ví tiền' : 'Wallets',
-                color: const Color(0xFF10B981),
+                color: const Color(0xFF10B981), // Emerald Green
                 onTap: () {
                   Navigator.push(
                     context,
@@ -41,12 +43,14 @@ class QuickAccessHub extends StatelessWidget {
                   );
                 },
               ),
-              const SizedBox(width: 8),
-              _buildAccessButton(
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _buildAccessButton(
                 context,
-                icon: Icons.pie_chart_outline,
+                icon: Icons.pie_chart_rounded,
                 label: l10n.locale == 'vi' ? 'Ngân sách' : 'Budgets',
-                color: AppColors.secondary,
+                color: const Color(0xFF3B82F6), // Royal Blue
                 onTap: () {
                   Navigator.push(
                     context,
@@ -56,12 +60,37 @@ class QuickAccessHub extends StatelessWidget {
                   );
                 },
               ),
-              const SizedBox(width: 8),
-              _buildAccessButton(
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _buildAccessButton(
                 context,
-                icon: Icons.savings_outlined,
+                icon: Icons.receipt_long_rounded,
+                label: l10n.locale == 'vi' ? 'Sổ nợ' : 'Loans',
+                color: const Color(0xFF8B5CF6), // Purple
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const LoanScreen(),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+
+        // Row 2: Mục tiêu | Định kỳ | Thống kê
+        Row(
+          children: [
+            Expanded(
+              child: _buildAccessButton(
+                context,
+                icon: Icons.savings_rounded,
                 label: l10n.locale == 'vi' ? 'Mục tiêu' : 'Goals',
-                color: Colors.teal,
+                color: const Color(0xFFF59E0B), // Warm Amber
                 onTap: () {
                   Navigator.push(
                     context,
@@ -71,12 +100,14 @@ class QuickAccessHub extends StatelessWidget {
                   );
                 },
               ),
-              const SizedBox(width: 8),
-              _buildAccessButton(
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _buildAccessButton(
                 context,
-                icon: Icons.autorenew,
+                icon: Icons.autorenew_rounded,
                 label: l10n.locale == 'vi' ? 'Định kỳ' : 'Recurring',
-                color: AppColors.income,
+                color: const Color(0xFFEC4899), // Pink Rose
                 onTap: () {
                   Navigator.push(
                     context,
@@ -86,12 +117,14 @@ class QuickAccessHub extends StatelessWidget {
                   );
                 },
               ),
-              const SizedBox(width: 8),
-              _buildAccessButton(
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _buildAccessButton(
                 context,
-                icon: Icons.insights,
+                icon: Icons.insights_rounded,
                 label: l10n.locale == 'vi' ? 'Thống kê' : 'Insights',
-                color: AppColors.info,
+                color: const Color(0xFF06B6D4), // Cyan
                 onTap: () {
                   Navigator.push(
                     context,
@@ -101,8 +134,8 @@ class QuickAccessHub extends StatelessWidget {
                   );
                 },
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ],
     );
@@ -115,43 +148,48 @@ class QuickAccessHub extends StatelessWidget {
     required Color color,
     required VoidCallback onTap,
   }) {
-    return SizedBox(
-      width: 72,
-      child: Column(
-        children: [
-          Material(
-            color: color.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(16),
-            child: InkWell(
-              onTap: onTap,
-              borderRadius: BorderRadius.circular(16),
-              child: Container(
-                width: 58,
-                height: 58,
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Material(
+      color: color.withValues(alpha: isDark ? 0.14 : 0.1),
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: isDark ? 0.22 : 0.16),
+                  shape: BoxShape.circle,
+                ),
                 alignment: Alignment.center,
                 child: Icon(
                   icon,
                   color: color,
-                  size: 26,
+                  size: 22,
                 ),
               ),
-            ),
+              const SizedBox(height: 6),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: isDark ? Colors.white : AppColors.textPrimary,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            label,
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: Theme.of(context).brightness == Brightness.dark
-                  ? Colors.white
-                  : AppColors.textPrimary,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

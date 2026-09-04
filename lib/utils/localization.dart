@@ -444,6 +444,20 @@ class AppLocalizations {
       'filter_expense': 'Expense',
       'filter_transfers': 'Transfers',
       'all_time': 'All time',
+      'features_hub': 'Features',
+      'section_cashflow_and_assets': 'Cashflow & Accounts',
+      'section_financial_planning': 'Financial Planning',
+      'section_debts_and_analytics': 'Debts & Analytics',
+      'section_data_and_utilities': 'Data & Utilities',
+      'transfer_shortcut': 'Transfer',
+      'add_wallet_shortcut': 'Add Wallet',
+      'add_recurring_shortcut': 'Add Schedule',
+      'next_due_label': 'Next due',
+      'add_debt_shortcut': 'Add Debt',
+      'top_goal_label': 'Top Goal',
+      'export_data_desc': 'Export Excel, PDF or CSV reports',
+      'backup_data_desc': 'Backup data to local or Drive',
+      'category_management_desc': 'Customize income & expense categories',
     },
     'zh': {
       // Navigation
@@ -865,6 +879,20 @@ class AppLocalizations {
       'filter_expense': '支出',
       'filter_transfers': '转账',
       'all_time': '所有时间',
+      'features_hub': '功能',
+      'section_cashflow_and_assets': '现金流与账户',
+      'section_financial_planning': '财务规划',
+      'section_debts_and_analytics': '对账与分析',
+      'section_data_and_utilities': '数据与实用工具',
+      'transfer_shortcut': '转账',
+      'add_wallet_shortcut': '添加钱包',
+      'add_recurring_shortcut': '添加定期',
+      'next_due_label': '即将到期',
+      'add_debt_shortcut': '记账债务',
+      'top_goal_label': '首要目标',
+      'export_data_desc': '导出 Excel、PDF 或 CSV 报告',
+      'backup_data_desc': '备份数据到本地或云端',
+      'category_management_desc': '自定义收支类别',
     },
     'vi': {
       // Navigation
@@ -1306,6 +1334,20 @@ class AppLocalizations {
       'filter_expense': 'Chi tiêu',
       'filter_transfers': 'Chuyển tiền',
       'all_time': 'Tất cả thời gian',
+      'features_hub': 'Chức năng',
+      'section_cashflow_and_assets': 'Dòng tiền & Tài sản',
+      'section_financial_planning': 'Kế hoạch Tài chính',
+      'section_debts_and_analytics': 'Đối soát & Thống kê',
+      'section_data_and_utilities': 'Dữ liệu & Tiện ích',
+      'transfer_shortcut': 'Chuyển tiền',
+      'add_wallet_shortcut': 'Thêm ví',
+      'add_recurring_shortcut': 'Tạo lịch',
+      'next_due_label': 'Sắp đến hạn',
+      'add_debt_shortcut': 'Ghi nợ',
+      'top_goal_label': 'Mục tiêu gần nhất',
+      'export_data_desc': 'Xuất báo cáo Excel, PDF hoặc CSV',
+      'backup_data_desc': 'Sao lưu dữ liệu local hoặc Drive',
+      'category_management_desc': 'Tùy chỉnh danh mục thu và chi',
     },
   };
 
@@ -1702,6 +1744,20 @@ class AppLocalizations {
   String get filterExpense => translate('filter_expense');
   String get filterTransfers => translate('filter_transfers');
   String get allTime => translate('all_time');
+  String get featuresHub => translate('features_hub');
+  String get sectionCashflowAndAssets => translate('section_cashflow_and_assets');
+  String get sectionFinancialPlanning => translate('section_financial_planning');
+  String get sectionDebtsAndAnalytics => translate('section_debts_and_analytics');
+  String get sectionDataAndUtilities => translate('section_data_and_utilities');
+  String get transferShortcut => translate('transfer_shortcut');
+  String get addWalletShortcut => translate('add_wallet_shortcut');
+  String get addRecurringShortcut => translate('add_recurring_shortcut');
+  String get nextDueLabel => translate('next_due_label');
+  String get addDebtShortcut => translate('add_debt_shortcut');
+  String get topGoalLabel => translate('top_goal_label');
+  String get exportDataDesc => translate('export_data_desc');
+  String get backupDataDesc => translate('backup_data_desc');
+  String get categoryManagementDesc => translate('category_management_desc');
 
   // Translate default category name by ID
   String translateCategoryName(String categoryId, String defaultName) {

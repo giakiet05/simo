@@ -21,7 +21,6 @@ import 'transaction_form_screen.dart';
 import 'home_screen.dart';
 import 'wallets_screen.dart';
 import 'wallet_detail_screen.dart';
-import '../widgets/dashboard/quick_access_hub.dart';
 import '../widgets/dashboard/dashboard_net_worth_card.dart';
 import '../widgets/dashboard/mini_wallet_carousel.dart';
 import '../widgets/dashboard/monthly_cashflow_card.dart';
@@ -78,10 +77,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 
   List<Transaction> _filterTransactionsByMonth(List<Transaction> transactions) {
-    return transactions.where((tx) {
+    final filtered = transactions.where((tx) {
       return tx.transactionDate.year == _selectedYear &&
              tx.transactionDate.month == _selectedMonth;
     }).toList();
+    filtered.sort((a, b) => b.transactionDate.compareTo(a.transactionDate));
+    return filtered;
   }
 
   List<int> _getAvailableYears(List<Transaction> transactions) {
@@ -113,6 +114,129 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   String _getMonthName(int month, l10n) {
     return l10n.getMonthName(month);
+  }
+
+  void _showMonthYearPickerModal(
+    dynamic l10n, {
+    required int startYear,
+    required int startMonth,
+    required int endYear,
+    required int endMonth,
+  }) {
+    int tempYear = _selectedYear.clamp(startYear, endYear);
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final allowedMonths = <int>[];
+            for (int m = 1; m <= 12; m++) {
+              final isAfterStart = (tempYear > startYear) ||
+                  (tempYear == startYear && m >= startMonth);
+              final isBeforeEnd = (tempYear < endYear) ||
+                  (tempYear == endYear && m <= endMonth);
+              if (isAfterStart && isBeforeEnd) {
+                allowedMonths.add(m);
+              }
+            }
+
+            return SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.chevron_left),
+                          onPressed: tempYear > startYear
+                              ? () => setModalState(() => tempYear--)
+                              : null,
+                        ),
+                        Text(
+                          tempYear.toString(),
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.chevron_right),
+                          onPressed: tempYear < endYear
+                              ? () => setModalState(() => tempYear++)
+                              : null,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 3,
+                        childAspectRatio: 2.2,
+                        crossAxisSpacing: 8,
+                        mainAxisSpacing: 8,
+                      ),
+                      itemCount: allowedMonths.length,
+                      itemBuilder: (context, index) {
+                        final month = allowedMonths[index];
+                        final isSelected =
+                            month == _selectedMonth && tempYear == _selectedYear;
+                        return InkWell(
+                          onTap: () {
+                            setState(() {
+                              _selectedMonth = month;
+                              _selectedYear = tempYear;
+                            });
+                            Navigator.pop(context);
+                          },
+                          child: Container(
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? Theme.of(context).colorScheme.primary
+                                  : (Theme.of(context).brightness ==
+                                          Brightness.dark
+                                      ? Colors.grey[800]
+                                      : Colors.grey[200]),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              l10n.locale == 'vi'
+                                  ? 'Tháng $month'
+                                  : 'Month $month',
+                              style: TextStyle(
+                                color: isSelected
+                                    ? Colors.white
+                                    : Theme.of(context)
+                                        .textTheme
+                                        .bodyMedium
+                                        ?.color,
+                                fontWeight: isSelected
+                                    ? FontWeight.bold
+                                    : FontWeight.w600,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   Widget _buildAdIcon(bool isAdFree) {
@@ -179,7 +303,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(l10n.dashboard),
+        toolbarHeight: 44,
+        title: Text(
+          l10n.dashboard,
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         actions: [
           if (AdsConfig.adsEnabled)
@@ -199,20 +327,44 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, stack) => Center(child: Text('Error: $error')),
         data: (allTransactions) {
+          final now = DateTime.now();
+          final endYear = now.year;
+          final endMonth = now.month;
+
+          int startYear = endYear;
+          int startMonth = endMonth;
+
+          if (allTransactions.isNotEmpty) {
+            DateTime earliest = allTransactions.first.transactionDate;
+            for (final tx in allTransactions) {
+              if (tx.transactionDate.isBefore(earliest)) {
+                earliest = tx.transactionDate;
+              }
+            }
+            startYear = earliest.year;
+            startMonth = earliest.month;
+            if (startYear > endYear || (startYear == endYear && startMonth > endMonth)) {
+              startYear = endYear;
+              startMonth = endMonth;
+            }
+          }
+
+          // Clamp _selectedYear and _selectedMonth within [start, end]
+          if (_selectedYear > endYear || (_selectedYear == endYear && _selectedMonth > endMonth)) {
+            _selectedYear = endYear;
+            _selectedMonth = endMonth;
+          } else if (_selectedYear < startYear || (_selectedYear == startYear && _selectedMonth < startMonth)) {
+            _selectedYear = endYear;
+            _selectedMonth = endMonth;
+          }
+
+          final canGoPrevious = (_selectedYear > startYear) ||
+              (_selectedYear == startYear && _selectedMonth > startMonth);
+          final canGoNext = (_selectedYear < endYear) ||
+              (_selectedYear == endYear && _selectedMonth < endMonth);
+
           // Filter transactions by selected month/year
           final transactions = _filterTransactionsByMonth(allTransactions);
-
-          // Get available years and months for dropdowns
-          final availableYears = _getAvailableYears(allTransactions);
-          final availableMonths = _getAvailableMonths(allTransactions, _selectedYear);
-
-          // Ensure selected values are valid
-          if (!availableYears.contains(_selectedYear)) {
-            _selectedYear = availableYears.last;
-          }
-          if (!availableMonths.contains(_selectedMonth)) {
-            _selectedMonth = availableMonths.last;
-          }
 
           double totalIncome = 0;
           double totalExpense = 0;
@@ -266,9 +418,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                   ref.read(isBalanceHiddenProvider.notifier).state =
                                       !isBalanceHidden;
                                 },
+                                onTap: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const WalletsScreen(),
+                                  ),
+                                ),
                                 l10n: l10n,
                               ),
-                              const SizedBox(height: 16),
+                              const SizedBox(height: 8),
 
                               // 2. Mini Wallet Carousel
                               MiniWalletCarousel(
@@ -285,98 +443,60 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                 ),
                                 onAddWalletTap: () =>
                                     WalletFormModal.show(context),
-                                onViewAllTap: () => Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => const WalletsScreen(),
-                                  ),
-                                ),
                                 l10n: l10n,
                               ),
-                              const SizedBox(height: 20),
-
-                              // Quick Access Hub
-                              QuickAccessHub(l10n: l10n),
-                              const SizedBox(height: 24),
-
+                              const SizedBox(height: 8),
                               Divider(
+                                height: 1,
+                                thickness: 1,
                                 color: Theme.of(context)
                                     .colorScheme
                                     .outline
-                                    .withValues(alpha: 0.15),
+                                    .withValues(alpha: 0.1),
                               ),
-                              const SizedBox(height: 12),
+                              const SizedBox(height: 8),
 
                               // ================= TIER 2: MONTHLY CASH FLOW & BUDGETS =================
-                              // Month/Year Selector
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: DropdownButtonFormField<int>(
-                                      value: _selectedMonth,
-                                      decoration: InputDecoration(
-                                        labelText: l10n.selectMonth,
-                                        border: const OutlineInputBorder(),
-                                        contentPadding: const EdgeInsets.symmetric(
-                                          horizontal: 12,
-                                          vertical: 8,
-                                        ),
-                                      ),
-                                      items: availableMonths.map((month) {
-                                        return DropdownMenuItem(
-                                          value: month,
-                                          child: Text(_getMonthName(month, l10n)),
-                                        );
-                                      }).toList(),
-                                      onChanged: (value) {
-                                        setState(() {
-                                          _selectedMonth = value!;
-                                        });
-                                      },
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: DropdownButtonFormField<int>(
-                                      value: _selectedYear,
-                                      decoration: InputDecoration(
-                                        labelText: l10n.selectYear,
-                                        border: const OutlineInputBorder(),
-                                        contentPadding: const EdgeInsets.symmetric(
-                                          horizontal: 12,
-                                          vertical: 8,
-                                        ),
-                                      ),
-                                      items: availableYears.map((year) {
-                                        return DropdownMenuItem(
-                                          value: year,
-                                          child: Text(year.toString()),
-                                        );
-                                      }).toList(),
-                                      onChanged: (value) {
-                                        setState(() {
-                                          _selectedYear = value!;
-                                          // Update available months for new year
-                                          final newMonths = _getAvailableMonths(allTransactions, _selectedYear);
-                                          if (!newMonths.contains(_selectedMonth)) {
-                                            _selectedMonth = newMonths.last;
-                                          }
-                                        });
-                                      },
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 16),
-
-                              // Monthly Cashflow Card (Thặng dư / Thâm hụt)
+                              // Monthly Cashflow Card with embedded Month Navigator
                               MonthlyCashflowCard(
                                 netCashflow: balance,
-                                income: totalIncome,
-                                expense: totalExpense,
                                 currency: currency,
                                 isHidden: isBalanceHidden,
                                 l10n: l10n,
+                                selectedMonth: _selectedMonth,
+                                selectedYear: _selectedYear,
+                                onPreviousMonth: canGoPrevious
+                                    ? () {
+                                        setState(() {
+                                          if (_selectedMonth > 1) {
+                                            _selectedMonth--;
+                                          } else {
+                                            _selectedMonth = 12;
+                                            _selectedYear--;
+                                          }
+                                        });
+                                      }
+                                    : null,
+                                onNextMonth: canGoNext
+                                    ? () {
+                                        setState(() {
+                                          if (_selectedMonth < 12) {
+                                            _selectedMonth++;
+                                          } else {
+                                            _selectedMonth = 1;
+                                            _selectedYear++;
+                                          }
+                                        });
+                                      }
+                                    : null,
+                                onMonthPickerTap: () =>
+                                    _showMonthYearPickerModal(
+                                  l10n,
+                                  startYear: startYear,
+                                  startMonth: startMonth,
+                                  endYear: endYear,
+                                  endMonth: endMonth,
+                                ),
                                 onTap: () => Navigator.push(
                                   context,
                                   MaterialPageRoute(
@@ -384,7 +504,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                   ),
                                 ),
                               ),
-                              const SizedBox(height: 12),
+                              const SizedBox(height: 10),
 
                               // 2x2 Monthly Metrics Grid (Thu nhập, Chi tiêu, Cần thu hồi, Nợ phải trả)
                               Builder(
@@ -671,7 +791,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                l10n.monthlyBudget,
+                l10n.locale == 'vi'
+                    ? 'Ngân sách $_selectedMonth/$_selectedYear'
+                    : 'Budget $_selectedMonth/$_selectedYear',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
@@ -718,21 +840,47 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     ),
                     const SizedBox(height: 12),
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          '${percent.toStringAsFixed(1)}${l10n.percentUsed}',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: (percent >= 100
+                                    ? Colors.red
+                                    : (percent >= 80
+                                        ? Colors.orange
+                                        : Colors.green))
+                                .withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            '${percent.toStringAsFixed(1)}%',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: percent >= 100
+                                  ? Colors.red
+                                  : (percent >= 80
+                                      ? Colors.orange
+                                      : Colors.green),
+                            ),
                           ),
                         ),
-                        Text(
-                          '${_formatAmount(used, currency)} / ${_formatAmount(budget, currency)}',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: Theme.of(context).colorScheme.onSurface,
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerRight,
+                            child: Text(
+                              '${_formatAmount(used, currency)} / ${_formatAmount(budget, currency)}',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: Theme.of(context).colorScheme.onSurface,
+                              ),
+                            ),
                           ),
                         ),
                       ],
@@ -775,7 +923,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                l10n.locale == 'vi' ? 'Ngân sách danh mục' : 'Category Budgets',
+                l10n.locale == 'vi'
+                    ? 'Ngân sách danh mục ($_selectedMonth/$_selectedYear)'
+                    : 'Category Budgets ($_selectedMonth/$_selectedYear)',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
@@ -841,12 +991,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           ],
                         ),
                         const SizedBox(height: 8),
-                        Text(
-                          '${_formatAmount(spent, currency)} / ${_formatAmount(budget, currency)}',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: status.isOverBudget ? Colors.red : Colors.grey[600],
-                            fontWeight: status.isOverBudget ? FontWeight.bold : FontWeight.normal,
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            '${_formatAmount(spent, currency)} / ${_formatAmount(budget, currency)}',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: status.isOverBudget ? Colors.red : Colors.grey[600],
+                              fontWeight: status.isOverBudget ? FontWeight.bold : FontWeight.normal,
+                            ),
                           ),
                         ),
                         const SizedBox(height: 6),
@@ -1473,7 +1627,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           child: Column(
             children: [
               Text(
-                l10n.recentTransactions,
+                l10n.locale == 'vi'
+                    ? 'Giao dịch gần nhất ($_selectedMonth/$_selectedYear)'
+                    : '${l10n.recentTransactions} ($_selectedMonth/$_selectedYear)',
                 style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 16),
@@ -1501,7 +1657,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  l10n.recentTransactions,
+                  l10n.locale == 'vi'
+                      ? 'Giao dịch gần nhất ($_selectedMonth/$_selectedYear)'
+                      : '${l10n.recentTransactions} ($_selectedMonth/$_selectedYear)',
                   style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
                 TextButton(

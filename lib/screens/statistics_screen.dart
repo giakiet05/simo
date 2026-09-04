@@ -358,30 +358,37 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> with Single
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      l10n.balance,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: theme.textTheme.bodySmall?.color,
-                        fontWeight: FontWeight.w500,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        l10n.balance,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: theme.textTheme.bodySmall?.color,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      balance >= 0
-                          ? '${NumberFormat('#,###').format(balance)} ${CurrencyService.getSymbol(currency)}'
-                          : '-${NumberFormat('#,###').format(balance.abs())} ${CurrencyService.getSymbol(currency)}',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: isPositive ? Colors.green : Colors.red,
+                      const SizedBox(height: 2),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          balance >= 0
+                              ? '${NumberFormat('#,###').format(balance)} ${CurrencyService.getSymbol(currency)}'
+                              : '-${NumberFormat('#,###').format(balance.abs())} ${CurrencyService.getSymbol(currency)}',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: isPositive ? Colors.green : Colors.red,
+                          ),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
+                const SizedBox(width: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
@@ -880,12 +887,16 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> with Single
                                 ),
                               ),
                               const SizedBox(width: 8),
-                              Text(
-                                '${l10n.locale == 'vi' ? 'Còn' : 'Remaining'}: ${NumberFormat('#,###').format(summary.remaining)} ${CurrencyService.getSymbol(currency)}',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: summary.remaining < 0 ? Colors.red : Colors.green[700],
-                                  fontWeight: FontWeight.w600,
+                              Flexible(
+                                child: Text(
+                                  '${l10n.locale == 'vi' ? 'Còn' : 'Remaining'}: ${NumberFormat('#,###').format(summary.remaining)} ${CurrencyService.getSymbol(currency)}',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: summary.remaining < 0 ? Colors.red : Colors.green[700],
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                  textAlign: TextAlign.end,
                                 ),
                               ),
                             ],
