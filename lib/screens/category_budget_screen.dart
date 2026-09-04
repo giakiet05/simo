@@ -13,6 +13,8 @@ import '../widgets/icon_picker_dialog.dart';
 import '../widgets/color_picker_dialog.dart';
 import '../widgets/banner_ad_widget.dart';
 import '../widgets/category_icon_widget.dart';
+import '../providers/transaction_provider.dart';
+import '../widgets/month_year_picker_modal.dart';
 
 class CategoryBudgetScreen extends ConsumerStatefulWidget {
   const CategoryBudgetScreen({super.key});
@@ -39,116 +41,37 @@ class _CategoryBudgetScreenState extends ConsumerState<CategoryBudgetScreen>
     super.dispose();
   }
 
-  void _previousMonth() {
+  void _previousMonth(MonthRange monthRange) {
+    final prev = monthRange.previous(_selectedYear, _selectedMonth);
     setState(() {
-      if (_selectedMonth == 1) {
-        _selectedMonth = 12;
-        _selectedYear -= 1;
-      } else {
-        _selectedMonth -= 1;
-      }
+      _selectedYear = prev.year;
+      _selectedMonth = prev.month;
     });
   }
 
-  void _nextMonth() {
+  void _nextMonth(MonthRange monthRange) {
+    final next = monthRange.next(_selectedYear, _selectedMonth);
     setState(() {
-      if (_selectedMonth == 12) {
-        _selectedMonth = 1;
-        _selectedYear += 1;
-      } else {
-        _selectedMonth += 1;
-      }
+      _selectedYear = next.year;
+      _selectedMonth = next.month;
     });
   }
 
-  void _showMonthYearPicker(dynamic l10n) {
-    int tempYear = _selectedYear;
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            return SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.chevron_left),
-                          onPressed: () => setModalState(() => tempYear--),
-                        ),
-                        Text(
-                          tempYear.toString(),
-                          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.chevron_right),
-                          onPressed: () => setModalState(() => tempYear++),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    GridView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 4,
-                        childAspectRatio: 2,
-                        crossAxisSpacing: 8,
-                        mainAxisSpacing: 8,
-                      ),
-                      itemCount: 12,
-                      itemBuilder: (context, index) {
-                        final month = index + 1;
-                        final isSelected =
-                            month == _selectedMonth && tempYear == _selectedYear;
-                        return InkWell(
-                          onTap: () {
-                            setState(() {
-                              _selectedMonth = month;
-                              _selectedYear = tempYear;
-                            });
-                            Navigator.pop(context);
-                          },
-                          child: Container(
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              color: isSelected
-                                  ? Theme.of(context).colorScheme.primary
-                                  : (Theme.of(context).brightness == Brightness.dark
-                                      ? Colors.grey[800]
-                                      : Colors.grey[200]),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              l10n.locale == 'vi'
-                                  ? 'T$month'
-                                  : DateFormat('MMM').format(DateTime(2020, month)),
-                              style: TextStyle(
-                                color: isSelected
-                                    ? Colors.white
-                                    : Theme.of(context).textTheme.bodyMedium?.color,
-                                fontWeight:
-                                    isSelected ? FontWeight.bold : FontWeight.normal,
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
+  void _showMonthYearPicker(dynamic l10n, MonthRange monthRange) {
+    showMonthYearPickerModal(
+      context,
+      l10n,
+      currentYear: _selectedYear,
+      currentMonth: _selectedMonth,
+      startYear: monthRange.startYear,
+      startMonth: monthRange.startMonth,
+      endYear: monthRange.endYear,
+      endMonth: monthRange.endMonth,
+      onSelected: (year, month) {
+        setState(() {
+          _selectedYear = year;
+          _selectedMonth = month;
+        });
       },
     );
   }
@@ -158,6 +81,13 @@ class _CategoryBudgetScreenState extends ConsumerState<CategoryBudgetScreen>
     final l10n = ref.watch(localizationProvider);
     final settingsAsync = ref.watch(settingsProvider);
     final categoryAsync = ref.watch(categoryProvider);
+    final transactionsAsync = ref.watch(transactionNotifierProvider);
+    final transactions = transactionsAsync.value ?? [];
+    final monthRange = MonthRange.fromTransactions(transactions);
+    final clamped = monthRange.clamp(_selectedYear, _selectedMonth);
+    _selectedYear = clamped.year;
+    _selectedMonth = clamped.month;
+
     final budgetKey = MonthYearKey(_selectedYear, _selectedMonth);
     final budgetSummaryAsync = ref.watch(monthlyBudgetFamily(budgetKey));
 
@@ -178,7 +108,7 @@ class _CategoryBudgetScreenState extends ConsumerState<CategoryBudgetScreen>
       body: Column(
         children: [
           // Month navigation bar
-          _buildMonthNavigationBar(l10n),
+          _buildMonthNavigationBar(l10n, monthRange),
           Expanded(
             child: categoryAsync.when(
               data: (categories) {
@@ -211,42 +141,24 @@ class _CategoryBudgetScreenState extends ConsumerState<CategoryBudgetScreen>
     );
   }
 
-  Widget _buildMonthNavigationBar(dynamic l10n) {
-    final monthName = l10n.locale == 'vi'
-        ? 'Tháng $_selectedMonth/$_selectedYear'
-        : '${DateFormat('MMMM').format(DateTime(_selectedYear, _selectedMonth))} $_selectedYear';
+  Widget _buildMonthNavigationBar(dynamic l10n, MonthRange monthRange) {
+    final canGoPrevious = monthRange.canGoPrevious(_selectedYear, _selectedMonth);
+    final canGoNext = monthRange.canGoNext(_selectedYear, _selectedMonth);
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
         border: Border(bottom: BorderSide(color: Colors.grey.withValues(alpha: 0.2))),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          IconButton(
-            icon: const Icon(Icons.chevron_left),
-            onPressed: _previousMonth,
-            tooltip: 'Tháng trước',
-          ),
-          InkWell(
-            onTap: () => _showMonthYearPicker(l10n),
-            borderRadius: BorderRadius.circular(20),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-              child: Text(
-                monthName,
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.chevron_right),
-            onPressed: _nextMonth,
-            tooltip: 'Tháng sau',
-          ),
-        ],
+      child: MonthNavigationBar(
+        selectedYear: _selectedYear,
+        selectedMonth: _selectedMonth,
+        canGoPrevious: canGoPrevious,
+        canGoNext: canGoNext,
+        onPrevious: () => _previousMonth(monthRange),
+        onNext: () => _nextMonth(monthRange),
+        onMonthTap: () => _showMonthYearPicker(l10n, monthRange),
+        l10n: l10n,
       ),
     );
   }

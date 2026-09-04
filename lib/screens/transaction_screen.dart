@@ -21,6 +21,20 @@ class TransactionScreen extends ConsumerStatefulWidget {
   ConsumerState<TransactionScreen> createState() => TransactionScreenState();
 }
 
+class _DayGroup {
+  final DateTime date;
+  final List<Transaction> transactions;
+  final double totalIncome;
+  final double totalExpense;
+
+  const _DayGroup({
+    required this.date,
+    required this.transactions,
+    required this.totalIncome,
+    required this.totalExpense,
+  });
+}
+
 class TransactionScreenState extends ConsumerState<TransactionScreen> {
   // Filter states
   String _timeFilter = 'all'; // all, this_month, last_month, last_3_months, custom
@@ -150,12 +164,244 @@ class TransactionScreenState extends ConsumerState<TransactionScreen> {
       int dateCmp = b.transactionDate.compareTo(a.transactionDate);
       if (dateCmp != 0) return dateCmp;
       
-      final aCreated = a.createdAt ?? a.transactionDate;
-      final bCreated = b.createdAt ?? b.transactionDate;
-      return bCreated.compareTo(aCreated);
+      return b.createdAt.compareTo(a.createdAt);
     });
 
     return filtered;
+  }
+
+  List<_DayGroup> _groupTransactionsByDay(List<Transaction> transactions) {
+    final List<_DayGroup> groups = [];
+    if (transactions.isEmpty) return groups;
+
+    DateTime? currentDay;
+    List<Transaction> currentList = [];
+    double dayIncome = 0;
+    double dayExpense = 0;
+
+    for (final tx in transactions) {
+      final txDate = tx.transactionDate;
+      final normalized = DateTime(txDate.year, txDate.month, txDate.day);
+
+      if (currentDay == null || !DateUtils.isSameDay(currentDay, normalized)) {
+        if (currentDay != null) {
+          groups.add(_DayGroup(
+            date: currentDay,
+            transactions: currentList,
+            totalIncome: dayIncome,
+            totalExpense: dayExpense,
+          ));
+        }
+        currentDay = normalized;
+        currentList = [tx];
+        dayIncome = tx.type == 'income' ? tx.amount : 0;
+        dayExpense = tx.type == 'expense' ? tx.amount : 0;
+      } else {
+        currentList.add(tx);
+        if (tx.type == 'income') {
+          dayIncome += tx.amount;
+        } else {
+          dayExpense += tx.amount;
+        }
+      }
+    }
+
+    if (currentDay != null && currentList.isNotEmpty) {
+      groups.add(_DayGroup(
+        date: currentDay,
+        transactions: currentList,
+        totalIncome: dayIncome,
+        totalExpense: dayExpense,
+      ));
+    }
+
+    return groups;
+  }
+
+  String _getDayLabel(DateTime date, dynamic l10n) {
+    final now = DateTime.now();
+    final isToday = date.year == now.year && date.month == now.month && date.day == now.day;
+    final yesterday = now.subtract(const Duration(days: 1));
+    final isYesterday = date.year == yesterday.year && date.month == yesterday.month && date.day == yesterday.day;
+
+    final isVi = l10n.locale == 'vi';
+
+    if (isToday) {
+      return isVi ? 'Hôm nay' : 'Today';
+    }
+    if (isYesterday) {
+      return isVi ? 'Hôm qua' : 'Yesterday';
+    }
+
+    if (isVi) {
+      switch (date.weekday) {
+        case DateTime.monday:
+          return 'Thứ Hai';
+        case DateTime.tuesday:
+          return 'Thứ Ba';
+        case DateTime.wednesday:
+          return 'Thứ Tư';
+        case DateTime.thursday:
+          return 'Thứ Năm';
+        case DateTime.friday:
+          return 'Thứ Sáu';
+        case DateTime.saturday:
+          return 'Thứ Bảy';
+        case DateTime.sunday:
+          return 'Chủ Nhật';
+        default:
+          return '';
+      }
+    } else {
+      return DateFormat('EEEE').format(date);
+    }
+  }
+
+  Widget _buildTransactionItem(
+    Transaction transaction,
+    Category? category,
+    String symbol,
+    dynamic l10n,
+    bool isDark,
+    ThemeData theme,
+  ) {
+    final categoryName = category != null
+        ? l10n.translateCategoryName(category.id, category.name)
+        : l10n.noCategory;
+    final isSelected = _selectedTransactionIds.contains(transaction.id);
+    final isIncome = transaction.type == 'income';
+    final formattedAmount = NumberFormat('#,###', 'en_US').format(transaction.amount);
+
+    return Material(
+      color: isSelected ? Colors.blue.withValues(alpha: isDark ? 0.25 : 0.12) : Colors.transparent,
+      child: InkWell(
+        onTap: _isSelectionMode
+            ? () {
+                setState(() {
+                  if (isSelected) {
+                    _selectedTransactionIds.remove(transaction.id);
+                  } else {
+                    _selectedTransactionIds.add(transaction.id);
+                  }
+                });
+              }
+            : () => _showActionMenu(context, ref, transaction),
+        onLongPress: _isSelectionMode
+            ? null
+            : () {
+                setState(() {
+                  _isSelectionMode = true;
+                  _selectedTransactionIds.add(transaction.id);
+                });
+              },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          child: Row(
+            children: [
+              if (_isSelectionMode)
+                Padding(
+                  padding: const EdgeInsets.only(right: 10),
+                  child: SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: Checkbox(
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      visualDensity: VisualDensity.compact,
+                      value: isSelected,
+                      onChanged: (value) {
+                        setState(() {
+                          if (value == true) {
+                            _selectedTransactionIds.add(transaction.id);
+                          } else {
+                            _selectedTransactionIds.remove(transaction.id);
+                          }
+                        });
+                      },
+                    ),
+                  ),
+                ),
+              CategoryIconWidget(
+                category: category,
+                iconName: category == null
+                    ? (isIncome ? 'attach_money' : 'shopping_cart')
+                    : null,
+                size: 36,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      categoryName,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13.5,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (transaction.note != null && transaction.note!.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        transaction.note!,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: isDark ? Colors.grey[400] : Colors.grey[600],
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ] else if (transaction.formula != null && transaction.formula!.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        transaction.formula!,
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          color: Colors.grey[500],
+                          fontStyle: FontStyle.italic,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 130),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerRight,
+                      child: Text(
+                        '${isIncome ? '+' : '-'}$formattedAmount $symbol',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: isIncome ? Colors.green : Colors.red,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      DateFormat('HH:mm').format(transaction.transactionDate),
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: isDark ? Colors.grey[500] : Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -307,6 +553,11 @@ class TransactionScreenState extends ConsumerState<TransactionScreen> {
               final categoryMap = {
                 for (var cat in categories) cat.id: cat
               };
+              final dayGroups = _groupTransactionsByDay(paginatedTransactions);
+              final currency = settingsAsync.value?.currency ?? 'VND';
+              final symbol = CurrencyService.getSymbol(currency);
+              final theme = Theme.of(context);
+              final isDark = theme.brightness == Brightness.dark;
 
               return Column(
                 children: [
@@ -332,9 +583,10 @@ class TransactionScreenState extends ConsumerState<TransactionScreen> {
                         ? Center(child: Text(l10n.noTransactions))
                         : ListView.builder(
                       controller: _scrollController,
-                      itemCount: paginatedTransactions.length + (_hasMore ? 1 : 0),
-                      itemBuilder: (context, index) {
-                        if (index == paginatedTransactions.length) {
+                      itemCount: dayGroups.length + (_hasMore ? 1 : 0),
+                      padding: const EdgeInsets.only(top: 6, bottom: 80),
+                      itemBuilder: (context, groupIndex) {
+                        if (groupIndex == dayGroups.length) {
                           // Loading indicator at bottom
                           return const Padding(
                             padding: EdgeInsets.all(16),
@@ -342,158 +594,123 @@ class TransactionScreenState extends ConsumerState<TransactionScreen> {
                           );
                         }
 
-                        final transaction = paginatedTransactions[index];
-                        final category = categoryMap[transaction.categoryId];
-                        final categoryName = category != null
-                            ? l10n.translateCategoryName(category.id, category.name)
-                            : l10n.noCategory;
-                        final isSelected = _selectedTransactionIds.contains(transaction.id);
+                        final group = dayGroups[groupIndex];
+                        final dayDate = group.date;
 
                         // Check if we need to show month header
-                        final showHeader = index == 0 ||
-                          (paginatedTransactions[index - 1].transactionDate.month != transaction.transactionDate.month ||
-                           paginatedTransactions[index - 1].transactionDate.year != transaction.transactionDate.year);
+                        final showMonthHeader = groupIndex == 0 ||
+                            dayGroups[groupIndex - 1].date.month != dayDate.month ||
+                            dayGroups[groupIndex - 1].date.year != dayDate.year;
 
-                        final card = Card(
-                          margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          color: isSelected ? Colors.blue[50] : null,
-                          child: ListTile(
-                            leading: _isSelectionMode
-                                ? Checkbox(
-                                    value: isSelected,
-                                    onChanged: (value) {
-                                      setState(() {
-                                        if (value == true) {
-                                          _selectedTransactionIds.add(transaction.id);
-                                        } else {
-                                          _selectedTransactionIds.remove(transaction.id);
-                                        }
-                                      });
-                                    },
-                                  )
-                                : CategoryIconWidget(
-                                    category: category,
-                                    iconName: category == null ? (transaction.type == 'income' ? 'attach_money' : 'shopping_cart') : null,
-                                  ),
-                            title: Text(
-                              categoryName,
-                              style: const TextStyle(fontWeight: FontWeight.bold),
+                        final monthNum = dayDate.month;
+                        final year = dayDate.year;
+                        final monthHeaderText = l10n.locale == 'vi'
+                            ? 'Tháng $monthNum/$year'
+                            : '${l10n.getMonthName(monthNum)} $year';
+
+                        final dateFormatted = DateFormat('dd/MM/yyyy').format(dayDate);
+                        final dayLabel = _getDayLabel(dayDate, l10n);
+                        final dayTitle = '$dayLabel, $dateFormatted';
+
+                        final dayCard = Card(
+                          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            side: BorderSide(
+                              color: isDark ? Colors.grey[800]! : Colors.grey[200]!,
+                              width: 1,
                             ),
-                            subtitle: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  '${l10n.txDateShort}: ${DateFormat('dd/MM/yyyy').format(transaction.transactionDate)}',
-                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-                                ),
-                                Text(
-                                  '${l10n.createdAtShort}: ${DateFormat('dd/MM/yyyy HH:mm:ss').format(transaction.createdAt)}',
-                                  style: const TextStyle(fontSize: 11, color: Colors.grey),
-                                ),
-                                Text(
-                                  '${l10n.updatedAtShort}: ${DateFormat('dd/MM/yyyy HH:mm:ss').format(transaction.updatedAt)}',
-                                  style: const TextStyle(fontSize: 11, color: Colors.grey),
-                                ),
-                                if (transaction.formula != null && transaction.formula!.isNotEmpty)
-                                  Text(
-                                    '${l10n.formula}: ${transaction.formula}',
-                                    style: TextStyle(fontSize: 12, color: Colors.grey[600], fontStyle: FontStyle.italic),
+                          ),
+                          clipBehavior: Clip.antiAlias,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Day Header
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                color: isDark ? Colors.grey[850] : Colors.grey[100],
+                                child: Text(
+                                  dayTitle,
+                                  style: TextStyle(
+                                    fontSize: 13.5,
+                                    fontWeight: FontWeight.bold,
+                                    color: isDark ? Colors.white : Colors.black87,
                                   ),
-                                if (transaction.note != null && transaction.note!.isNotEmpty)
-                                  Text(
-                                    transaction.note!,
-                                    style: const TextStyle(fontSize: 13),
+                                ),
+                              ),
+                              // List of transactions for this day
+                              for (int i = 0; i < group.transactions.length; i++) ...[
+                                if (i > 0)
+                                  Divider(
+                                    height: 1,
+                                    thickness: 0.6,
+                                    indent: 58,
+                                    endIndent: 14,
+                                    color: isDark ? Colors.grey[800] : Colors.grey[200],
                                   ),
+                                _buildTransactionItem(
+                                  group.transactions[i],
+                                  categoryMap[group.transactions[i].categoryId],
+                                  symbol,
+                                  l10n,
+                                  isDark,
+                                  theme,
+                                ),
                               ],
-                            ),
-                            trailing: settingsAsync.when(
-                              loading: () => const SizedBox.shrink(),
-                              error: (_, __) => const SizedBox.shrink(),
-                              data: (settings) {
-                                final symbol =
-                                    CurrencyService.getSymbol(settings.currency);
-                                final formattedAmount =
-                                    NumberFormat('#,###', 'en_US')
-                                        .format(transaction.amount);
-                                return SizedBox(
-                                  width: 105,
-                                  child: FittedBox(
-                                    fit: BoxFit.scaleDown,
-                                    alignment: Alignment.centerRight,
-                                    child: Text(
-                                      '${transaction.type == 'income' ? '+' : '-'}$formattedAmount $symbol',
-                                      style: TextStyle(
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.bold,
-                                        color: transaction.type == 'income'
-                                            ? Colors.green
-                                            : Colors.red,
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                            onTap: _isSelectionMode
-                                ? () {
-                                    setState(() {
-                                      if (isSelected) {
-                                        _selectedTransactionIds.remove(transaction.id);
-                                      } else {
-                                        _selectedTransactionIds.add(transaction.id);
-                                      }
-                                    });
-                                  }
-                                : () => _showActionMenu(context, ref, transaction),
-                            onLongPress: _isSelectionMode
-                                ? null
-                                : () {
-                                    setState(() {
-                                      _isSelectionMode = true;
-                                      _selectedTransactionIds.add(transaction.id);
-                                    });
-                                  },
+                            ],
                           ),
                         );
 
-                        // Return with header if needed
-                        if (showHeader) {
-                          final monthNum = transaction.transactionDate.month;
-                          final year = transaction.transactionDate.year;
-
-                          final headerText = l10n.locale == 'vi'
-                              ? 'Tháng $monthNum/$year'
-                              : '${l10n.getMonthName(monthNum)} $year';
-
+                        if (showMonthHeader) {
                           return Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Container(
                                 width: double.infinity,
                                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                                margin: const EdgeInsets.only(top: 8),
-                                color: Theme.of(context).brightness == Brightness.dark
-                                    ? Colors.grey[800]
-                                    : Colors.grey[200],
+                                margin: EdgeInsets.only(
+                                  top: groupIndex == 0 ? 4 : 16,
+                                  bottom: 8,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: isDark
+                                      ? Colors.teal.withValues(alpha: 0.2)
+                                      : Colors.teal[50],
+                                  border: Border(
+                                    top: BorderSide(
+                                      color: isDark
+                                          ? Colors.teal.withValues(alpha: 0.35)
+                                          : Colors.teal[100]!,
+                                      width: 0.8,
+                                    ),
+                                    bottom: BorderSide(
+                                      color: isDark
+                                          ? Colors.teal.withValues(alpha: 0.35)
+                                          : Colors.teal[100]!,
+                                      width: 0.8,
+                                    ),
+                                  ),
+                                ),
                                 child: Text(
-                                  headerText,
+                                  monthHeaderText,
                                   style: TextStyle(
-                                    fontSize: 16,
+                                    fontSize: 15.5,
                                     fontWeight: FontWeight.bold,
-                                    color: Theme.of(context).brightness == Brightness.dark
-                                        ? Colors.white
-                                        : Colors.black87,
+                                    color: isDark ? Colors.teal[100] : Colors.teal[900],
+                                    letterSpacing: 0.2,
                                   ),
                                 ),
                               ),
-                              card,
+                              dayCard,
                             ],
                           );
-                        } else {
-                          return card;
                         }
+
+                        return dayCard;
                       },
-                    )
+                    ),
                   ),
                   const BannerAdWidget(key: ValueKey('transaction_banner_ad')),
                 ],

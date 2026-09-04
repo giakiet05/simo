@@ -35,6 +35,7 @@ import 'category_budget_screen.dart';
 import 'loan_screen.dart';
 import 'statistics_screen.dart';
 import 'transaction_screen.dart';
+import '../widgets/month_year_picker_modal.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -123,118 +124,20 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     required int endYear,
     required int endMonth,
   }) {
-    int tempYear = _selectedYear.clamp(startYear, endYear);
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            final allowedMonths = <int>[];
-            for (int m = 1; m <= 12; m++) {
-              final isAfterStart = (tempYear > startYear) ||
-                  (tempYear == startYear && m >= startMonth);
-              final isBeforeEnd = (tempYear < endYear) ||
-                  (tempYear == endYear && m <= endMonth);
-              if (isAfterStart && isBeforeEnd) {
-                allowedMonths.add(m);
-              }
-            }
-
-            return SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.chevron_left),
-                          onPressed: tempYear > startYear
-                              ? () => setModalState(() => tempYear--)
-                              : null,
-                        ),
-                        Text(
-                          tempYear.toString(),
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.chevron_right),
-                          onPressed: tempYear < endYear
-                              ? () => setModalState(() => tempYear++)
-                              : null,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    GridView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 3,
-                        childAspectRatio: 2.2,
-                        crossAxisSpacing: 8,
-                        mainAxisSpacing: 8,
-                      ),
-                      itemCount: allowedMonths.length,
-                      itemBuilder: (context, index) {
-                        final month = allowedMonths[index];
-                        final isSelected =
-                            month == _selectedMonth && tempYear == _selectedYear;
-                        return InkWell(
-                          onTap: () {
-                            setState(() {
-                              _selectedMonth = month;
-                              _selectedYear = tempYear;
-                            });
-                            Navigator.pop(context);
-                          },
-                          child: Container(
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              color: isSelected
-                                  ? Theme.of(context).colorScheme.primary
-                                  : (Theme.of(context).brightness ==
-                                          Brightness.dark
-                                      ? Colors.grey[800]
-                                      : Colors.grey[200]),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Text(
-                              l10n.locale == 'vi'
-                                  ? 'Tháng $month'
-                                  : 'Month $month',
-                              style: TextStyle(
-                                color: isSelected
-                                    ? Colors.white
-                                    : Theme.of(context)
-                                        .textTheme
-                                        .bodyMedium
-                                        ?.color,
-                                fontWeight: isSelected
-                                    ? FontWeight.bold
-                                    : FontWeight.w600,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
+    showMonthYearPickerModal(
+      context,
+      l10n,
+      currentYear: _selectedYear,
+      currentMonth: _selectedMonth,
+      startYear: startYear,
+      startMonth: startMonth,
+      endYear: endYear,
+      endMonth: endMonth,
+      onSelected: (year, month) {
+        setState(() {
+          _selectedYear = year;
+          _selectedMonth = month;
+        });
       },
     );
   }
@@ -327,41 +230,17 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, stack) => Center(child: Text('Error: $error')),
         data: (allTransactions) {
-          final now = DateTime.now();
-          final endYear = now.year;
-          final endMonth = now.month;
+          final monthRange = MonthRange.fromTransactions(allTransactions);
+          final clamped = monthRange.clamp(_selectedYear, _selectedMonth);
+          _selectedYear = clamped.year;
+          _selectedMonth = clamped.month;
 
-          int startYear = endYear;
-          int startMonth = endMonth;
-
-          if (allTransactions.isNotEmpty) {
-            DateTime earliest = allTransactions.first.transactionDate;
-            for (final tx in allTransactions) {
-              if (tx.transactionDate.isBefore(earliest)) {
-                earliest = tx.transactionDate;
-              }
-            }
-            startYear = earliest.year;
-            startMonth = earliest.month;
-            if (startYear > endYear || (startYear == endYear && startMonth > endMonth)) {
-              startYear = endYear;
-              startMonth = endMonth;
-            }
-          }
-
-          // Clamp _selectedYear and _selectedMonth within [start, end]
-          if (_selectedYear > endYear || (_selectedYear == endYear && _selectedMonth > endMonth)) {
-            _selectedYear = endYear;
-            _selectedMonth = endMonth;
-          } else if (_selectedYear < startYear || (_selectedYear == startYear && _selectedMonth < startMonth)) {
-            _selectedYear = endYear;
-            _selectedMonth = endMonth;
-          }
-
-          final canGoPrevious = (_selectedYear > startYear) ||
-              (_selectedYear == startYear && _selectedMonth > startMonth);
-          final canGoNext = (_selectedYear < endYear) ||
-              (_selectedYear == endYear && _selectedMonth < endMonth);
+          final canGoPrevious = monthRange.canGoPrevious(_selectedYear, _selectedMonth);
+          final canGoNext = monthRange.canGoNext(_selectedYear, _selectedMonth);
+          final startYear = monthRange.startYear;
+          final startMonth = monthRange.startMonth;
+          final endYear = monthRange.endYear;
+          final endMonth = monthRange.endMonth;
 
           // Filter transactions by selected month/year
           final transactions = _filterTransactionsByMonth(allTransactions);

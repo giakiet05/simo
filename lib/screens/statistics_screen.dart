@@ -14,6 +14,7 @@ import '../models/loan_contact.dart';
 import '../services/currency_service.dart';
 import '../theme/app_colors.dart';
 import '../utils/icon_data.dart';
+import '../widgets/month_year_picker_modal.dart';
 
 class StatisticsScreen extends ConsumerStatefulWidget {
   const StatisticsScreen({super.key});
@@ -88,6 +89,11 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> with Single
     final categories = catAsync.value ?? [];
     final loans = loanAsync.value ?? [];
 
+    final monthRange = MonthRange.fromTransactions(transactions);
+    final clamped = monthRange.clamp(_selectedCategoryYear, _selectedCategoryMonth);
+    _selectedCategoryYear = clamped.year;
+    _selectedCategoryMonth = clamped.month;
+
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
@@ -116,8 +122,8 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> with Single
               controller: _tabController,
               children: [
                 _buildOverviewTab(transactions, loans, currency, l10n),
-                _buildCategoriesTab(transactions, categories, currency, l10n),
-                _buildBudgetsTab(transactions, categories, currency, l10n),
+                _buildCategoriesTab(transactions, categories, currency, l10n, monthRange),
+                _buildBudgetsTab(transactions, categories, currency, l10n, monthRange),
                 _buildLoansTab(loans, currency, l10n),
               ],
             ),
@@ -189,7 +195,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> with Single
     for (int i = totalMonths - 1; i >= 0; i--) {
       final m = DateTime(now.year, now.month - i, 1);
       final key = '${m.year}-${m.month.toString().padLeft(2, '0')}';
-      labels.add('T${m.month}/${m.year.toString().substring(2)}');
+      labels.add('${m.month}/${m.year.toString().substring(2)}');
       incomeData[key] = 0;
       expenseData[key] = 0;
     }
@@ -495,15 +501,7 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> with Single
     );
   }
 
-  Widget _buildCategoriesTab(List<Transaction> transactions, List<Category> categories, String currency, dynamic l10n) {
-    final years = transactions.map((t) => t.transactionDate.year).toSet().toList()..sort();
-    if (years.isEmpty) years.add(DateTime.now().year);
-    if (!years.contains(_selectedCategoryYear)) _selectedCategoryYear = years.last;
-
-    final months = transactions.where((t) => t.transactionDate.year == _selectedCategoryYear).map((t) => t.transactionDate.month).toSet().toList()..sort();
-    if (months.isEmpty) months.add(DateTime.now().month);
-    if (!months.contains(_selectedCategoryMonth)) _selectedCategoryMonth = months.last;
-
+  Widget _buildCategoriesTab(List<Transaction> transactions, List<Category> categories, String currency, dynamic l10n, MonthRange monthRange) {
     final txType = _showExpenseCategory ? 'expense' : 'income';
     final recentTx = transactions.where((t) {
       return t.type == txType && 
@@ -527,52 +525,27 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> with Single
 
     return Column(
       children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              IconButton(
-                icon: const Icon(Icons.chevron_left),
-                onPressed: () {
-                  setState(() {
-                    if (_selectedCategoryMonth == 1) {
-                      _selectedCategoryMonth = 12;
-                      _selectedCategoryYear--;
-                    } else {
-                      _selectedCategoryMonth--;
-                    }
-                  });
-                },
-              ),
-              Expanded(
-                child: GestureDetector(
-                  onTap: () => _showMonthYearPicker(context, l10n),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    alignment: Alignment.center,
-                    child: Text(
-                      '${l10n.getMonthName(_selectedCategoryMonth)} $_selectedCategoryYear',
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.chevron_right),
-                onPressed: () {
-                  setState(() {
-                    if (_selectedCategoryMonth == 12) {
-                      _selectedCategoryMonth = 1;
-                      _selectedCategoryYear++;
-                    } else {
-                      _selectedCategoryMonth++;
-                    }
-                  });
-                },
-              ),
-            ],
-          ),
+        MonthNavigationBar(
+          selectedYear: _selectedCategoryYear,
+          selectedMonth: _selectedCategoryMonth,
+          canGoPrevious: monthRange.canGoPrevious(_selectedCategoryYear, _selectedCategoryMonth),
+          canGoNext: monthRange.canGoNext(_selectedCategoryYear, _selectedCategoryMonth),
+          onPrevious: () {
+            final prev = monthRange.previous(_selectedCategoryYear, _selectedCategoryMonth);
+            setState(() {
+              _selectedCategoryYear = prev.year;
+              _selectedCategoryMonth = prev.month;
+            });
+          },
+          onNext: () {
+            final next = monthRange.next(_selectedCategoryYear, _selectedCategoryMonth);
+            setState(() {
+              _selectedCategoryYear = next.year;
+              _selectedCategoryMonth = next.month;
+            });
+          },
+          onMonthTap: () => _showMonthYearPicker(context, l10n, monthRange),
+          l10n: l10n,
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -654,79 +627,21 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> with Single
     );
   }
 
-  void _showMonthYearPicker(BuildContext context, dynamic l10n) {
-    int tempYear = _selectedCategoryYear;
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            return SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.chevron_left),
-                          onPressed: () => setModalState(() => tempYear--),
-                        ),
-                        Text(tempYear.toString(), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                        IconButton(
-                          icon: const Icon(Icons.chevron_right),
-                          onPressed: () => setModalState(() => tempYear++),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    GridView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 4,
-                        childAspectRatio: 2,
-                        crossAxisSpacing: 8,
-                        mainAxisSpacing: 8,
-                      ),
-                      itemCount: 12,
-                      itemBuilder: (context, index) {
-                        final month = index + 1;
-                        final isSelected = month == _selectedCategoryMonth && tempYear == _selectedCategoryYear;
-                        return InkWell(
-                          onTap: () {
-                            setState(() {
-                              _selectedCategoryMonth = month;
-                              _selectedCategoryYear = tempYear;
-                            });
-                            Navigator.pop(context);
-                          },
-                          child: Container(
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              color: isSelected ? Theme.of(context).colorScheme.primary : (Theme.of(context).brightness == Brightness.dark ? Colors.grey[800] : Colors.grey[200]),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              l10n.locale == 'vi' ? 'T$month' : DateFormat('MMM').format(DateTime(2020, month)),
-                              style: TextStyle(
-                                color: isSelected ? Colors.white : Theme.of(context).textTheme.bodyMedium?.color,
-                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
+  void _showMonthYearPicker(BuildContext context, dynamic l10n, MonthRange monthRange) {
+    showMonthYearPickerModal(
+      context,
+      l10n,
+      currentYear: _selectedCategoryYear,
+      currentMonth: _selectedCategoryMonth,
+      startYear: monthRange.startYear,
+      startMonth: monthRange.startMonth,
+      endYear: monthRange.endYear,
+      endMonth: monthRange.endMonth,
+      onSelected: (year, month) {
+        setState(() {
+          _selectedCategoryYear = year;
+          _selectedCategoryMonth = month;
+        });
       },
     );
   }
@@ -736,13 +651,10 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> with Single
     List<Category> categories,
     String currency,
     dynamic l10n,
+    MonthRange monthRange,
   ) {
     final budgetKey = MonthYearKey(_selectedCategoryYear, _selectedCategoryMonth);
     final summaryAsync = ref.watch(monthlyBudgetFamily(budgetKey));
-
-    final monthName = l10n.locale == 'vi'
-        ? 'Tháng $_selectedCategoryMonth/$_selectedCategoryYear'
-        : '${DateFormat('MMMM').format(DateTime(_selectedCategoryYear, _selectedCategoryMonth))} $_selectedCategoryYear';
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -750,49 +662,27 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> with Single
         // Month Selector Header - centered
         Padding(
           padding: const EdgeInsets.only(bottom: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              IconButton(
-                icon: const Icon(Icons.chevron_left),
-                onPressed: () {
-                  setState(() {
-                    if (_selectedCategoryMonth == 1) {
-                      _selectedCategoryMonth = 12;
-                      _selectedCategoryYear -= 1;
-                    } else {
-                      _selectedCategoryMonth -= 1;
-                    }
-                  });
-                },
-              ),
-              Expanded(
-                child: GestureDetector(
-                  onTap: () => _showMonthYearPicker(context, l10n),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    alignment: Alignment.center,
-                    child: Text(
-                      monthName,
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.chevron_right),
-                onPressed: () {
-                  setState(() {
-                    if (_selectedCategoryMonth == 12) {
-                      _selectedCategoryMonth = 1;
-                      _selectedCategoryYear += 1;
-                    } else {
-                      _selectedCategoryMonth += 1;
-                    }
-                  });
-                },
-              ),
-            ],
+          child: MonthNavigationBar(
+            selectedYear: _selectedCategoryYear,
+            selectedMonth: _selectedCategoryMonth,
+            canGoPrevious: monthRange.canGoPrevious(_selectedCategoryYear, _selectedCategoryMonth),
+            canGoNext: monthRange.canGoNext(_selectedCategoryYear, _selectedCategoryMonth),
+            onPrevious: () {
+              final prev = monthRange.previous(_selectedCategoryYear, _selectedCategoryMonth);
+              setState(() {
+                _selectedCategoryYear = prev.year;
+                _selectedCategoryMonth = prev.month;
+              });
+            },
+            onNext: () {
+              final next = monthRange.next(_selectedCategoryYear, _selectedCategoryMonth);
+              setState(() {
+                _selectedCategoryYear = next.year;
+                _selectedCategoryMonth = next.month;
+              });
+            },
+            onMonthTap: () => _showMonthYearPicker(context, l10n, monthRange),
+            l10n: l10n,
           ),
         ),
         const SizedBox(height: 8),

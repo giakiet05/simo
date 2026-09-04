@@ -13,6 +13,7 @@ import '../utils/localization.dart';
 import '../widgets/banner_ad_widget.dart';
 import '../widgets/wallet_form_modal.dart';
 import '../widgets/wallet_transfer_modal.dart';
+import '../widgets/month_year_picker_modal.dart';
 
 class WalletDetailScreen extends ConsumerStatefulWidget {
   final String walletId;
@@ -61,28 +62,56 @@ class _WalletDetailScreenState extends ConsumerState<WalletDetailScreen> {
     }
   }
 
-  void _previousMonth() {
+  void _previousMonth(MonthRange monthRange) {
     if (_selectedMonth == null) {
       setState(() {
-        _selectedMonth = DateTime(DateTime.now().year, DateTime.now().month);
+        _selectedMonth = DateTime(monthRange.endYear, monthRange.endMonth);
       });
       return;
     }
+    final prev = monthRange.previous(_selectedMonth!.year, _selectedMonth!.month);
     setState(() {
-      _selectedMonth = DateTime(_selectedMonth!.year, _selectedMonth!.month - 1);
+      _selectedMonth = DateTime(prev.year, prev.month);
     });
   }
 
-  void _nextMonth() {
+  void _nextMonth(MonthRange monthRange) {
     if (_selectedMonth == null) {
       setState(() {
-        _selectedMonth = DateTime(DateTime.now().year, DateTime.now().month);
+        _selectedMonth = DateTime(monthRange.endYear, monthRange.endMonth);
       });
       return;
     }
+    final next = monthRange.next(_selectedMonth!.year, _selectedMonth!.month);
     setState(() {
-      _selectedMonth = DateTime(_selectedMonth!.year, _selectedMonth!.month + 1);
+      _selectedMonth = DateTime(next.year, next.month);
     });
+  }
+
+  void _showMonthPicker(dynamic l10n, MonthRange monthRange) {
+    final initialYear = _selectedMonth?.year ?? monthRange.endYear;
+    final initialMonth = _selectedMonth?.month ?? monthRange.endMonth;
+    showMonthYearPickerModal(
+      context,
+      l10n,
+      currentYear: initialYear,
+      currentMonth: initialMonth,
+      startYear: monthRange.startYear,
+      startMonth: monthRange.startMonth,
+      endYear: monthRange.endYear,
+      endMonth: monthRange.endMonth,
+      showAllTimeOption: true,
+      onSelectAllTime: () {
+        setState(() {
+          _selectedMonth = null;
+        });
+      },
+      onSelected: (year, month) {
+        setState(() {
+          _selectedMonth = DateTime(year, month);
+        });
+      },
+    );
   }
 
   @override
@@ -132,6 +161,14 @@ class _WalletDetailScreenState extends ConsumerState<WalletDetailScreen> {
         final allTx = transactionsAsync.value ?? [];
         final allWalletTx = allTx.where((tx) => tx.walletId == wallet!.id).toList();
         final allTransfers = transfersAsync.value ?? [];
+
+        final monthRange = MonthRange.fromTransactions(allWalletTx.isNotEmpty ? allWalletTx : allTx);
+        if (_selectedMonth != null) {
+          final clamped = monthRange.clamp(_selectedMonth!.year, _selectedMonth!.month);
+          _selectedMonth = DateTime(clamped.year, clamped.month);
+        }
+        final canGoPrev = _selectedMonth == null || monthRange.canGoPrevious(_selectedMonth!.year, _selectedMonth!.month);
+        final canGoNext = _selectedMonth != null && monthRange.canGoNext(_selectedMonth!.year, _selectedMonth!.month);
 
         // Apply Time Filter
         final timeFilteredTx = allWalletTx.where((tx) {
@@ -360,59 +397,18 @@ class _WalletDetailScreenState extends ConsumerState<WalletDetailScreen> {
                     // Time Period Selector Row
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.chevron_left_rounded),
-                            onPressed: _selectedMonth != null ? _previousMonth : null,
-                          ),
-                          InkWell(
-                            onTap: () {
-                              setState(() {
-                                if (_selectedMonth == null) {
-                                  _selectedMonth = DateTime(
-                                    DateTime.now().year,
-                                    DateTime.now().month,
-                                  );
-                                } else {
-                                  _selectedMonth = null;
-                                }
-                              });
-                            },
-                            borderRadius: BorderRadius.circular(8),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 6,
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    Icons.calendar_today_rounded,
-                                    size: 16,
-                                    color: theme.colorScheme.primary,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    _selectedMonth != null
-                                        ? '${l10n.getMonthName(_selectedMonth!.month)} ${_selectedMonth!.year}'
-                                        : l10n.allTime,
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 14,
-                                      color: theme.colorScheme.primary,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.chevron_right_rounded),
-                            onPressed: _selectedMonth != null ? _nextMonth : null,
-                          ),
-                        ],
+                      child: MonthNavigationBar(
+                        selectedYear: _selectedMonth?.year ?? monthRange.endYear,
+                        selectedMonth: _selectedMonth?.month ?? monthRange.endMonth,
+                        canGoPrevious: canGoPrev,
+                        canGoNext: canGoNext,
+                        onPrevious: () => _previousMonth(monthRange),
+                        onNext: () => _nextMonth(monthRange),
+                        onMonthTap: () => _showMonthPicker(l10n, monthRange),
+                        customLabel: _selectedMonth != null
+                            ? '${_selectedMonth!.month}/${_selectedMonth!.year}'
+                            : l10n.allTime,
+                        l10n: l10n,
                       ),
                     ),
                     const SizedBox(height: 4),
