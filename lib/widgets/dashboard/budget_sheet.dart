@@ -11,6 +11,7 @@ import '../../providers/monthly_budget_provider.dart';
 import '../../theme/app_colors.dart';
 import '../../services/currency_service.dart';
 import '../../utils/icon_data.dart';
+import '../../utils/app_constants.dart';
 
 class BudgetSheet extends ConsumerStatefulWidget {
   const BudgetSheet({super.key});
@@ -32,6 +33,12 @@ class _BudgetSheetState extends ConsumerState<BudgetSheet> {
   void _saveTotalBudget(MonthYearKey key) {
     final val = double.tryParse(_totalBudgetController.text.replaceAll(',', ''));
     if (val != null) {
+      if (val > AppConstants.maxAmount) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(AppConstants.maxAmountError(ref.read(localizationProvider)))),
+        );
+        return;
+      }
       ref.read(monthlyBudgetFamily(key).notifier).setTotalBudget(val);
       ref.read(settingsProvider.notifier).updateBudget(val);
     }
@@ -366,6 +373,12 @@ class _BudgetSheetState extends ConsumerState<BudgetSheet> {
             onPressed: () async {
               final val = double.tryParse(controller.text.replaceAll(',', ''));
               if (val != null) {
+                if (val > AppConstants.maxAmount) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(AppConstants.maxAmountError(l10n))),
+                  );
+                  return;
+                }
                 Navigator.pop(dialogCtx);
                 await ref.read(monthlyBudgetFamily(key).notifier).setCategoryBudget(category.id, val);
               }
@@ -389,6 +402,7 @@ class CurrencyInputFormatter extends TextInputFormatter {
     String clean = newValue.text.replaceAll(',', '');
     final number = int.tryParse(clean);
     if (number == null) return oldValue;
+    if (number > AppConstants.maxAmount) return oldValue;
 
     final formatted = NumberFormat('#,###').format(number);
     return TextEditingValue(

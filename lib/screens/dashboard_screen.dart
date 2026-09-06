@@ -24,8 +24,6 @@ import 'wallet_detail_screen.dart';
 import '../widgets/dashboard/dashboard_net_worth_card.dart';
 import '../widgets/dashboard/mini_wallet_carousel.dart';
 import '../widgets/dashboard/monthly_cashflow_card.dart';
-import '../widgets/wallet_transfer_modal.dart';
-import '../widgets/wallet_form_modal.dart';
 import '../widgets/category_icon_widget.dart';
 import '../models/monthly_budget.dart';
 import '../providers/monthly_budget_provider.dart';
@@ -320,8 +318,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                     ),
                                   ),
                                 ),
-                                onAddWalletTap: () =>
-                                    WalletFormModal.show(context),
                                 l10n: l10n,
                               ),
                               const SizedBox(height: 8),
@@ -801,24 +797,41 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                l10n.locale == 'vi'
-                    ? 'Ngân sách danh mục ($_selectedMonth/$_selectedYear)'
-                    : 'Category Budgets ($_selectedMonth/$_selectedYear)',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Theme.of(context).colorScheme.onSurface,
-                ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      l10n.locale == 'vi'
+                          ? 'Ngân sách danh mục ($_selectedMonth/$_selectedYear)'
+                          : 'Category Budgets ($_selectedMonth/$_selectedYear)',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  Icon(
+                    Icons.arrow_forward_ios_rounded,
+                    size: 13,
+                    color: Colors.grey[500],
+                  ),
+                ],
               ),
-            const SizedBox(height: 16),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: budgetStatuses.map((status) {
+              const SizedBox(height: 14),
+              ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: budgetStatuses.length,
+                separatorBuilder: (context, index) => const SizedBox(height: 10),
+                itemBuilder: (context, index) {
+                  final status = budgetStatuses[index];
                   final category = categories.where((c) => c.id == status.categoryId).firstOrNull;
                   final budget = status.budgetLimit;
                   final spent = status.spent;
+                  final percentage = (status.percentage * 100).toInt();
 
                   Color progressColor = Colors.green;
                   if (status.isOverBudget) {
@@ -843,22 +856,26 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                       ? l10n.translateCategoryName(category.id, category.name)
                       : 'Khác';
 
+                  final isDark = Theme.of(context).brightness == Brightness.dark;
+
                   return Container(
-                    width: 160,
-                    margin: const EdgeInsets.only(right: 12),
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                     decoration: BoxDecoration(
-                      color: Theme.of(context).cardColor,
+                      color: isDark ? const Color(0xFF27272A) : Colors.grey.shade50,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
+                      border: Border.all(color: Colors.grey.withValues(alpha: isDark ? 0.2 : 0.15)),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
                           children: [
-                            Icon(iconData ?? Icons.category, color: iconColor, size: 16),
-                            const SizedBox(width: 6),
+                            CircleAvatar(
+                              radius: 13,
+                              backgroundColor: iconColor.withValues(alpha: 0.15),
+                              child: Icon(iconData ?? Icons.category, color: iconColor, size: 15),
+                            ),
+                            const SizedBox(width: 8),
                             Expanded(
                               child: Text(
                                 displayName,
@@ -867,43 +884,67 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
+                            const SizedBox(width: 8),
+                            Flexible(
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: Alignment.centerRight,
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      '${_formatAmount(spent, currency)} / ${_formatAmount(budget, currency)}',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: status.isOverBudget
+                                            ? Colors.red
+                                            : (isDark ? Colors.grey[400] : Colors.grey[700]),
+                                        fontWeight: status.isOverBudget ? FontWeight.bold : FontWeight.w500,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: progressColor.withValues(alpha: 0.12),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        '$percentage%',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                          color: progressColor,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
                           ],
                         ),
                         const SizedBox(height: 8),
-                        FittedBox(
-                          fit: BoxFit.scaleDown,
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            '${_formatAmount(spent, currency)} / ${_formatAmount(budget, currency)}',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: status.isOverBudget ? Colors.red : Colors.grey[600],
-                              fontWeight: status.isOverBudget ? FontWeight.bold : FontWeight.normal,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 6),
                         ClipRRect(
-                          borderRadius: BorderRadius.circular(2),
+                          borderRadius: BorderRadius.circular(3),
                           child: LinearProgressIndicator(
                             value: (status.percentage).clamp(0.0, 1.0),
-                            backgroundColor: Theme.of(context).brightness == Brightness.dark ? Colors.grey[800] : Colors.grey[200],
+                            backgroundColor: isDark ? Colors.grey[800] : Colors.grey[200],
                             color: progressColor,
-                            minHeight: 4,
+                            minHeight: 6,
                           ),
                         ),
                       ],
                     ),
                   );
-                }).toList(),
+                },
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   Widget _buildBalanceCard(double balance, String currency, l10n) {
     final isPositive = balance >= 0;

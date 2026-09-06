@@ -1,6 +1,7 @@
 class RecurringConfig {
   final String id;
   final String? categoryId;
+  final String? walletId;
   final String name;
   final double amount;
   final String type;
@@ -16,6 +17,7 @@ class RecurringConfig {
   RecurringConfig({
     required this.id,
     this.categoryId,
+    this.walletId,
     required this.name,
     required this.amount,
     required this.type,
@@ -32,6 +34,7 @@ class RecurringConfig {
   RecurringConfig copyWith({
     String? id,
     String? categoryId,
+    String? walletId,
     String? name,
     double? amount,
     String? type,
@@ -47,6 +50,7 @@ class RecurringConfig {
     return RecurringConfig(
       id: id ?? this.id,
       categoryId: categoryId ?? this.categoryId,
+      walletId: walletId ?? this.walletId,
       name: name ?? this.name,
       amount: amount ?? this.amount,
       type: type ?? this.type,
@@ -65,6 +69,7 @@ class RecurringConfig {
     return {
       'id': id,
       'category_id': categoryId,
+      'wallet_id': walletId,
       'name': name,
       'amount': amount,
       'type': type,
@@ -83,6 +88,7 @@ class RecurringConfig {
     return RecurringConfig(
       id: map['id'] as String,
       categoryId: map['category_id'] as String?,
+      walletId: map['wallet_id'] as String?,
       name: map['name'] as String,
       amount: (map['amount'] as num).toDouble(),
       type: map['type'] as String,

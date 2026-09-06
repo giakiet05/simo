@@ -82,10 +82,6 @@ class _LoanContactModalState extends ConsumerState<LoanContactModal> {
               const SizedBox(height: 24),
               ElevatedButton(
                 onPressed: _save,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.teal,
-                  foregroundColor: Colors.white,
-                ),
                 child: const Text('Lưu'),
               ),
             ],

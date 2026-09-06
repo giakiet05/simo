@@ -93,6 +93,46 @@ class TransactionNotifier extends StateNotifier<AsyncValue<List<Transaction>>> {
       rethrow;
     }
   }
+
+  /// Bulk updates the wallet for given transaction IDs.
+  ///
+  /// @param ids List of transaction IDs.
+  /// @param walletId Target wallet ID.
+  Future<void> updateTransactionsWallet(List<String> ids, String walletId) async {
+    try {
+      await _repository.updateWalletMultiple(ids, walletId);
+      await loadTransactions();
+      _ref.read(walletProvider.notifier).loadWallets();
+    } catch (error) {
+      rethrow;
+    }
+  }
+
+  /// Bulk updates the category for given transaction IDs.
+  ///
+  /// @param ids List of transaction IDs.
+  /// @param categoryId Target category ID (or null).
+  Future<void> updateTransactionsCategory(List<String> ids, String? categoryId) async {
+    try {
+      await _repository.updateCategoryMultiple(ids, categoryId);
+      await loadTransactions();
+    } catch (error) {
+      rethrow;
+    }
+  }
+
+  /// Bulk updates the date for given transaction IDs preserving time components.
+  ///
+  /// @param ids List of transaction IDs.
+  /// @param date Target date.
+  Future<void> updateTransactionsDate(List<String> ids, DateTime date) async {
+    try {
+      await _repository.updateDateMultiple(ids, date);
+      await loadTransactions();
+    } catch (error) {
+      rethrow;
+    }
+  }
 }
 
 final transactionProvider = StateNotifierProvider<TransactionNotifier,

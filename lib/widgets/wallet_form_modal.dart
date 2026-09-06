@@ -7,6 +7,7 @@ import '../providers/localization_provider.dart';
 import '../providers/wallet_provider.dart';
 import '../utils/currency_input_formatter.dart';
 import '../utils/localization.dart';
+import '../utils/app_constants.dart';
 
 class WalletFormModal extends ConsumerStatefulWidget {
   final Wallet? walletToEdit;
@@ -270,6 +271,16 @@ class _WalletFormModalState extends ConsumerState<WalletFormModal> {
                   ),
                   prefixIcon: const Icon(Icons.attach_money_rounded),
                 ),
+                validator: (val) {
+                  if (val != null && val.trim().isNotEmpty) {
+                    final cleanVal = val.replaceAll(',', '').trim();
+                    final parsed = double.tryParse(cleanVal) ?? 0.0;
+                    if (parsed > AppConstants.maxAmount) {
+                      return AppConstants.maxAmountError(l10n);
+                    }
+                  }
+                  return null;
+                },
               ),
               const SizedBox(height: 16),
 

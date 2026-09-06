@@ -25,9 +25,26 @@ class QuickAccessHub extends StatelessWidget {
         ),
         const SizedBox(height: 14),
 
-        // Row 1: Ví tiền | Ngân sách | Sổ nợ
+        // Row 1: Thống kê | Ví tiền | Ngân sách
         Row(
           children: [
+            Expanded(
+              child: _buildAccessButton(
+                context,
+                icon: Icons.insights_rounded,
+                label: l10n.locale == 'vi' ? 'Thống kê' : 'Insights',
+                color: const Color(0xFF06B6D4), // Cyan
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const StatisticsScreen(),
+                    ),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(width: 10),
             Expanded(
               child: _buildAccessButton(
                 context,
@@ -61,28 +78,11 @@ class QuickAccessHub extends StatelessWidget {
                 },
               ),
             ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _buildAccessButton(
-                context,
-                icon: Icons.receipt_long_rounded,
-                label: l10n.locale == 'vi' ? 'Sổ nợ' : 'Loans',
-                color: const Color(0xFF8B5CF6), // Purple
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const LoanScreen(),
-                    ),
-                  );
-                },
-              ),
-            ),
           ],
         ),
         const SizedBox(height: 12),
 
-        // Row 2: Mục tiêu | Định kỳ | Thống kê
+        // Row 2: Mục tiêu | Sổ nợ | Định kỳ
         Row(
           children: [
             Expanded(
@@ -105,14 +105,14 @@ class QuickAccessHub extends StatelessWidget {
             Expanded(
               child: _buildAccessButton(
                 context,
-                icon: Icons.autorenew_rounded,
-                label: l10n.locale == 'vi' ? 'Định kỳ' : 'Recurring',
-                color: const Color(0xFFEC4899), // Pink Rose
+                icon: Icons.receipt_long_rounded,
+                label: l10n.locale == 'vi' ? 'Sổ nợ' : 'Loans',
+                color: const Color(0xFF8B5CF6), // Purple
                 onTap: () {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => const RecurringScreen(),
+                      builder: (_) => const LoanScreen(),
                     ),
                   );
                 },
@@ -122,14 +122,14 @@ class QuickAccessHub extends StatelessWidget {
             Expanded(
               child: _buildAccessButton(
                 context,
-                icon: Icons.insights_rounded,
-                label: l10n.locale == 'vi' ? 'Thống kê' : 'Insights',
-                color: const Color(0xFF06B6D4), // Cyan
+                icon: Icons.autorenew_rounded,
+                label: l10n.locale == 'vi' ? 'Định kỳ' : 'Recurring',
+                color: const Color(0xFFEC4899), // Pink Rose
                 onTap: () {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => const StatisticsScreen(),
+                      builder: (_) => const RecurringScreen(),
                     ),
                   );
                 },

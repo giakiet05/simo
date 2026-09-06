@@ -15,6 +15,7 @@ class RecurringService {
         await _transactionRepo.createMultiple([
           {
             'categoryId': config.categoryId,
+            'walletId': config.walletId,
             'recurringConfigId': config.id,
             'amount': config.amount,
             'formula': null,

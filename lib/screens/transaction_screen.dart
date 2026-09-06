@@ -17,6 +17,7 @@ import '../models/transaction_filter_criteria.dart';
 import '../services/transaction_filter_service.dart';
 import '../widgets/transaction_filter_bottom_sheet.dart';
 import '../widgets/quick_filter_chips_bar.dart';
+import '../widgets/transaction/transaction_detail_bottom_sheet.dart';
 
 class TransactionScreen extends ConsumerStatefulWidget {
   final String? initialTypeFilter;
@@ -347,6 +348,17 @@ class TransactionScreenState extends ConsumerState<TransactionScreen> {
     final isDark = theme.brightness == Brightness.dark;
     final textColor = isDark ? Colors.white : Colors.black87;
     final hintColor = isDark ? Colors.white54 : Colors.black45;
+    final allTransactions = transactionsAsync.value ?? [];
+    final categories = categoriesAsync.value ?? [];
+    final wallets = walletsAsync.value ?? [];
+    final categoryMap = {for (var cat in categories) cat.id: cat};
+    final walletMap = {for (var w in wallets) w.id: w};
+    final filteredTransactions = _applyFilters(allTransactions, categoryMap, walletMap);
+    final totalItems = filteredTransactions.length;
+    final endIndex = (_currentPage * _limit).clamp(0, totalItems);
+    final paginatedTransactions = filteredTransactions.take(endIndex).toList();
+    final isAllSelected = paginatedTransactions.isNotEmpty &&
+        paginatedTransactions.every((t) => _selectedTransactionIds.contains(t.id));
 
     return PopScope(
       canPop: !_isSelectionMode,
@@ -369,7 +381,7 @@ class TransactionScreenState extends ConsumerState<TransactionScreen> {
                       cursorColor: textColor,
                       decoration: InputDecoration(
                         hintText: l10n.locale == 'vi'
-                            ? 'Tìm theo ghi chú, danh mục, ví, số tiền (50k, 1.5tr)...'
+                            ? 'Tìm theo nội dung, danh mục, ví, số tiền (50k, 1.5tr)...'
                             : 'Search note, category, wallet, amount (50k, 1.5m)...',
                         border: InputBorder.none,
                         hintStyle: TextStyle(color: hintColor, fontSize: 15),
@@ -405,36 +417,95 @@ class TransactionScreenState extends ConsumerState<TransactionScreen> {
                         });
                       },
                     )
-                  : null,
+                  : IconButton(
+                      icon: const Icon(Icons.checklist_rounded),
+                      tooltip: l10n.selectMultiple,
+                      onPressed: () {
+                        setState(() {
+                          _isSelectionMode = true;
+                        });
+                      },
+                    ),
           actions: _isSelectionMode
               ? [
                   IconButton(
+                    icon: Icon(isAllSelected ? Icons.deselect : Icons.select_all),
+                    tooltip: isAllSelected
+                        ? (l10n.locale == 'vi' ? 'Bỏ chọn tất cả' : 'Deselect all')
+                        : (l10n.locale == 'vi' ? 'Chọn tất cả' : 'Select all'),
+                    onPressed: paginatedTransactions.isEmpty
+                        ? null
+                        : () {
+                            setState(() {
+                              if (isAllSelected) {
+                                _selectedTransactionIds.clear();
+                              } else {
+                                _selectedTransactionIds
+                                    .addAll(paginatedTransactions.map((t) => t.id));
+                              }
+                            });
+                          },
+                  ),
+                  IconButton(
                     icon: const Icon(Icons.delete),
+                    tooltip: l10n.delete,
                     onPressed: _selectedTransactionIds.isEmpty
                         ? null
                         : () => _showDeleteMultipleDialog(context),
                   ),
                 ]
               : [
-                  if (!_isSearching)
+                  if (!_isSearching) ...[
+                    IconButton(
+                      icon: Badge(
+                        isLabelVisible: _filterCriteria.hasActiveFilters,
+                        smallSize: 8,
+                        child: Icon(
+                          Icons.tune_rounded,
+                          color: _filterCriteria.hasActiveFilters
+                              ? Theme.of(context).colorScheme.primary
+                              : textColor,
+                        ),
+                      ),
+                      tooltip: l10n.locale == 'vi' ? 'Bộ lọc' : 'Filter',
+                      onPressed: () => _showFilterSheet(context, ref),
+                    ),
                     IconButton(
                       icon: Icon(Icons.search, color: textColor),
+                      tooltip: l10n.locale == 'vi' ? 'Tìm kiếm' : 'Search',
                       onPressed: () {
                         setState(() {
                           _isSearching = true;
                         });
                       },
                     ),
-                  if (_isSearching && _searchQuery.isNotEmpty)
+                  ],
+                  if (_isSearching) ...[
+                    if (_searchQuery.isNotEmpty)
+                      IconButton(
+                        icon: Icon(Icons.clear, color: textColor),
+                        onPressed: () {
+                          setState(() {
+                            _searchQuery = '';
+                            _searchController.clear();
+                          });
+                        },
+                      ),
                     IconButton(
-                      icon: Icon(Icons.clear, color: textColor),
-                      onPressed: () {
-                        setState(() {
-                          _searchQuery = '';
-                          _searchController.clear();
-                        });
-                      },
+                      icon: Badge(
+                        isLabelVisible: _filterCriteria.hasActiveFilters,
+                        smallSize: 8,
+                        child: Icon(
+                          Icons.tune_rounded,
+                          color: _filterCriteria.hasActiveFilters
+                              ? Theme.of(context).colorScheme.primary
+                              : textColor,
+                        ),
+                      ),
+                      tooltip: l10n.locale == 'vi' ? 'Bộ lọc' : 'Filter',
+                      onPressed: () => _showFilterSheet(context, ref),
                     ),
+                  ],
                 ],
         ),
         body: categoriesAsync.when(
@@ -632,23 +703,28 @@ class TransactionScreenState extends ConsumerState<TransactionScreen> {
                       },
                     ),
                   ),
-                  const BannerAdWidget(key: ValueKey('transaction_banner_ad')),
+                  if (_isSelectionMode && _selectedTransactionIds.isNotEmpty)
+                    _buildBulkActionBar(context, ref, l10n, theme, isDark)
+                  else
+                    const BannerAdWidget(key: ValueKey('transaction_banner_ad')),
                 ],
               );
             },
           );
         },
         ),
-        floatingActionButton: FloatingActionButton(
-          heroTag: 'transaction_fab',
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const TransactionFormScreen()),
-            );
-          },
-          child: const Icon(Icons.add),
-        ),
+        floatingActionButton: _isSelectionMode
+            ? null
+            : FloatingActionButton(
+                heroTag: 'transaction_fab',
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const TransactionFormScreen()),
+                  );
+                },
+                child: const Icon(Icons.add),
+              ),
       ),
     );
   }
@@ -725,45 +801,11 @@ class TransactionScreenState extends ConsumerState<TransactionScreen> {
 
   void _showActionMenu(
       BuildContext context, WidgetRef ref, Transaction transaction) {
-    final l10n = ref.read(localizationProvider);
-
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.edit),
-              title: Text(l10n.edit),
-              onTap: () {
-                Navigator.pop(context);
-                _showEditDialog(context, ref, transaction);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.delete, color: Colors.red),
-              title: Text(l10n.delete, style: const TextStyle(color: Colors.red)),
-              onTap: () {
-                Navigator.pop(context);
-                _showDeleteDialog(context, ref, transaction);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.check_box),
-              title: Text(l10n.selectMultiple),
-              onTap: () {
-                Navigator.pop(context);
-                setState(() {
-                  _isSelectionMode = true;
-                  _selectedTransactionIds.add(transaction.id);
-                });
-              },
-            ),
-          ],
-        ),
-      ),
+    TransactionDetailBottomSheet.show(
+      context,
+      transaction: transaction,
+      onEdit: () => _showEditDialog(context, ref, transaction),
+      onDelete: () => _showDeleteDialog(context, ref, transaction),
     );
   }
 
@@ -827,5 +869,423 @@ class TransactionScreenState extends ConsumerState<TransactionScreen> {
         ],
       ),
     );
+  }
+
+  /// Builds the floating bulk action bar at the bottom when items are selected.
+  Widget _buildBulkActionBar(
+    BuildContext context,
+    WidgetRef ref,
+    dynamic l10n,
+    ThemeData theme,
+    bool isDark,
+  ) {
+    final allTransactions = ref.watch(transactionProvider).value ?? [];
+    final selectedTxs = allTransactions.where((t) => _selectedTransactionIds.contains(t.id)).toList();
+    final hasExpense = selectedTxs.any((t) => t.type == 'expense');
+    final hasIncome = selectedTxs.any((t) => t.type == 'income');
+    final isMixedType = hasExpense && hasIncome;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        border: Border(
+          top: BorderSide(
+            color: isDark ? Colors.grey.shade800 : Colors.grey.shade300,
+            width: 0.8,
+          ),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.08),
+            blurRadius: 8,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            _buildBulkActionButton(
+              icon: Icons.account_balance_wallet_outlined,
+              label: l10n.locale == 'vi' ? 'Đổi ví' : 'Change wallet',
+              color: theme.colorScheme.primary,
+              onTap: () => _showBulkChangeWalletSheet(context, ref),
+            ),
+            _buildBulkActionButton(
+              icon: Icons.category_outlined,
+              label: l10n.locale == 'vi' ? 'Đổi mục' : 'Category',
+              color: isMixedType ? Colors.grey : Colors.orange,
+              opacity: isMixedType ? 0.35 : 1.0,
+              onTap: () {
+                if (isMixedType) {
+                  ScaffoldMessenger.of(context).clearSnackBars();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        l10n.locale == 'vi'
+                            ? 'Chỉ có thể đổi danh mục khi các giao dịch cùng loại Thu hoặc Chi'
+                            : 'Can only change category when transactions are of the same type (Income or Expense)',
+                      ),
+                      behavior: SnackBarBehavior.floating,
+                      duration: const Duration(seconds: 3),
+                    ),
+                  );
+                  return;
+                }
+                _showBulkChangeCategorySheet(context, ref);
+              },
+            ),
+            _buildBulkActionButton(
+              icon: Icons.calendar_today_outlined,
+              label: l10n.locale == 'vi' ? 'Đổi ngày' : 'Change date',
+              color: Colors.teal,
+              onTap: () => _showBulkChangeDatePicker(context, ref),
+            ),
+            _buildBulkActionButton(
+              icon: Icons.delete_outline,
+              label: l10n.delete,
+              color: Colors.red,
+              onTap: () => _showDeleteMultipleDialog(context),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+  /// Helper widget to build each action button in the bulk action bar.
+  Widget _buildBulkActionButton({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+    double opacity = 1.0,
+  }) {
+    return Opacity(
+      opacity: opacity,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: color, size: 22),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w600,
+                  color: color,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Color _parseColor(String colorStr) {
+    try {
+      final hex = colorStr.replaceAll('#', '');
+      return Color(int.parse('FF$hex', radix: 16));
+    } catch (_) {
+      return const Color(0xFF10B981);
+    }
+  }
+
+  /// Opens a bottom sheet for the user to pick a target wallet to bulk assign.
+  Future<void> _showBulkChangeWalletSheet(BuildContext context, WidgetRef ref) async {
+    final wallets = ref.read(walletProvider).value ?? [];
+    final l10n = ref.read(localizationProvider);
+    final settingsAsync = ref.read(settingsProvider);
+    final currency = settingsAsync.value?.currency ?? 'VND';
+    final symbol = CurrencyService.getSymbol(currency);
+
+    if (wallets.isEmpty) return;
+
+    final selectedWallet = await showModalBottomSheet<Wallet>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      l10n.locale == 'vi' ? 'Chuyển sang ví khác' : 'Move to another wallet',
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      visualDensity: VisualDensity.compact,
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Flexible(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: wallets.length,
+                    separatorBuilder: (_, _) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final wallet = wallets[index];
+                      final walletColor = _parseColor(wallet.color);
+                      final formattedBalance = NumberFormat('#,###', 'en_US').format(wallet.currentBalance);
+                      return ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: walletColor.withValues(alpha: 0.15),
+                          child: Icon(Icons.account_balance_wallet, color: walletColor),
+                        ),
+                        title: Text(wallet.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                        subtitle: Text('$formattedBalance $symbol'),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () => Navigator.pop(context, wallet),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (selectedWallet != null && context.mounted) {
+      try {
+        final count = _selectedTransactionIds.length;
+        await ref
+            .read(transactionProvider.notifier)
+            .updateTransactionsWallet(_selectedTransactionIds.toList(), selectedWallet.id);
+
+        if (context.mounted) {
+          setState(() {
+            _isSelectionMode = false;
+            _selectedTransactionIds.clear();
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                l10n.locale == 'vi'
+                    ? 'Đã chuyển $count giao dịch sang ví ${selectedWallet.name}'
+                    : 'Moved $count transactions to wallet ${selectedWallet.name}',
+              ),
+            ),
+          );
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('${l10n.error}: $e')),
+          );
+        }
+      }
+    }
+  }
+
+  /// Opens a bottom sheet for the user to pick a target category to bulk assign.
+  Future<void> _showBulkChangeCategorySheet(BuildContext context, WidgetRef ref) async {
+    final categories = ref.read(categoryProvider).value ?? [];
+    final allTransactions = ref.read(transactionProvider).value ?? [];
+    final l10n = ref.read(localizationProvider);
+
+    if (categories.isEmpty) return;
+
+    // Filter categories strictly by transaction type in the selection
+    final selectedTxs = allTransactions.where((t) => _selectedTransactionIds.contains(t.id)).toList();
+    final hasExpense = selectedTxs.any((t) => t.type == 'expense');
+    final hasIncome = selectedTxs.any((t) => t.type == 'income');
+
+    if (hasExpense && hasIncome) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            l10n.locale == 'vi'
+                ? 'Chỉ có thể đổi danh mục khi các giao dịch cùng loại Thu hoặc Chi'
+                : 'Can only change category when transactions are of the same type (Income or Expense)',
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    final targetType = hasIncome ? 'income' : 'expense';
+    final filteredCategories = categories.where((c) => c.type == targetType).toList();
+
+    if (filteredCategories.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            l10n.locale == 'vi'
+                ? 'Không có danh mục nào thuộc loại này'
+                : 'No categories available for this type',
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    final selectedCategory = await showModalBottomSheet<Category>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      l10n.locale == 'vi' ? 'Đổi danh mục giao dịch' : 'Change category',
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      visualDensity: VisualDensity.compact,
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Flexible(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: filteredCategories.length,
+                    separatorBuilder: (_, _) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final cat = filteredCategories[index];
+                      final catName = l10n.translateCategoryName(cat.id, cat.name);
+                      return ListTile(
+                        leading: CategoryIconWidget(category: cat, size: 36),
+                        title: Text(catName, style: const TextStyle(fontWeight: FontWeight.w600)),
+                        subtitle: Text(
+                          cat.type == 'income'
+                              ? (l10n.locale == 'vi' ? 'Thu nhập' : 'Income')
+                              : (l10n.locale == 'vi' ? 'Chi phí' : 'Expense'),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: cat.type == 'income' ? Colors.green : Colors.red,
+                          ),
+                        ),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () => Navigator.pop(context, cat),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (selectedCategory != null && context.mounted) {
+      try {
+        final count = _selectedTransactionIds.length;
+        await ref
+            .read(transactionProvider.notifier)
+            .updateTransactionsCategory(_selectedTransactionIds.toList(), selectedCategory.id);
+
+        if (context.mounted) {
+          final catName = l10n.translateCategoryName(selectedCategory.id, selectedCategory.name);
+          setState(() {
+            _isSelectionMode = false;
+            _selectedTransactionIds.clear();
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                l10n.locale == 'vi'
+                    ? 'Đã đổi $count giao dịch sang mục $catName'
+                    : 'Changed $count transactions to category $catName',
+              ),
+            ),
+          );
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('${l10n.error}: $e')),
+          );
+        }
+      }
+    }
+  }
+
+  /// Opens a DatePicker for the user to bulk change the transaction date.
+  Future<void> _showBulkChangeDatePicker(BuildContext context, WidgetRef ref) async {
+    final l10n = ref.read(localizationProvider);
+    final now = DateTime.now();
+
+    final pickedDate = await showDatePicker(
+      context: context,
+      initialDate: now,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+      locale: Locale(l10n.locale),
+    );
+
+    if (pickedDate != null && context.mounted) {
+      try {
+        final count = _selectedTransactionIds.length;
+        await ref
+            .read(transactionProvider.notifier)
+            .updateTransactionsDate(_selectedTransactionIds.toList(), pickedDate);
+
+        if (context.mounted) {
+          final formatted = DateFormat('dd/MM/yyyy').format(pickedDate);
+          setState(() {
+            _isSelectionMode = false;
+            _selectedTransactionIds.clear();
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                l10n.locale == 'vi'
+                    ? 'Đã chuyển $count giao dịch sang ngày $formatted'
+                    : 'Moved $count transactions to date $formatted',
+              ),
+            ),
+          );
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('${l10n.error}: $e')),
+          );
+        }
+      }
+    }
   }
 }

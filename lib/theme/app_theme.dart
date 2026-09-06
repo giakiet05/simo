@@ -57,6 +57,10 @@ class AppTheme {
           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
       ),
+      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
+      ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primary,
@@ -79,11 +83,11 @@ class AppTheme {
     return ThemeData(
       useMaterial3: true,
       colorScheme: const ColorScheme.dark(
-        primary: AppColors.secondary, // Light blue looks better in dark mode
-        secondary: AppColors.primary,
+        primary: Colors.white,
+        secondary: AppColors.secondary,
         surface: Color(0xFF1E1E1E),
         error: AppColors.expense,
-        onPrimary: Colors.white,
+        onPrimary: Color(0xFF0F172A),
         onSecondary: Colors.white,
         onSurface: Colors.white,
         onError: Colors.white,
@@ -130,9 +134,13 @@ class AppTheme {
           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
       ),
+      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+        backgroundColor: Color(0xFF334155),
+        foregroundColor: Colors.white,
+      ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.secondary,
+          backgroundColor: const Color(0xFF334155),
           foregroundColor: Colors.white,
           elevation: 0,
           padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),

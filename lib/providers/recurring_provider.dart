@@ -23,6 +23,7 @@ class RecurringNotifier extends StateNotifier<AsyncValue<List<RecurringConfig>>>
 
   Future<void> createRecurringConfig({
     required String? categoryId,
+    String? walletId,
     required String name,
     required double amount,
     required String type,
@@ -30,10 +31,12 @@ class RecurringNotifier extends StateNotifier<AsyncValue<List<RecurringConfig>>>
     required int interval,
     int? dayOfWeek,
     int? dayOfMonth,
+    DateTime? nextRun,
   }) async {
     try {
       await _repository.create(
         categoryId: categoryId,
+        walletId: walletId,
         name: name,
         amount: amount,
         type: type,
@@ -41,6 +44,7 @@ class RecurringNotifier extends StateNotifier<AsyncValue<List<RecurringConfig>>>
         interval: interval,
         dayOfWeek: dayOfWeek,
         dayOfMonth: dayOfMonth,
+        nextRun: nextRun,
       );
       await loadRecurringConfigs();
     } catch (e, stack) {
@@ -51,6 +55,9 @@ class RecurringNotifier extends StateNotifier<AsyncValue<List<RecurringConfig>>>
   Future<void> updateRecurringConfig(
     String id, {
     String? categoryId,
+    bool clearCategory = false,
+    String? walletId,
+    bool clearWallet = false,
     String? name,
     double? amount,
     String? type,
@@ -58,12 +65,16 @@ class RecurringNotifier extends StateNotifier<AsyncValue<List<RecurringConfig>>>
     int? interval,
     int? dayOfWeek,
     int? dayOfMonth,
+    DateTime? nextRun,
     bool? isActive,
   }) async {
     try {
       await _repository.update(
         id,
         categoryId: categoryId,
+        clearCategory: clearCategory,
+        walletId: walletId,
+        clearWallet: clearWallet,
         name: name,
         amount: amount,
         type: type,
@@ -71,6 +82,7 @@ class RecurringNotifier extends StateNotifier<AsyncValue<List<RecurringConfig>>>
         interval: interval,
         dayOfWeek: dayOfWeek,
         dayOfMonth: dayOfMonth,
+        nextRun: nextRun,
         isActive: isActive,
       );
       await loadRecurringConfigs();
@@ -107,6 +119,7 @@ class RecurringNotifier extends StateNotifier<AsyncValue<List<RecurringConfig>>>
       await _transactionRepository.createMultiple([
         {
           'categoryId': config.categoryId,
+          'walletId': config.walletId,
           'amount': config.amount,
           'type': config.type,
           'recurringConfigId': id,

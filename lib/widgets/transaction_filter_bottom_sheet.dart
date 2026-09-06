@@ -585,10 +585,6 @@ class _TransactionFilterBottomSheetState extends State<TransactionFilterBottomSh
                         onPressed: () {
                           Navigator.pop(context, _criteria);
                         },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.teal,
-                          foregroundColor: Colors.white,
-                        ),
                         child: Text(l10n.apply),
                       ),
                     ),

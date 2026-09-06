@@ -19,7 +19,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 14,
+      version: 15,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -73,6 +73,7 @@ class DatabaseHelper {
         id $idType,
         cloud_id TEXT,
         category_id TEXT,
+        wallet_id TEXT,
         name $textType,
         amount $realType,
         type $textType,
@@ -561,6 +562,15 @@ class DatabaseHelper {
         await db.update('wallets', {'current_balance': balance}, where: 'id = ?', whereArgs: [defaultWalletId]);
       }
     }
+
+    if (oldVersion < 15) {
+      print('[DB] Migration v15: Add wallet_id to recurring_configs');
+      final tableInfo = await db.rawQuery('PRAGMA table_info(recurring_configs)');
+      final hasWalletId = tableInfo.any((col) => col['name'] == 'wallet_id');
+      if (!hasWalletId) {
+        await db.execute('ALTER TABLE recurring_configs ADD COLUMN wallet_id TEXT');
+      }
+    }
   }
 
   Future<void> clearAllData() async {
@@ -578,6 +588,23 @@ class DatabaseHelper {
       await txn.delete('pending_deletions');
       await txn.delete('loan_contacts');
       await txn.delete('categories');
+
+      // Re-insert default Cash Wallet with 0 balance
+      final now = DateTime.now().toIso8601String();
+      await txn.insert('wallets', {
+        'id': 'default_cash_wallet',
+        'name': 'Ví tiền mặt',
+        'type': 'cash',
+        'initial_balance': 0.0,
+        'current_balance': 0.0,
+        'color': '#10B981',
+        'icon': 'wallet',
+        'currency': null,
+        'is_default': 1,
+        'exclude_from_total': 0,
+        'created_at': now,
+        'updated_at': now,
+      });
     });
   }
 

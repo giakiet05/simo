@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../models/saving_goal.dart';
 import '../services/currency_service.dart';
+import '../utils/app_constants.dart';
 
 class CurrencyInputFormatter extends TextInputFormatter {
   @override
@@ -15,6 +16,7 @@ class CurrencyInputFormatter extends TextInputFormatter {
     String clean = newValue.text.replaceAll(',', '');
     final number = int.tryParse(clean);
     if (number == null) return oldValue;
+    if (number > AppConstants.maxAmount) return oldValue;
 
     final formatted = NumberFormat('#,###').format(number);
     return TextEditingValue(
@@ -206,6 +208,9 @@ class _SavingGoalLogModalState extends State<SavingGoalLogModal> {
                   final parsed = double.tryParse(cleanVal);
                   if (parsed == null || parsed <= 0) {
                     return widget.l10n.locale == 'vi' ? 'Vui lòng nhập số tiền > 0' : 'Please enter an amount > 0';
+                  }
+                  if (parsed > AppConstants.maxAmount) {
+                    return AppConstants.maxAmountError(widget.l10n);
                   }
                   return null;
                 },

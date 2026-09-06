@@ -7,6 +7,7 @@ import '../providers/settings_provider.dart';
 import '../providers/wallet_provider.dart';
 import '../utils/currency_input_formatter.dart';
 import '../utils/localization.dart';
+import '../utils/app_constants.dart';
 
 class WalletTransferModal extends ConsumerStatefulWidget {
   final String? initialSourceWalletId;
@@ -136,6 +137,13 @@ class _WalletTransferModalState extends ConsumerState<WalletTransferModal> {
 
     final feeRaw = _feeController.text.replaceAll(',', '').trim();
     final fee = double.tryParse(feeRaw) ?? 0.0;
+
+    if (amount > AppConstants.maxAmount || fee > AppConstants.maxAmount) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppConstants.maxAmountError(l10n))),
+      );
+      return;
+    }
 
     // Check if source wallet will overdraft
     final sourceWallet = wallets.firstWhere(

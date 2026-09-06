@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/localization_provider.dart';
-import '../utils/localization.dart';
 import '../widgets/banner_ad_widget.dart';
 import 'category_budget_screen.dart';
 import 'loan_screen.dart';
@@ -23,6 +22,18 @@ class FeaturesScreen extends ConsumerWidget {
     final isVi = l10n.locale == 'vi';
 
     final items = [
+      _FeatureItem(
+        title: isVi ? 'Thống kê' : 'Insights',
+        description: isVi
+            ? 'Báo cáo chi tiết và biểu đồ phân tích cơ cấu chi tiêu'
+            : 'Detailed reports and spending breakdown analytics',
+        icon: Icons.insights_rounded,
+        color: const Color(0xFF06B6D4), // Cyan
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const StatisticsScreen()),
+        ),
+      ),
       _FeatureItem(
         title: isVi ? 'Ví tiền' : 'Wallets',
         description: isVi
@@ -48,18 +59,6 @@ class FeaturesScreen extends ConsumerWidget {
         ),
       ),
       _FeatureItem(
-        title: isVi ? 'Sổ nợ' : 'Loans',
-        description: isVi
-            ? 'Theo dõi các khoản tiền vay và cho vay cần thu hồi'
-            : 'Track borrowed debts and lent balances to collect',
-        icon: Icons.receipt_long_rounded,
-        color: const Color(0xFF8B5CF6), // Purple
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const LoanScreen()),
-        ),
-      ),
-      _FeatureItem(
         title: isVi ? 'Mục tiêu' : 'Goals',
         description: isVi
             ? 'Lên kế hoạch và theo dõi tiến độ tích lũy tài chính'
@@ -69,6 +68,18 @@ class FeaturesScreen extends ConsumerWidget {
         onTap: () => Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const SavingGoalsScreen()),
+        ),
+      ),
+      _FeatureItem(
+        title: isVi ? 'Sổ nợ' : 'Loans',
+        description: isVi
+            ? 'Theo dõi các khoản tiền vay và cho vay cần thu hồi'
+            : 'Track borrowed debts and lent balances to collect',
+        icon: Icons.receipt_long_rounded,
+        color: const Color(0xFF8B5CF6), // Purple
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const LoanScreen()),
         ),
       ),
       _FeatureItem(
@@ -83,24 +94,12 @@ class FeaturesScreen extends ConsumerWidget {
           MaterialPageRoute(builder: (_) => const RecurringScreen()),
         ),
       ),
-      _FeatureItem(
-        title: isVi ? 'Thống kê' : 'Insights',
-        description: isVi
-            ? 'Báo cáo chi tiết và biểu đồ phân tích cơ cấu chi tiêu'
-            : 'Detailed reports and spending breakdown analytics',
-        icon: Icons.insights_rounded,
-        color: const Color(0xFF06B6D4), // Cyan
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const StatisticsScreen()),
-        ),
-      ),
     ];
 
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          l10n is AppLocalizations ? l10n.featuresHub : 'Chức năng',
+          l10n.featuresHub,
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         elevation: 0,

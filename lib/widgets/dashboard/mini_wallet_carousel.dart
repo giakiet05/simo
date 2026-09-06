@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../models/wallet.dart';
-import '../../utils/localization.dart';
 
 class MiniWalletCarousel extends StatelessWidget {
   final List<Wallet> wallets;
   final String currency;
   final bool isHidden;
   final Function(Wallet wallet) onWalletTap;
-  final VoidCallback onAddWalletTap;
+  final VoidCallback? onAddWalletTap;
   final dynamic l10n;
 
   const MiniWalletCarousel({
@@ -17,7 +16,7 @@ class MiniWalletCarousel extends StatelessWidget {
     required this.currency,
     required this.isHidden,
     required this.onWalletTap,
-    required this.onAddWalletTap,
+    this.onAddWalletTap,
     required this.l10n,
   });
 
@@ -60,63 +59,18 @@ class MiniWalletCarousel extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
+    if (wallets.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
     return SizedBox(
       height: 64,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         physics: const BouncingScrollPhysics(),
-        itemCount: wallets.length + 1,
+        itemCount: wallets.length,
         separatorBuilder: (context, index) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
-          if (index == wallets.length) {
-            // Add Wallet Button Card
-            return Material(
-              color: isDark
-                  ? Colors.grey.shade900
-                  : Colors.grey.shade100,
-              borderRadius: BorderRadius.circular(12),
-              child: InkWell(
-                onTap: onAddWalletTap,
-                borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  width: 96,
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: theme.colorScheme.outline.withValues(alpha: 0.15),
-                      style: BorderStyle.solid,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.add_circle_outline_rounded,
-                        size: 15,
-                        color: theme.colorScheme.primary,
-                      ),
-                      const SizedBox(width: 4),
-                      Flexible(
-                        child: Text(
-                          l10n is AppLocalizations
-                              ? l10n.addWallet
-                              : (l10n.locale == 'vi' ? 'Thêm ví' : 'Add'),
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: theme.colorScheme.primary,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          }
-
           final wallet = wallets[index];
           final color = _parseColor(wallet.color);
 

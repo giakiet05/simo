@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 
 class AppColors {
   // Core colors
-  static const Color primary = Color(0xFF0F172A); // Slate 900
+  static const Color primary = Color(0xFF0F172A); // Slate 900 (Sleek Modern Black)
+  static const Color primaryLight = Color(0xFF1E293B); // Slate 800
+  static const Color accent = Color(0xFF00897B); // Teal 600 (Accent)
   static const Color secondary = Color(0xFF3B82F6); // Blue 500
   static const Color background = Color(0xFFF8FAFC); // Slate 50
   static const Color surface = Colors.white;

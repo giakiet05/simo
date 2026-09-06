@@ -90,6 +90,9 @@ class TransactionFilterCriteria {
     if (minAmount != null || maxAmount != null) count++;
     return count;
   }
+
+  /// Whether any non-search filter is currently active
+  bool get hasActiveFilters => activeFilterCount > 0;
 }
 
 class FuzzySearchResult {

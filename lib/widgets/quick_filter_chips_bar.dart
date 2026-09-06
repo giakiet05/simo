@@ -7,7 +7,7 @@ class QuickFilterChipsBar extends StatelessWidget {
   final TransactionFilterCriteria criteria;
   final List<Wallet> wallets;
   final ValueChanged<TransactionFilterCriteria> onFilterChanged;
-  final VoidCallback onOpenFilterSheet;
+  final VoidCallback? onOpenFilterSheet;
   final dynamic l10n;
 
   const QuickFilterChipsBar({
@@ -15,7 +15,7 @@ class QuickFilterChipsBar extends StatelessWidget {
     required this.criteria,
     required this.wallets,
     required this.onFilterChanged,
-    required this.onOpenFilterSheet,
+    this.onOpenFilterSheet,
     required this.l10n,
   });
 
@@ -145,7 +145,7 @@ class QuickFilterChipsBar extends StatelessWidget {
                   title: Text(isVi ? 'Tùy chọn khác (chọn tháng, khoảng ngày)...' : 'More options...'),
                   onTap: () {
                     Navigator.pop(ctx);
-                    onOpenFilterSheet();
+                    onOpenFilterSheet?.call();
                   },
                 ),
               ],
@@ -238,38 +238,6 @@ class QuickFilterChipsBar extends StatelessWidget {
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 12),
         children: [
-          // Nút mở bộ lọc tổng hợp (Tune icon + badge)
-          ActionChip(
-            avatar: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                const Icon(Icons.tune, size: 16),
-                if (activeCount > 0)
-                  Positioned(
-                    right: -6,
-                    top: -6,
-                    child: Container(
-                      padding: const EdgeInsets.all(2),
-                      decoration: const BoxDecoration(
-                        color: Colors.red,
-                        shape: BoxShape.circle,
-                      ),
-                      constraints: const BoxConstraints(minWidth: 12, minHeight: 12),
-                      child: Text(
-                        '$activeCount',
-                        style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-            label: Text(isVi ? 'Bộ lọc' : 'Filter'),
-            backgroundColor: activeCount > 0 ? Colors.teal.withAlpha(40) : null,
-            onPressed: onOpenFilterSheet,
-          ),
-          const SizedBox(width: 8),
-
           // Chip chọn nhanh Ví
           ActionChip(
             label: Text(_getWalletLabel(isVi)),

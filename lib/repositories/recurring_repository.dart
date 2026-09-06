@@ -40,6 +40,7 @@ class RecurringRepository {
 
   Future<RecurringConfig> create({
     required String? categoryId,
+    String? walletId,
     required String name,
     required double amount,
     required String type,
@@ -47,10 +48,11 @@ class RecurringRepository {
     required int interval,
     int? dayOfWeek,
     int? dayOfMonth,
+    DateTime? nextRun,
   }) async {
     final db = await DatabaseHelper.instance.database;
     final now = DateTime.now();
-    final nextRun = _calculateNextRun(
+    final effectiveNextRun = nextRun ?? _calculateNextRun(
       frequency: frequency,
       interval: interval,
       dayOfWeek: dayOfWeek,
@@ -60,6 +62,7 @@ class RecurringRepository {
     final config = RecurringConfig(
       id: _uuid.v4(),
       categoryId: categoryId,
+      walletId: walletId,
       name: name,
       amount: amount,
       type: type,
@@ -67,7 +70,7 @@ class RecurringRepository {
       interval: interval,
       dayOfWeek: dayOfWeek,
       dayOfMonth: dayOfMonth,
-      nextRun: nextRun,
+      nextRun: effectiveNextRun,
       isActive: true,
       createdAt: now,
       updatedAt: now,
@@ -81,6 +84,9 @@ class RecurringRepository {
   Future<RecurringConfig> update(
     String id, {
     String? categoryId,
+    bool clearCategory = false,
+    String? walletId,
+    bool clearWallet = false,
     String? name,
     double? amount,
     String? type,
@@ -88,6 +94,7 @@ class RecurringRepository {
     int? interval,
     int? dayOfWeek,
     int? dayOfMonth,
+    DateTime? nextRun,
     bool? isActive,
   }) async {
     final db = await DatabaseHelper.instance.database;
@@ -102,8 +109,8 @@ class RecurringRepository {
     final updatedDayOfWeek = dayOfWeek ?? config.dayOfWeek;
     final updatedDayOfMonth = dayOfMonth ?? config.dayOfMonth;
 
-    DateTime updatedNextRun = config.nextRun;
-    if (frequency != null || interval != null || dayOfWeek != null || dayOfMonth != null) {
+    DateTime updatedNextRun = nextRun ?? config.nextRun;
+    if (nextRun == null && (frequency != null || interval != null || dayOfWeek != null || dayOfMonth != null)) {
       updatedNextRun = _calculateNextRun(
         frequency: updatedFrequency,
         interval: updatedInterval,
@@ -113,7 +120,8 @@ class RecurringRepository {
     }
 
     final updated = config.copyWith(
-      categoryId: categoryId ?? config.categoryId,
+      categoryId: clearCategory ? null : (categoryId ?? config.categoryId),
+      walletId: clearWallet ? null : (walletId ?? config.walletId),
       name: name ?? config.name,
       amount: amount ?? config.amount,
       type: type ?? config.type,

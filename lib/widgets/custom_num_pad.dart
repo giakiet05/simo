@@ -1,20 +1,50 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 import '../providers/localization_provider.dart';
 import '../providers/settings_provider.dart';
 import '../services/currency_service.dart';
+import '../utils/app_constants.dart';
 
+/// Preserved calculator-style numeric keypad with operators, '000' multiplier, and live formula evaluation.
 class CustomNumPad extends ConsumerStatefulWidget {
+  /// Controller bound to the active amount/formula text field.
   final TextEditingController amountController;
-  final TextEditingController noteController;
+
+  /// Controller bound to the note text field (optional for currency conversion note tags).
+  final TextEditingController? noteController;
+
+  /// Whether to show the arithmetic operators (+, -, *, /).
   final bool showOperators;
+
+  /// Optional callback triggered when the user finishes inputting or presses Done.
+  final VoidCallback? onDone;
+
+  /// Optional callback triggered when the user taps 'Save & Add Another'.
+  final VoidCallback? onSaveAndAddAnother;
+
+  /// Whether this keypad is embedded directly in a screen or inside a modal bottom sheet.
+  final bool isEmbedded;
+
+  /// Whether to show the built-in top display screen (false if parent screen provides its own amount display).
+  final bool showDisplay;
+
+  /// Custom vertical padding for calculator buttons to adapt to different screen heights.
+  final double? buttonVerticalPadding;
+
+  /// Optional callback fired whenever formula changes.
+  final ValueChanged<String>? onChanged;
 
   const CustomNumPad({
     super.key,
     required this.amountController,
-    required this.noteController,
+    this.noteController,
     this.showOperators = true,
+    this.onDone,
+    this.onSaveAndAddAnother,
+    this.isEmbedded = false,
+    this.showDisplay = true,
+    this.buttonVerticalPadding,
+    this.onChanged,
   });
 
   @override
@@ -133,155 +163,183 @@ class CustomNumPadState extends ConsumerState<CustomNumPad> {
   Widget build(BuildContext context) {
     final l10n = ref.watch(localizationProvider);
 
+    final content = Container(
+      padding: EdgeInsets.fromLTRB(
+        12,
+        widget.isEmbedded ? 4 : 16,
+        12,
+        widget.isEmbedded ? 4 : 16,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (widget.showDisplay) ...[
+            Container(
+              height: 75,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: Colors.grey[200],
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  Text(
+                    _currentFormula.isEmpty ? '0' : _formatForDisplay(_currentFormula),
+                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  SizedBox(
+                    height: 20,
+                    child: _previewResult.isNotEmpty
+                        ? Text(
+                            _previewResult,
+                            style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          )
+                        : const SizedBox.shrink(),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+          if (_errorMessage.isNotEmpty)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              margin: const EdgeInsets.only(bottom: 8),
+              decoration: BoxDecoration(
+                color: Colors.red[100],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red, width: 1),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.error_outline, color: Colors.red, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _errorMessage,
+                      style: const TextStyle(color: Colors.red, fontSize: 14),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          _buildConvertButton(),
+          const SizedBox(height: 8),
+          _buildRow1(),
+          const SizedBox(height: 6),
+          _buildRow2(),
+          const SizedBox(height: 6),
+          _buildRow3(),
+          const SizedBox(height: 6),
+          _buildRow4(),
+          if (!widget.isEmbedded || widget.onDone != null) ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _submit,
+                style: ElevatedButton.styleFrom(
+                  padding: EdgeInsets.symmetric(
+                    vertical: widget.buttonVerticalPadding ?? (widget.isEmbedded ? 12 : 16),
+                  ),
+                  foregroundColor: Colors.white,
+                ),
+                child: Text(
+                  l10n.done,
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+
+    if (widget.isEmbedded) {
+      return content;
+    }
+
     return SafeArea(
       child: Padding(
         padding: EdgeInsets.only(
           bottom: MediaQuery.of(context).viewInsets.bottom,
         ),
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(12, 16, 12, 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                height: 75,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: Colors.grey[200],
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    Text(
-                      _currentFormula.isEmpty ? '0' : _formatForDisplay(_currentFormula),
-                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    SizedBox(
-                      height: 20,
-                      child: _previewResult.isNotEmpty
-                          ? Text(
-                              _previewResult,
-                              style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            )
-                          : const SizedBox.shrink(),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-              if (_errorMessage.isNotEmpty)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  margin: const EdgeInsets.only(bottom: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.red[100],
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.red, width: 1),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.error_outline, color: Colors.red, size: 20),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          _errorMessage,
-                          style: const TextStyle(color: Colors.red, fontSize: 14),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              _buildConvertButton(),
-              const SizedBox(height: 8),
-              _buildRow1(),
-              const SizedBox(height: 6),
-              _buildRow2(),
-              const SizedBox(height: 6),
-              _buildRow3(),
-              const SizedBox(height: 6),
-              _buildRow4(),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () {
-                    setState(() {
-                      _errorMessage = '';
-                    });
-
-                    // Quyết định lưu formula hay kết quả
-                    String formulaToSave = _currentFormula;
-
-                    // Nếu _currentFormula chỉ là số (không có toán tử)
-                    // và _lastValidFormula có toán tử → dùng _lastValidFormula
-                    if (!_currentFormula.contains(RegExp(r'[+\-*/]')) &&
-                        _lastValidFormula.contains(RegExp(r'[+\-*/]'))) {
-                      formulaToSave = _lastValidFormula;
-                    }
-
-                    if (formulaToSave.isEmpty) {
-                      setState(() {
-                        _errorMessage = l10n.pleaseEnterAmount;
-                      });
-                      return;
-                    }
-
-                    // Validate formula bằng cách evaluate
-                    String formulaToEvaluate = formulaToSave.replaceAll('ANS', _ansValue);
-                    formulaToEvaluate = formulaToEvaluate.replaceAll(RegExp(r'[+\-*/]+$'), '');
-
-                    try {
-                      final result = _evaluateFormula(formulaToEvaluate);
-
-                      if (result < 0) {
-                        setState(() {
-                          _errorMessage = l10n.amountCannotNegative;
-                        });
-                        return;
-                      }
-
-                      // Format formula với dấu phẩy trước khi lưu
-                      String formattedForSave = formulaToSave.replaceAllMapped(RegExp(r'\d+\.?\d*'), (match) {
-                        final numStr = match.group(0)!;
-                        final num = double.tryParse(numStr);
-                        if (num == null) return numStr;
-                        return _formatAmountForDisplay(num);
-                      });
-
-                      // Lưu formula đã format
-                      widget.amountController.text = formattedForSave;
-                    } catch (e) {
-                      setState(() {
-                        _errorMessage = l10n.invalidFormula;
-                      });
-                      return;
-                    }
-
-                    Navigator.pop(context);
-                  },
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    backgroundColor: Colors.teal,
-                    foregroundColor: Colors.white,
-                  ),
-                  child: Text(
-                    l10n.done,
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
+        child: content,
       ),
     );
+  }
+
+  /// Validates and commits the mathematical formula or evaluated result.
+  void _submit() {
+    final l10n = ref.read(localizationProvider);
+    setState(() {
+      _errorMessage = '';
+    });
+
+    // Determine formula to save
+    String formulaToSave = _currentFormula;
+
+    if (!_currentFormula.contains(RegExp(r'[+\-*/]')) &&
+        _lastValidFormula.contains(RegExp(r'[+\-*/]'))) {
+      formulaToSave = _lastValidFormula;
+    }
+
+    if (formulaToSave.isEmpty) {
+      setState(() {
+        _errorMessage = l10n.pleaseEnterAmount;
+      });
+      return;
+    }
+
+    // Validate formula by evaluating it
+    String formulaToEvaluate = formulaToSave.replaceAll('ANS', _ansValue);
+    formulaToEvaluate = formulaToEvaluate.replaceAll(RegExp(r'[+\-*/]+$'), '');
+
+    try {
+      final result = _evaluateFormula(formulaToEvaluate);
+
+      if (result < 0) {
+        setState(() {
+          _errorMessage = l10n.amountCannotNegative;
+        });
+        return;
+      }
+
+      if (result > AppConstants.maxAmount) {
+        setState(() {
+          _errorMessage = AppConstants.maxAmountError(l10n);
+        });
+        return;
+      }
+
+      // Format formula with thousand separator
+      String formattedForSave = formulaToSave.replaceAllMapped(RegExp(r'\d+\.?\d*'), (match) {
+        final numStr = match.group(0)!;
+        final num = double.tryParse(numStr);
+        if (num == null) return numStr;
+        return _formatAmountForDisplay(num);
+      });
+
+      widget.amountController.text = formattedForSave;
+    } catch (e) {
+      setState(() {
+        _errorMessage = l10n.invalidFormula;
+      });
+      return;
+    }
+
+    if (widget.onDone != null) {
+      widget.onDone!();
+    } else {
+      Navigator.pop(context);
+    }
   }
 
   Future<void> _handleCurrencyConversion() async {
@@ -300,13 +358,13 @@ class CustomNumPadState extends ConsumerState<CustomNumPad> {
       // Otherwise calculate from current formula
       if (_originalAmountBeforeConversion != null) {
         foreignAmount = _originalAmountBeforeConversion!;
-        print('Using original amount: $foreignAmount (for re-conversion)');
+        debugPrint('Using original amount: $foreignAmount (for re-conversion)');
       } else {
         final formulaToEvaluate = _currentFormula.replaceAll('ANS', _ansValue);
         foreignAmount = _evaluateFormula(formulaToEvaluate);
         // Save original amount for potential re-conversion
         _originalAmountBeforeConversion = foreignAmount;
-        print('Saving original amount: $foreignAmount');
+        debugPrint('Saving original amount: $foreignAmount');
       }
     } catch (e) {
       setState(() {
@@ -362,7 +420,7 @@ class CustomNumPadState extends ConsumerState<CustomNumPad> {
 
     try {
       final currencyService = CurrencyService();
-      print('Converting $foreignAmount $selectedCurrency to $mainCurrency');
+      debugPrint('Converting $foreignAmount $selectedCurrency to $mainCurrency');
 
       // IMPORTANT: Convert FROM foreign currency TO main currency
       final rate = await currencyService.getRate(
@@ -370,7 +428,7 @@ class CustomNumPadState extends ConsumerState<CustomNumPad> {
         to: mainCurrency,
       );
 
-      print('Conversion rate $selectedCurrency->$mainCurrency: $rate');
+      debugPrint('Conversion rate $selectedCurrency->$mainCurrency: $rate');
 
       setState(() {
         // Formula: foreignAmount * rate = mainCurrencyAmount
@@ -378,18 +436,20 @@ class CustomNumPadState extends ConsumerState<CustomNumPad> {
         _currentFormula = '${_formatNumber(foreignAmount)}*${_formatNumber(rate)}';
         _updatePreview();
 
-        final currentNote = widget.noteController.text.trim();
-        final conversionNote = '$selectedCurrency->$mainCurrency';
+        if (widget.noteController != null) {
+          final currentNote = widget.noteController!.text.trim();
+          final conversionNote = '$selectedCurrency->$mainCurrency';
 
-        if (currentNote.isEmpty) {
-          widget.noteController.text = conversionNote;
-        } else if (!currentNote.contains(conversionNote)) {
-          widget.noteController.text = '$currentNote ($conversionNote)';
+          if (currentNote.isEmpty) {
+            widget.noteController!.text = conversionNote;
+          } else if (!currentNote.contains(conversionNote)) {
+            widget.noteController!.text = '$currentNote ($conversionNote)';
+          }
         }
       });
     } catch (e, stackTrace) {
-      print('Currency conversion error: $e');
-      print('Stack trace: $stackTrace');
+      debugPrint('Currency conversion error: $e');
+      debugPrint('Stack trace: $stackTrace');
       setState(() {
         _errorMessage = '${l10n.failedToFetchRate}: $e';
       });
@@ -485,13 +545,14 @@ class CustomNumPadState extends ConsumerState<CustomNumPad> {
   }
 
   Widget _buildButton(String btn) {
+    final vPad = widget.buttonVerticalPadding ?? (widget.isEmbedded ? 10.0 : 16.0);
     return Expanded(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 3),
         child: ElevatedButton(
           onPressed: () => _handleCalcButton(btn),
           style: ElevatedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(vertical: 16),
+            padding: EdgeInsets.symmetric(vertical: vPad),
             backgroundColor: _getButtonColor(btn),
             foregroundColor: _getButtonTextColor(btn),
             shape: RoundedRectangleBorder(
@@ -549,6 +610,12 @@ class CustomNumPadState extends ConsumerState<CustomNumPad> {
             formulaToEvaluate = formulaToEvaluate.replaceAll(RegExp(r'[+\-*/]+$'), '');
 
             final result = _evaluateFormula(formulaToEvaluate);
+            if (result > AppConstants.maxAmount) {
+              final l10n = ref.read(localizationProvider);
+              _errorMessage = AppConstants.maxAmountError(l10n);
+              _previewResult = '';
+              return;
+            }
             _ansValue = _formatNumber(result);
             // Lưu formula trước khi ghi đè
             _lastValidFormula = _currentFormula;
@@ -579,12 +646,28 @@ class CustomNumPadState extends ConsumerState<CustomNumPad> {
           _currentFormula += '-';
         }
       } else if (btn == '000') {
+        final lastToken = _currentFormula.split(RegExp(r'[+\-*/]')).last;
+        final candidate = double.tryParse('${lastToken}000');
+        if (candidate != null && candidate > AppConstants.maxAmount) {
+          final l10n = ref.read(localizationProvider);
+          _errorMessage = AppConstants.maxAmountError(l10n);
+          return;
+        }
         _currentFormula += '000';
         // Clear conversion tracking when user manually edits amount
         if (_originalAmountBeforeConversion != null) {
           _originalAmountBeforeConversion = null;
         }
       } else {
+        if (RegExp(r'^[0-9]$').hasMatch(btn)) {
+          final lastToken = _currentFormula.split(RegExp(r'[+\-*/]')).last;
+          final candidate = double.tryParse(lastToken + btn);
+          if (candidate != null && candidate > AppConstants.maxAmount) {
+            final l10n = ref.read(localizationProvider);
+            _errorMessage = AppConstants.maxAmountError(l10n);
+            return;
+          }
+        }
         _currentFormula += btn;
         // Clear conversion tracking when user manually types numbers
         if (RegExp(r'^[0-9.]$').hasMatch(btn) && _originalAmountBeforeConversion != null) {
@@ -598,6 +681,8 @@ class CustomNumPadState extends ConsumerState<CustomNumPad> {
       }
 
       _updatePreview();
+      widget.onChanged?.call(_currentFormula);
+      widget.amountController.text = _formatForDisplay(_currentFormula);
     });
   }
 

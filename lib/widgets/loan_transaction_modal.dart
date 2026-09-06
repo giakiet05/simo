@@ -5,6 +5,8 @@ import '../models/loan_contact.dart';
 import '../models/loan_transaction.dart';
 import '../providers/loan_provider.dart';
 import '../providers/transaction_provider.dart';
+import '../providers/localization_provider.dart';
+import '../utils/app_constants.dart';
 
 class LoanTransactionModal extends ConsumerStatefulWidget {
   final LoanContact contact;
@@ -46,6 +48,13 @@ class _LoanTransactionModalState extends ConsumerState<LoanTransactionModal> {
     final numValue = double.tryParse(cleanValue);
 
     if (numValue != null) {
+      if (numValue > AppConstants.maxAmount) {
+        final l10n = ref.read(localizationProvider);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(AppConstants.maxAmountError(l10n))),
+        );
+        return;
+      }
       final formatter = NumberFormat('#,###', 'en_US');
       final formatted = formatter.format(numValue);
       if (formatted != value) {
@@ -70,12 +79,27 @@ class _LoanTransactionModalState extends ConsumerState<LoanTransactionModal> {
     }
     
     final newText = currentText + '000';
+    final numValue = double.tryParse(newText);
+    if (numValue != null && numValue > AppConstants.maxAmount) {
+      final l10n = ref.read(localizationProvider);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppConstants.maxAmountError(l10n))),
+      );
+      return;
+    }
     _onAmountChanged(newText);
   }
 
   void _save() async {
     final amount = double.tryParse(_amountController.text.replaceAll(',', '')) ?? 0;
     if (amount <= 0) return;
+    if (amount > AppConstants.maxAmount) {
+      final l10n = ref.read(localizationProvider);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppConstants.maxAmountError(l10n))),
+      );
+      return;
+    }
 
     final repo = ref.read(loanRepositoryProvider);
     

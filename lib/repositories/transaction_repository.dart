@@ -199,4 +199,111 @@ class TransactionRepository {
       await _walletRepo.recalculateWalletBalance(wid);
     }
   }
+
+  /// Bulk updates the wallet for multiple transactions and recalculates balances
+  /// for both previous wallets and the destination wallet.
+  ///
+  /// @param ids List of transaction IDs to update.
+  /// @param newWalletId Destination wallet ID to assign.
+  Future<void> updateWalletMultiple(List<String> ids, String newWalletId) async {
+    if (ids.isEmpty) return;
+
+    final db = await DatabaseHelper.instance.database;
+    final affectedWalletIds = <String>{newWalletId};
+
+    for (final id in ids) {
+      final tx = await getById(id);
+      if (tx?.walletId != null) {
+        affectedWalletIds.add(tx!.walletId!);
+      }
+    }
+
+    final nowIso = DateTime.now().toIso8601String();
+    await db.transaction((txn) async {
+      for (final id in ids) {
+        await txn.update(
+          'transactions',
+          {
+            'wallet_id': newWalletId,
+            'updated_at': nowIso,
+          },
+          where: 'id = ?',
+          whereArgs: [id],
+        );
+      }
+    });
+
+    for (final wid in affectedWalletIds) {
+      await _walletRepo.recalculateWalletBalance(wid);
+    }
+  }
+
+  /// Bulk updates the category for multiple transactions.
+  ///
+  /// @param ids List of transaction IDs to update.
+  /// @param newCategoryId Category ID to assign (or null to unassign).
+  Future<void> updateCategoryMultiple(List<String> ids, String? newCategoryId) async {
+    if (ids.isEmpty) return;
+
+    final db = await DatabaseHelper.instance.database;
+    final nowIso = DateTime.now().toIso8601String();
+
+    await db.transaction((txn) async {
+      for (final id in ids) {
+        await txn.update(
+          'transactions',
+          {
+            'category_id': newCategoryId,
+            'updated_at': nowIso,
+          },
+          where: 'id = ?',
+          whereArgs: [id],
+        );
+      }
+    });
+  }
+
+  /// Bulk updates the transaction date for multiple transactions while preserving
+  /// their original hour, minute, and second.
+  ///
+  /// @param ids List of transaction IDs to update.
+  /// @param newDate Target date to apply.
+  Future<void> updateDateMultiple(List<String> ids, DateTime newDate) async {
+    if (ids.isEmpty) return;
+
+    final targetTransactions = <Transaction>[];
+    for (final id in ids) {
+      final tx = await getById(id);
+      if (tx != null) {
+        targetTransactions.add(tx);
+      }
+    }
+
+    final db = await DatabaseHelper.instance.database;
+    final nowIso = DateTime.now().toIso8601String();
+
+    await db.transaction((txn) async {
+      for (final tx in targetTransactions) {
+        final oldDate = tx.transactionDate;
+        final updatedTxDate = DateTime(
+          newDate.year,
+          newDate.month,
+          newDate.day,
+          oldDate.hour,
+          oldDate.minute,
+          oldDate.second,
+          oldDate.millisecond,
+        );
+        await txn.update(
+          'transactions',
+          {
+            'transaction_date': updatedTxDate.toIso8601String(),
+            'updated_at': nowIso,
+          },
+          where: 'id = ?',
+          whereArgs: [tx.id],
+        );
+      }
+    });
+  }
 }

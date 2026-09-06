@@ -158,5 +158,15 @@ void main() {
       // 500,000 + 200,000 - 100,000 = 600,000
       expect(balance, equals(600000.0));
     });
+
+    test('clearAllData resets database and seeds default cash wallet with 0 balance', () async {
+      await DatabaseHelper.instance.clearAllData();
+      final wallets = await repo.getAllWallets();
+      expect(wallets.length, equals(1));
+      expect(wallets.first.id, equals('default_cash_wallet'));
+      expect(wallets.first.initialBalance, equals(0.0));
+      expect(wallets.first.currentBalance, equals(0.0));
+      expect(wallets.first.isDefault, isTrue);
+    });
   });
 }

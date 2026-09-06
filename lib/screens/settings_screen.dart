@@ -5,6 +5,10 @@ import '../providers/localization_provider.dart';
 import '../providers/transaction_provider.dart';
 import '../providers/category_provider.dart';
 import '../providers/loan_provider.dart';
+import '../providers/wallet_provider.dart';
+import '../providers/recurring_provider.dart';
+import '../providers/saving_goal_provider.dart';
+import '../providers/monthly_budget_provider.dart';
 import '../repositories/category_repository.dart';
 import '../utils/mock_data_generator.dart';
 import '../services/currency_service.dart';
@@ -61,10 +65,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               child: Text(l10n.cancel),
             ),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.teal,
-                foregroundColor: Colors.white,
-              ),
               onPressed: () async {
                 Navigator.pop(dialogCtx);
                 if (!context.mounted) return;
@@ -93,8 +93,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
                 // Reload all providers
                 await ref.read(categoryProvider.notifier).loadCategories();
+                await ref.read(walletProvider.notifier).loadWallets();
                 await ref.read(transactionProvider.notifier).loadTransactions();
                 await ref.read(loanProvider.notifier).loadLoans();
+                await ref.read(recurringProvider.notifier).loadRecurringConfigs();
+                await ref.read(savingGoalProvider.notifier).loadGoals();
+                ref.invalidate(monthlyBudgetFamily);
 
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).hideCurrentSnackBar();
@@ -163,8 +167,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           await DatabaseHelper.instance.clearAllData();
                           // Reload all providers
                           await ref.read(categoryProvider.notifier).loadCategories();
+                          await ref.read(walletProvider.notifier).loadWallets();
                           await ref.read(transactionProvider.notifier).loadTransactions();
                           await ref.read(loanProvider.notifier).loadLoans();
+                          await ref.read(recurringProvider.notifier).loadRecurringConfigs();
+                          await ref.read(savingGoalProvider.notifier).loadGoals();
+                          ref.invalidate(monthlyBudgetFamily);
 
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(

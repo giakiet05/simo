@@ -9,6 +9,7 @@ import 'loan_provider.dart';
 import 'settings_provider.dart';
 import 'recurring_provider.dart';
 import 'saving_goal_provider.dart';
+import 'wallet_provider.dart';
 
 final backupServiceProvider = Provider<BackupService>((ref) {
   return BackupService();
@@ -83,6 +84,7 @@ class BackupNotifier extends StateNotifier<BackupState> {
       if (success) {
         // Invalidate and reload all application state
         await _ref.read(categoryProvider.notifier).loadCategories();
+        await _ref.read(walletProvider.notifier).loadWallets();
         await _ref.read(transactionProvider.notifier).loadTransactions();
         await _ref.read(loanProvider.notifier).loadLoans();
         await _ref.read(settingsProvider.notifier).loadSettings();

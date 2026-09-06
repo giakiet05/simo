@@ -952,7 +952,7 @@ class AppLocalizations {
       'amount': 'Số tiền',
       'formula': 'Công thức',
       'category': 'Danh mục',
-      'note': 'Ghi chú',
+      'note': 'Nội dung',
       'no_category': 'Không có danh mục',
       'delete_transaction': 'Xóa giao dịch',
       'delete_transaction_confirm': 'Bạn chắc chắn muốn xóa giao dịch này?',

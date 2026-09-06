@@ -6,12 +6,13 @@ import '../providers/transaction_provider.dart';
 import '../providers/category_provider.dart';
 import '../providers/localization_provider.dart';
 import '../providers/settings_provider.dart';
+import '../providers/wallet_provider.dart';
 import '../models/recurring_config.dart';
-import '../models/category.dart';
-import '../utils/icon_data.dart';
+import '../models/wallet.dart';
 import '../services/currency_service.dart';
 import '../widgets/banner_ad_widget.dart';
 import '../widgets/category_icon_widget.dart';
+import '../utils/app_constants.dart';
 
 class RecurringScreen extends ConsumerWidget {
   const RecurringScreen({super.key});
@@ -20,6 +21,7 @@ class RecurringScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final recurringAsync = ref.watch(recurringProvider);
     final categoriesAsync = ref.watch(categoryProvider);
+    final walletsAsync = ref.watch(walletProvider);
     final settingsAsync = ref.watch(settingsProvider);
     final l10n = ref.watch(localizationProvider);
 
@@ -45,6 +47,9 @@ class RecurringScreen extends ConsumerWidget {
             data: (configs) {
               final categoryMap = {
                 for (var cat in categories) cat.id: cat
+              };
+              final walletMap = {
+                for (var w in walletsAsync.value ?? <Wallet>[]) w.id: w
               };
 
               return Column(
@@ -77,6 +82,7 @@ class RecurringScreen extends ConsumerWidget {
                         final categoryName = category != null
                             ? l10n.translateCategoryName(category.id, category.name)
                             : l10n.noCategory;
+                        final wallet = config.walletId != null ? walletMap[config.walletId] : null;
 
                         return Card(
                           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -91,12 +97,63 @@ class RecurringScreen extends ConsumerWidget {
                             ),
                             subtitle: settingsAsync.when(
                               loading: () => const SizedBox.shrink(),
-                              error: (_, __) => const SizedBox.shrink(),
+                              error: (_, _) => const SizedBox.shrink(),
                               data: (settings) => Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(categoryName, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
-                                  Text(_formatAmount(config.amount, settings.currency), style: const TextStyle(fontSize: 14)),
+                                  Wrap(
+                                    crossAxisAlignment: WrapCrossAlignment.center,
+                                    spacing: 8,
+                                    runSpacing: 4,
+                                    children: [
+                                      ConstrainedBox(
+                                        constraints: const BoxConstraints(maxWidth: 150),
+                                        child: Text(
+                                          categoryName,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                                        ),
+                                      ),
+                                      if (wallet != null)
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.5),
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(Icons.account_balance_wallet_outlined, size: 12, color: Theme.of(context).colorScheme.primary),
+                                              const SizedBox(width: 4),
+                                              ConstrainedBox(
+                                                constraints: const BoxConstraints(maxWidth: 120),
+                                                child: Text(
+                                                  wallet.name,
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.w500,
+                                                    color: Theme.of(context).colorScheme.onPrimaryContainer,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    '${config.type == 'income' ? '+' : '-'} ${_formatAmount(config.amount, settings.currency)}',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                      color: config.type == 'income' ? Colors.green : Colors.red,
+                                    ),
+                                  ),
                                   Text(_formatFrequency(ref, config), style: const TextStyle(fontSize: 13)),
                                   Text(
                                     '${l10n.nextRun}: ${DateFormat('dd/MM/yyyy').format(config.nextRun)}',
@@ -269,9 +326,11 @@ class RecurringScreen extends ConsumerWidget {
 
   void _showFormDialog(
       BuildContext context, WidgetRef ref, RecurringConfig? config) {
-    showDialog(
+    showModalBottomSheet(
       context: context,
-      builder: (context) => _RecurringFormDialog(config: config),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _RecurringFormModal(config: config),
     );
   }
 
@@ -318,34 +377,37 @@ class RecurringScreen extends ConsumerWidget {
   }
 }
 
-class _RecurringFormDialog extends ConsumerStatefulWidget {
+class _RecurringFormModal extends ConsumerStatefulWidget {
   final RecurringConfig? config;
 
-  const _RecurringFormDialog({this.config});
+  const _RecurringFormModal({this.config});
 
   @override
-  ConsumerState<_RecurringFormDialog> createState() =>
-      _RecurringFormDialogState();
+  ConsumerState<_RecurringFormModal> createState() =>
+      _RecurringFormModalState();
 }
 
-class _RecurringFormDialogState extends ConsumerState<_RecurringFormDialog> {
+class _RecurringFormModalState extends ConsumerState<_RecurringFormModal> {
   late TextEditingController _nameController;
   late TextEditingController _amountController;
   late TextEditingController _intervalController;
 
   String? _selectedCategoryId;
+  String? _selectedWalletId;
   String _selectedType = 'expense';
   String _selectedFrequency = 'monthly';
   int _interval = 1;
   int? _dayOfWeek;
   int? _dayOfMonth;
+  late DateTime _nextRun;
+  bool _isActive = true;
+  bool _walletInitialized = false;
 
   @override
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.config?.name ?? '');
 
-    // Format amount with comma
     String amountText = '';
     if (widget.config != null) {
       final amount = widget.config!.amount;
@@ -362,11 +424,19 @@ class _RecurringFormDialogState extends ConsumerState<_RecurringFormDialog> {
 
     if (widget.config != null) {
       _selectedCategoryId = widget.config!.categoryId;
+      _selectedWalletId = widget.config!.walletId;
       _selectedType = widget.config!.type;
       _selectedFrequency = widget.config!.frequency;
       _interval = widget.config!.interval;
       _dayOfWeek = widget.config!.dayOfWeek;
       _dayOfMonth = widget.config!.dayOfMonth;
+      _nextRun = widget.config!.nextRun;
+      _isActive = widget.config!.isActive;
+      _walletInitialized = true;
+    } else {
+      _nextRun = DateTime.now();
+      _dayOfWeek = DateTime.now().weekday % 7;
+      _dayOfMonth = DateTime.now().day;
     }
   }
 
@@ -390,6 +460,13 @@ class _RecurringFormDialogState extends ConsumerState<_RecurringFormDialog> {
     final numValue = double.tryParse(cleanValue);
 
     if (numValue != null) {
+      if (numValue > AppConstants.maxAmount) {
+        final l10n = ref.read(localizationProvider);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(AppConstants.maxAmountError(l10n))),
+        );
+        return;
+      }
       final formatted = _formatAmountForDisplay(numValue);
       if (formatted != value) {
         final cursorPos = _amountController.selection.baseOffset;
@@ -405,314 +482,581 @@ class _RecurringFormDialogState extends ConsumerState<_RecurringFormDialog> {
     }
   }
 
+  Widget _buildWeekdaySelector(dynamic l10n) {
+    final weekdays = [
+      {'val': 1, 'label': l10n.locale == 'vi' ? 'T2' : 'Mon'},
+      {'val': 2, 'label': l10n.locale == 'vi' ? 'T3' : 'Tue'},
+      {'val': 3, 'label': l10n.locale == 'vi' ? 'T4' : 'Wed'},
+      {'val': 4, 'label': l10n.locale == 'vi' ? 'T5' : 'Thu'},
+      {'val': 5, 'label': l10n.locale == 'vi' ? 'T6' : 'Fri'},
+      {'val': 6, 'label': l10n.locale == 'vi' ? 'T7' : 'Sat'},
+      {'val': 0, 'label': l10n.locale == 'vi' ? 'CN' : 'Sun'},
+    ];
+
+    final primaryColor = Theme.of(context).colorScheme.primary;
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: weekdays.map((item) {
+        final val = item['val'] as int;
+        final label = item['label'] as String;
+        final isSelected = _dayOfWeek == val;
+
+        return InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: () {
+            setState(() {
+              _dayOfWeek = val;
+            });
+          },
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? primaryColor
+                  : Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: isSelected ? primaryColor : Colors.grey.withValues(alpha: 0.25),
+                width: 1.5,
+              ),
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              label,
+              style: TextStyle(
+                color: isSelected ? Colors.white : Theme.of(context).colorScheme.onSurface,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                fontSize: 13,
+              ),
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Future<void> _saveConfig() async {
+    final l10n = ref.read(localizationProvider);
+    final name = _nameController.text.trim();
+    final amountText = _amountController.text.trim().replaceAll(',', '');
+    final amount = double.tryParse(amountText);
+
+    if (name.isEmpty || amount == null || amount <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.fillAllFields)),
+      );
+      return;
+    }
+
+    if (amount > AppConstants.maxAmount) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppConstants.maxAmountError(l10n))),
+      );
+      return;
+    }
+
+    try {
+      if (widget.config == null) {
+        await ref.read(recurringProvider.notifier).createRecurringConfig(
+              categoryId: _selectedCategoryId,
+              walletId: _selectedWalletId,
+              name: name,
+              amount: amount,
+              type: _selectedType,
+              frequency: _selectedFrequency,
+              interval: _interval,
+              dayOfWeek: _selectedFrequency == 'weekly' ? _dayOfWeek : null,
+              dayOfMonth: _selectedFrequency == 'monthly' ? _dayOfMonth : null,
+              nextRun: _nextRun,
+            );
+      } else {
+        await ref.read(recurringProvider.notifier).updateRecurringConfig(
+              widget.config!.id,
+              categoryId: _selectedCategoryId,
+              clearCategory: _selectedCategoryId == null,
+              walletId: _selectedWalletId,
+              clearWallet: _selectedWalletId == null,
+              name: name,
+              amount: amount,
+              type: _selectedType,
+              frequency: _selectedFrequency,
+              interval: _interval,
+              dayOfWeek: _selectedFrequency == 'weekly' ? _dayOfWeek : null,
+              dayOfMonth: _selectedFrequency == 'monthly' ? _dayOfMonth : null,
+              nextRun: _nextRun,
+              isActive: _isActive,
+            );
+      }
+
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(widget.config == null
+                ? l10n.recurringCreated
+                : l10n.recurringUpdated),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${l10n.error}: $e')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final categoriesAsync = ref.watch(categoryProvider);
+    final walletsAsync = ref.watch(walletProvider);
+    final defaultWallet = ref.watch(defaultWalletProvider);
+    final settingsAsync = ref.watch(settingsProvider);
     final l10n = ref.watch(localizationProvider);
 
-    return Dialog(
-      child: Container(
-        constraints: const BoxConstraints(
-          maxWidth: 650,
-          maxHeight: 620,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Title
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 16, 24, 12),
-              child: Text(
-                widget.config == null ? l10n.addRecurring : l10n.editRecurring,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+    final currency = settingsAsync.value?.currency ?? 'VND';
+    final currencySymbol = CurrencyService.getSymbol(currency);
+    final wallets = walletsAsync.value ?? <Wallet>[];
+
+    if (!_walletInitialized && wallets.isNotEmpty) {
+      _selectedWalletId = defaultWallet?.id ?? wallets.first.id;
+      _walletInitialized = true;
+    }
+
+    return Container(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.9,
+      ),
+      decoration: BoxDecoration(
+        color: Theme.of(context).scaffoldBackgroundColor,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Drag handle
+              Center(
+                child: Container(
+                  margin: const EdgeInsets.only(top: 12, bottom: 8),
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.withValues(alpha: 0.35),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
               ),
-            ),
-            // Content
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
+              // Header
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    TextField(
-                      controller: _nameController,
-                      decoration: InputDecoration(
-                        labelText: l10n.name,
-                        border: const OutlineInputBorder(),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                    Text(
+                      widget.config == null ? l10n.addRecurring : l10n.editRecurring,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: _amountController,
-                      decoration: InputDecoration(
-                        labelText: l10n.amount,
-                        border: const OutlineInputBorder(),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-              ),
-              keyboardType: TextInputType.number,
-              onChanged: _onAmountChanged,
-            ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              value: _selectedType,
-              decoration: InputDecoration(
-                labelText: l10n.type,
-                border: const OutlineInputBorder(),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-              ),
-              items: [
-                DropdownMenuItem(value: 'income', child: Text(l10n.income)),
-                DropdownMenuItem(value: 'expense', child: Text(l10n.expense)),
-              ],
-              onChanged: (value) {
-                setState(() {
-                  _selectedType = value!;
-                });
-              },
-            ),
-            const SizedBox(height: 16),
-            categoriesAsync.when(
-              loading: () => const CircularProgressIndicator(),
-              error: (error, stack) => Text('${l10n.error}: $error'),
-              data: (categories) {
-                // Filter categories based on selected type
-                final filteredCategories = categories.where((cat) => cat.type == _selectedType).toList();
-
-                // Check if current categoryId exists in filtered categories, if not set to null
-                if (_selectedCategoryId != null &&
-                    !filteredCategories.any((cat) => cat.id == _selectedCategoryId)) {
-                  _selectedCategoryId = null;
-                }
-
-                return DropdownButtonFormField<String?>(
-                  value: _selectedCategoryId,
-                  decoration: InputDecoration(
-                    labelText: l10n.categoryOptional,
-                    border: const OutlineInputBorder(),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-                  ),
-                  items: [
-                    DropdownMenuItem(
-                      value: null,
-                      child: Text(l10n.noCategory),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(context),
                     ),
-                    ...filteredCategories.map((category) {
-                      final displayName = l10n.translateCategoryName(category.id, category.name);
-
-                      // Get icon and color
-                      final iconData = CategoryIconData.getIcon(category.icon) ??
-                          (category.type == 'income' ? Icons.arrow_downward : Icons.arrow_upward);
-
-                      Color backgroundColor;
-                      if (category.color != null && category.color!.isNotEmpty) {
-                        try {
-                          backgroundColor = Color(int.parse(category.color!.substring(1), radix: 16) + 0xFF000000);
-                        } catch (e) {
-                          backgroundColor = category.type == 'income' ? Colors.green : Colors.red;
-                        }
-                      } else {
-                        backgroundColor = category.type == 'income' ? Colors.green : Colors.red;
-                      }
-
-                      final iconColor = ThemeData.estimateBrightnessForColor(backgroundColor) == Brightness.light
-                          ? Colors.black
-                          : Colors.white;
-
-                      return DropdownMenuItem(
-                        value: category.id,
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 32,
-                              height: 32,
-                              decoration: BoxDecoration(
-                                color: backgroundColor,
-                                shape: BoxShape.circle,
-                              ),
-                              child: Icon(
-                                iconData,
-                                color: iconColor,
-                                size: 16,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Text(displayName),
-                          ],
-                        ),
-                      );
-                    }).toList(),
                   ],
-                  onChanged: (value) {
-                    setState(() {
-                      _selectedCategoryId = value;
-                    });
-                  },
-                );
-              },
-            ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              value: _selectedFrequency,
-              decoration: InputDecoration(
-                labelText: l10n.frequency,
-                border: const OutlineInputBorder(),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-              ),
-              items: [
-                DropdownMenuItem(value: 'daily', child: Text(l10n.byDay)),
-                DropdownMenuItem(value: 'weekly', child: Text(l10n.byWeek)),
-                DropdownMenuItem(value: 'monthly', child: Text(l10n.byMonth)),
-              ],
-              onChanged: (value) {
-                setState(() {
-                  _selectedFrequency = value!;
-                  _dayOfWeek = null;
-                  _dayOfMonth = null;
-                });
-              },
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _intervalController,
-              decoration: InputDecoration(
-                labelText: l10n.interval,
-                border: const OutlineInputBorder(),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-              ),
-              keyboardType: TextInputType.number,
-              onChanged: (value) {
-                _interval = int.tryParse(value) ?? 1;
-              },
-            ),
-            const SizedBox(height: 16),
-            if (_selectedFrequency == 'weekly')
-              DropdownButtonFormField<int>(
-                value: _dayOfWeek,
-                decoration: InputDecoration(
-                  labelText: l10n.dayOfWeek,
-                  border: const OutlineInputBorder(),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-                ),
-                items: [
-                  DropdownMenuItem(value: 0, child: Text(l10n.sunday)),
-                  DropdownMenuItem(value: 1, child: Text(l10n.monday)),
-                  DropdownMenuItem(value: 2, child: Text(l10n.tuesday)),
-                  DropdownMenuItem(value: 3, child: Text(l10n.wednesday)),
-                  DropdownMenuItem(value: 4, child: Text(l10n.thursday)),
-                  DropdownMenuItem(value: 5, child: Text(l10n.friday)),
-                  DropdownMenuItem(value: 6, child: Text(l10n.saturday)),
-                ],
-                onChanged: (value) {
-                  setState(() {
-                    _dayOfWeek = value;
-                  });
-                },
-              ),
-            if (_selectedFrequency == 'monthly')
-              TextField(
-                decoration: InputDecoration(
-                  labelText: l10n.dayOfMonth,
-                  border: const OutlineInputBorder(),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-                ),
-                keyboardType: TextInputType.number,
-                onChanged: (value) {
-                  final day = int.tryParse(value);
-                  if (day != null && day >= 1 && day <= 31) {
-                    _dayOfMonth = day;
-                  }
-                },
-                controller: TextEditingController(
-                  text: _dayOfMonth?.toString() ?? '',
                 ),
               ),
-          ],
-                ),
-              ),
-            ),
-            // Actions
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 4, 24, 12),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: Text(l10n.cancel),
-                  ),
-                  const SizedBox(width: 8),
-                  ElevatedButton(
-                    onPressed: () async {
-                      final l10n = ref.read(localizationProvider);
-                      final name = _nameController.text.trim();
-                      final amountText = _amountController.text.trim().replaceAll(',', '');
-                      final amount = double.tryParse(amountText);
-
-                      if (name.isEmpty || amount == null) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text(l10n.fillAllFields)),
-                        );
-                        return;
-                      }
-
-                      try {
-                        if (widget.config == null) {
-                          await ref.read(recurringProvider.notifier).createRecurringConfig(
-                                categoryId: _selectedCategoryId,
-                                name: name,
-                                amount: amount,
-                                type: _selectedType,
-                                frequency: _selectedFrequency,
-                                interval: _interval,
-                                dayOfWeek: _dayOfWeek,
-                                dayOfMonth: _dayOfMonth,
-                              );
-                        } else {
-                          await ref.read(recurringProvider.notifier).updateRecurringConfig(
-                                widget.config!.id,
-                                categoryId: _selectedCategoryId,
-                                name: name,
-                                amount: amount,
-                                type: _selectedType,
-                                frequency: _selectedFrequency,
-                                interval: _interval,
-                                dayOfWeek: _dayOfWeek,
-                                dayOfMonth: _dayOfMonth,
-                              );
-                        }
-
-                        if (context.mounted) {
-                          Navigator.pop(context);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(widget.config == null
-                                  ? l10n.recurringCreated
-                                  : l10n.recurringUpdated),
+              const Divider(height: 1),
+              // Scrollable content
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // 1. Type selector (Expense / Income)
+                      SizedBox(
+                        width: double.infinity,
+                        child: SegmentedButton<String>(
+                          segments: [
+                            ButtonSegment(
+                              value: 'expense',
+                              label: Text(l10n.expense),
+                              icon: const Icon(Icons.arrow_upward, color: Colors.red),
                             ),
+                            ButtonSegment(
+                              value: 'income',
+                              label: Text(l10n.income),
+                              icon: const Icon(Icons.arrow_downward, color: Colors.green),
+                            ),
+                          ],
+                          selected: {_selectedType},
+                          onSelectionChanged: (selection) {
+                            setState(() {
+                              _selectedType = selection.first;
+                            });
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // 2. Name
+                      TextFormField(
+                        controller: _nameController,
+                        decoration: InputDecoration(
+                          labelText: l10n.name,
+                          hintText: l10n.locale == 'vi'
+                              ? 'VD: Tiền phòng, Netflix, Lương...'
+                              : 'e.g. Rent, Netflix, Salary...',
+                          prefixIcon: const Icon(Icons.bookmark_outline),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+
+                      // 3. Amount
+                      TextFormField(
+                        controller: _amountController,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        onChanged: _onAmountChanged,
+                        decoration: InputDecoration(
+                          labelText: l10n.amount,
+                          prefixIcon: const Icon(Icons.payments_outlined),
+                          suffixText: currencySymbol,
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+
+                      // 4. Wallet selector
+                      DropdownButtonFormField<String?>(
+                        initialValue: _selectedWalletId,
+                        decoration: InputDecoration(
+                          labelText: l10n.wallet,
+                          prefixIcon: const Icon(Icons.account_balance_wallet_outlined),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        ),
+                        items: [
+                          ...wallets.map((w) {
+                            Color walletColor;
+                            try {
+                              walletColor = Color(int.parse(w.color.replaceFirst('#', '0xFF')));
+                            } catch (_) {
+                              walletColor = Colors.teal;
+                            }
+                            return DropdownMenuItem<String?>(
+                              value: w.id,
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 12,
+                                    height: 12,
+                                    margin: const EdgeInsets.only(right: 8),
+                                    decoration: BoxDecoration(
+                                      color: walletColor,
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                  Text(w.name),
+                                  if (w.isDefault) ...[
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      '(${l10n.locale == 'vi' ? 'Mặc định' : 'Default'})',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: Theme.of(context).colorScheme.primary,
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            );
+                          }),
+                        ],
+                        onChanged: (val) {
+                          setState(() {
+                            _selectedWalletId = val;
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 14),
+
+                      // 5. Category selector
+                      categoriesAsync.when(
+                        loading: () => const LinearProgressIndicator(),
+                        error: (e, _) => Text('${l10n.error}: $e'),
+                        data: (categories) {
+                          final filteredCats =
+                              categories.where((c) => c.type == _selectedType).toList();
+                          if (_selectedCategoryId != null &&
+                              !filteredCats.any((c) => c.id == _selectedCategoryId)) {
+                            _selectedCategoryId = null;
+                          }
+
+                          return DropdownButtonFormField<String?>(
+                            key: ValueKey('${_selectedType}_$_selectedCategoryId'),
+                            initialValue: _selectedCategoryId,
+                            decoration: InputDecoration(
+                              labelText: l10n.categoryOptional,
+                              prefixIcon: const Icon(Icons.category_outlined),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                            ),
+                            items: [
+                              DropdownMenuItem<String?>(
+                                value: null,
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.remove_circle_outline, size: 20, color: Colors.grey),
+                                    const SizedBox(width: 12),
+                                    Text(l10n.noCategory),
+                                  ],
+                                ),
+                              ),
+                              ...filteredCats.map((cat) {
+                                return DropdownMenuItem<String?>(
+                                  value: cat.id,
+                                  child: Row(
+                                    children: [
+                                      CategoryIconWidget(
+                                        category: cat,
+                                        size: 28,
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Text(l10n.translateCategoryName(cat.id, cat.name)),
+                                    ],
+                                  ),
+                                );
+                              }),
+                            ],
+                            onChanged: (val) {
+                              setState(() {
+                                _selectedCategoryId = val;
+                              });
+                            },
                           );
-                        }
-                      } catch (e) {
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('${l10n.error}: $e')),
+                        },
+                      ),
+                      const SizedBox(height: 18),
+
+                      // 6. Frequency selector
+                      Text(
+                        l10n.frequency,
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        width: double.infinity,
+                        child: SegmentedButton<String>(
+                          segments: [
+                            ButtonSegment(
+                              value: 'daily',
+                              label: Text(l10n.byDay),
+                              icon: const Icon(Icons.view_day_outlined),
+                            ),
+                            ButtonSegment(
+                              value: 'weekly',
+                              label: Text(l10n.byWeek),
+                              icon: const Icon(Icons.view_week_outlined),
+                            ),
+                            ButtonSegment(
+                              value: 'monthly',
+                              label: Text(l10n.byMonth),
+                              icon: const Icon(Icons.calendar_month_outlined),
+                            ),
+                          ],
+                          selected: {_selectedFrequency},
+                          onSelectionChanged: (selection) {
+                            setState(() {
+                              _selectedFrequency = selection.first;
+                              if (_selectedFrequency == 'weekly' && _dayOfWeek == null) {
+                                _dayOfWeek = DateTime.now().weekday % 7;
+                              }
+                              if (_selectedFrequency == 'monthly' && _dayOfMonth == null) {
+                                _dayOfMonth = DateTime.now().day;
+                              }
+                            });
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+
+                      // 7. Interval row
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              l10n.interval,
+                              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                            ),
+                          ),
+                          SizedBox(
+                            width: 150,
+                            child: TextFormField(
+                              controller: _intervalController,
+                              keyboardType: TextInputType.number,
+                              textAlign: TextAlign.center,
+                              decoration: InputDecoration(
+                                prefixText: '${l10n.every} ',
+                                suffixText: _selectedFrequency == 'daily'
+                                    ? (_interval == 1 ? l10n.day : l10n.days)
+                                    : _selectedFrequency == 'weekly'
+                                        ? (_interval == 1 ? l10n.week : l10n.weeks)
+                                        : (_interval == 1 ? l10n.month : l10n.months),
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                              ),
+                              onChanged: (value) {
+                                final parsed = int.tryParse(value);
+                                if (parsed != null && parsed > 0) {
+                                  setState(() {
+                                    _interval = parsed;
+                                  });
+                                }
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+
+                      // 8. Details for weekly or monthly
+                      if (_selectedFrequency == 'weekly') ...[
+                        Text(
+                          l10n.dayOfWeek,
+                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                        ),
+                        const SizedBox(height: 8),
+                        _buildWeekdaySelector(l10n),
+                        const SizedBox(height: 14),
+                      ] else if (_selectedFrequency == 'monthly') ...[
+                        DropdownButtonFormField<int>(
+                          initialValue: _dayOfMonth ?? DateTime.now().day,
+                          decoration: InputDecoration(
+                            labelText: l10n.dayOfMonth,
+                            prefixIcon: const Icon(Icons.calendar_month_outlined),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          ),
+                          items: List.generate(31, (index) {
+                            final day = index + 1;
+                            return DropdownMenuItem<int>(
+                              value: day,
+                              child: Text('${l10n.day} $day'),
+                            );
+                          }),
+                          onChanged: (val) {
+                            setState(() {
+                              _dayOfMonth = val;
+                            });
+                          },
+                        ),
+                        const SizedBox(height: 14),
+                      ],
+
+                      // 9. Start Date / Next Run Date
+                      InkWell(
+                        borderRadius: BorderRadius.circular(12),
+                        onTap: () async {
+                          final picked = await showDatePicker(
+                            context: context,
+                            initialDate: _nextRun,
+                            firstDate: DateTime(2020),
+                            lastDate: DateTime(2100),
                           );
-                        }
-                      }
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(context).colorScheme.primary,
-                      foregroundColor: Colors.white,
-                    ),
-                    child: Text(l10n.save),
+                          if (picked != null) {
+                            setState(() {
+                              _nextRun = picked;
+                            });
+                          }
+                        },
+                        child: InputDecorator(
+                          decoration: InputDecoration(
+                            labelText: l10n.nextRun,
+                            prefixIcon: const Icon(Icons.event_outlined),
+                            suffixIcon: const Icon(Icons.calendar_today_outlined, size: 20),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          ),
+                          child: Text(
+                            DateFormat('dd/MM/yyyy').format(_nextRun),
+                            style: const TextStyle(fontSize: 15),
+                          ),
+                        ),
+                      ),
+
+                      // 10. Active switch (if edit mode)
+                      if (widget.config != null) ...[
+                        const SizedBox(height: 10),
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(l10n.locale == 'vi' ? 'Kích hoạt' : 'Active'),
+                          subtitle: Text(
+                            l10n.locale == 'vi'
+                                ? 'Tự động tạo giao dịch khi tới hạn'
+                                : 'Automatically create transactions when due',
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                          value: _isActive,
+                          onChanged: (val) {
+                            setState(() {
+                              _isActive = val;
+                            });
+                          },
+                        ),
+                      ],
+                    ],
                   ),
-                ],
+                ),
               ),
-            ),
-          ],
+
+              // Bottom Actions
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(context),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: Text(l10n.cancel),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      flex: 2,
+                      child: ElevatedButton(
+                        onPressed: _saveConfig,
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          backgroundColor: Theme.of(context).colorScheme.primary,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: Text(l10n.save, style: const TextStyle(fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

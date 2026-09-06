@@ -15,6 +15,7 @@ import '../widgets/banner_ad_widget.dart';
 import '../widgets/category_icon_widget.dart';
 import '../providers/transaction_provider.dart';
 import '../widgets/month_year_picker_modal.dart';
+import '../utils/app_constants.dart';
 
 class CategoryBudgetScreen extends ConsumerStatefulWidget {
   const CategoryBudgetScreen({super.key});
@@ -577,6 +578,12 @@ class _CategoryBudgetScreenState extends ConsumerState<CategoryBudgetScreen>
             onPressed: () async {
               final val = double.tryParse(controller.text.replaceAll(',', ''));
               if (val != null && val >= 0) {
+                if (val > AppConstants.maxAmount) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(AppConstants.maxAmountError(l10n))),
+                  );
+                  return;
+                }
                 Navigator.pop(dialogCtx);
                 await ref.read(monthlyBudgetFamily(key).notifier).setTotalBudget(val);
               }
@@ -642,6 +649,12 @@ class _CategoryBudgetScreenState extends ConsumerState<CategoryBudgetScreen>
             onPressed: () async {
               final val = double.tryParse(controller.text.replaceAll(',', ''));
               if (val != null && val >= 0) {
+                if (val > AppConstants.maxAmount) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(AppConstants.maxAmountError(l10n))),
+                  );
+                  return;
+                }
                 Navigator.pop(dialogCtx);
                 await ref
                     .read(monthlyBudgetFamily(key).notifier)
@@ -1061,6 +1074,7 @@ class CurrencyInputFormatter extends TextInputFormatter {
     String clean = newValue.text.replaceAll(',', '');
     final number = int.tryParse(clean);
     if (number == null) return oldValue;
+    if (number > AppConstants.maxAmount) return oldValue;
 
     final formatted = NumberFormat('#,###').format(number);
     return TextEditingValue(

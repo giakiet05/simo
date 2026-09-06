@@ -9,6 +9,7 @@ import '../utils/icon_data.dart';
 import '../widgets/icon_picker_dialog.dart';
 import '../widgets/color_picker_dialog.dart';
 import '../widgets/banner_ad_widget.dart';
+import '../utils/app_constants.dart';
 
 class CategoryScreen extends ConsumerStatefulWidget {
   const CategoryScreen({super.key});
@@ -791,6 +792,7 @@ class CurrencyInputFormatter extends TextInputFormatter {
     }
 
     double value = double.parse(newText);
+    if (value > AppConstants.maxAmount) return oldValue;
     final formatter = NumberFormat('#,###');
     String newString = formatter.format(value);
 
