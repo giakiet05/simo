@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/settings_provider.dart';
@@ -377,23 +378,25 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       ),
                       child: Column(
                         children: [
-                          ListTile(
-                            leading: const CategoryIconWidget(
-                              colorOverride: Colors.teal,
-                              iconDataOverride: Icons.auto_awesome,
+                          if (kDebugMode) ...[
+                            ListTile(
+                              leading: const CategoryIconWidget(
+                                colorOverride: Colors.teal,
+                                iconDataOverride: Icons.auto_awesome,
+                              ),
+                              title: Text(
+                                l10n.generateMockData,
+                                style: const TextStyle(fontWeight: FontWeight.w500),
+                              ),
+                              subtitle: Text(
+                                l10n.generateMockDataDesc,
+                                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                              ),
+                              trailing: const Icon(Icons.chevron_right),
+                              onTap: () => _showGenerateMockDataDialog(context, l10n),
                             ),
-                            title: Text(
-                              l10n.generateMockData,
-                              style: const TextStyle(fontWeight: FontWeight.w500),
-                            ),
-                            subtitle: Text(
-                              l10n.generateMockDataDesc,
-                              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                            ),
-                            trailing: const Icon(Icons.chevron_right),
-                            onTap: () => _showGenerateMockDataDialog(context, l10n),
-                          ),
-                          const Divider(height: 1, indent: 56),
+                            const Divider(height: 1, indent: 56),
+                          ],
                           ListTile(
                             leading: const CategoryIconWidget(
                               colorOverride: Colors.redAccent,

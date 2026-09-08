@@ -1,16 +1,16 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:permission_handler/permission_handler.dart';
-import 'package:uuid/uuid.dart';
 
 import '../services/speech/speech_recognition_service.dart';
 import '../services/speech/speech_service_factory.dart';
 
 import '../services/ai_transaction_service.dart';
+import '../services/ai_action_dispatcher.dart';
 import '../providers/category_provider.dart';
-import '../providers/transaction_provider.dart';
-import '../models/transaction.dart' as tx_model;
+import '../providers/wallet_provider.dart';
+import '../providers/loan_provider.dart';
+import '../providers/saving_goal_provider.dart';
 import '../screens/home_screen.dart';
 
 class VoiceRecordSheet extends ConsumerStatefulWidget {
@@ -47,56 +47,56 @@ class _VoiceRecordSheetState extends ConsumerState<VoiceRecordSheet> {
 
   void _processAi() async {
     if (_text.isEmpty || _text == 'Bấm vào micro và bắt đầu nói...') return;
-    if (_isProcessing) return; // Tránh gọi nhiều lần khi status nhảy liên tục
+    if (_isProcessing) return; // Prevent duplicate concurrent calls
     
     setState(() {
       _isProcessing = true;
     });
 
     final categories = ref.read(categoryProvider).value ?? [];
-    
-    final result = await _aiService.parseTransaction(_text, categories);
+    final wallets = ref.read(walletProvider).value ?? [];
+    final loans = ref.read(loanProvider).value ?? [];
+    final goals = ref.read(savingGoalProvider).value ?? [];
+
+    final result = await _aiService.parseUserIntent(
+      spokenText: _text,
+      categories: categories,
+      wallets: wallets,
+      loanContacts: loans,
+      savingGoals: goals,
+    );
     
     if (result != null && mounted) {
       try {
         final isSuccess = result['isSuccess'] as bool? ?? true;
         
         if (!isSuccess) {
-          final message = result['message'] as String? ?? "AI không hiểu được câu nói của bạn.";
+          final message = result['message'] as String? ?? 'AI không hiểu được câu nói của bạn.';
           throw Exception(message);
         }
 
-        final transactionsData = result['transactions'] as List<dynamic>? ?? [];
-        if (transactionsData.isEmpty) {
-          throw Exception("AI không hiểu được câu nói của bạn. Vui lòng nói rõ số tiền và nội dung thu/chi nhé!");
+        final dispatchResult = await AiActionDispatcher.dispatch(
+          ref: ref,
+          aiResult: result,
+          availableWallets: wallets,
+          availableLoanContacts: loans,
+          availableSavingGoals: goals,
+        );
+
+        if (!dispatchResult.isSuccess) {
+          throw Exception(dispatchResult.summaryMessage);
         }
 
-        final List<Map<String, dynamic>> newTransactions = [];
-
-        for (var txData in transactionsData) {
-          final amount = (txData['amount'] as num).toDouble();
-          final type = txData['type'] as String;
-          final note = txData['note'] as String?;
-          final categoryId = txData['categoryId'] as String?;
-          final dateStr = txData['date'] as String?;
-          final date = dateStr != null ? DateTime.parse(dateStr) : DateTime.now();
-
-          newTransactions.add({
-            'categoryId': categoryId,
-            'amount': amount,
-            'note': note,
-            'type': type,
-            'transactionDate': date,
-          });
-        }
-
-        await ref.read(transactionProvider.notifier).createTransactions(newTransactions);
-        
         if (mounted) {
-          Navigator.pop(context); // Đóng sheet
-          homeScreenKey.currentState?.switchToTransactionsTab(); // Chuyển qua tab danh sách
+          Navigator.pop(context); // Close bottom sheet
+          if (dispatchResult.transactionsCount > 0) {
+            homeScreenKey.currentState?.switchToTransactionsTab();
+          }
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Đã thêm giao dịch thành công!'), backgroundColor: Colors.green),
+            SnackBar(
+              content: Text(dispatchResult.summaryMessage),
+              backgroundColor: Colors.green,
+            ),
           );
         }
       } catch (e) {
@@ -105,7 +105,7 @@ class _VoiceRecordSheetState extends ConsumerState<VoiceRecordSheet> {
           if (errorMessage.startsWith('Exception: ')) {
             errorMessage = errorMessage.substring(11);
           } else {
-            errorMessage = "Đã xảy ra lỗi khi phân tích câu nói.";
+            errorMessage = 'Đã xảy ra lỗi khi phân tích câu nói.';
           }
           _text = errorMessage;
           _isProcessing = false;
@@ -120,6 +120,7 @@ class _VoiceRecordSheetState extends ConsumerState<VoiceRecordSheet> {
       }
     }
   }
+
 
   void _resetSilenceTimer() {
     _countdownTimer?.cancel();
@@ -139,7 +140,7 @@ class _VoiceRecordSheetState extends ConsumerState<VoiceRecordSheet> {
         });
         if (_remainingSeconds == 0) {
           timer.cancel();
-          print('Silence timeout triggered!');
+          debugPrint('Silence timeout triggered!');
           _speech.stop();
           setState(() => _isListening = false);
           if (_text.isNotEmpty && _text != 'Bấm vào micro và bắt đầu nói...') {
@@ -153,7 +154,7 @@ class _VoiceRecordSheetState extends ConsumerState<VoiceRecordSheet> {
   void _startListening() async {
     bool available = await _speech.initialize(
       onStatus: (val) {
-        print('onStatus: $val');
+        debugPrint('onStatus: $val');
         if (val == 'listening') {
           if (mounted) {
             setState(() {
@@ -180,7 +181,7 @@ class _VoiceRecordSheetState extends ConsumerState<VoiceRecordSheet> {
         }
       },
       onError: (val) {
-        print('onError: $val');
+        debugPrint('onError: $val');
         if (mounted) {
           setState(() => _text = val);
         }
