@@ -99,6 +99,14 @@ class CategoryRepository {
   Future<void> delete(String id) async {
     final db = await DatabaseHelper.instance.database;
 
+    // Unassign category from associated transactions so they become unassigned
+    await db.update(
+      'transactions',
+      {'category_id': null},
+      where: 'category_id = ?',
+      whereArgs: [id],
+    );
+
     final deletedCount = await db.delete(
       'categories',
       where: 'id = ?',

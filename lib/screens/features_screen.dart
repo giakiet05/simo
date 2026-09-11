@@ -47,10 +47,10 @@ class FeaturesScreen extends ConsumerWidget {
         ),
       ),
       _FeatureItem(
-        title: isVi ? 'Ngân sách' : 'Budgets',
+        title: isVi ? 'Danh mục & Hạn mức' : 'Categories & Limits',
         description: isVi
-            ? 'Thiết lập và kiểm soát hạn mức chi tiêu hàng tháng'
-            : 'Set and monitor monthly spending limits',
+            ? 'Quản lý danh mục và hạn mức chi tiêu hàng tháng'
+            : 'Manage categories and monthly spending limits',
         icon: Icons.pie_chart_rounded,
         color: const Color(0xFF3B82F6), // Royal Blue
         onTap: () => Navigator.push(

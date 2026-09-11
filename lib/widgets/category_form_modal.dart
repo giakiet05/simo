@@ -7,7 +7,9 @@ import '../providers/category_provider.dart';
 import '../providers/localization_provider.dart';
 import '../providers/monthly_budget_provider.dart';
 import '../providers/settings_provider.dart';
+import '../providers/transaction_provider.dart';
 import '../services/currency_service.dart';
+import '../theme/app_colors.dart';
 import '../utils/app_constants.dart';
 import '../utils/currency_input_formatter.dart';
 import '../utils/icon_data.dart';
@@ -94,14 +96,132 @@ class _CategoryFormModalState extends ConsumerState<CategoryFormModal> {
       text: budget != null && budget > 0 ? NumberFormat('#,###').format(budget.toInt()) : '',
     );
     _searchIconController = TextEditingController();
+
+    _nameController.addListener(_onFieldChanged);
+    _budgetController.addListener(_onFieldChanged);
+  }
+
+  void _onFieldChanged() {
+    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
+    _nameController.removeListener(_onFieldChanged);
+    _budgetController.removeListener(_onFieldChanged);
     _nameController.dispose();
     _budgetController.dispose();
     _searchIconController.dispose();
     super.dispose();
+  }
+
+  bool get _isDirty {
+    final cat = widget.categoryToEdit;
+    if (cat == null) {
+      return _nameController.text.trim().isNotEmpty;
+    }
+
+    final originalName = cat.name.trim();
+    final currentName = _nameController.text.trim();
+    if (originalName != currentName) return true;
+
+    final originalType = cat.type;
+    if (originalType != _selectedType) return true;
+
+    final originalIcon = cat.icon;
+    if (originalIcon != _selectedIcon) return true;
+
+    final originalColor = cat.color;
+    if (originalColor != _selectedColor) return true;
+
+    final originalBudget = widget.initialBudget ?? cat.budgetLimit ?? 0.0;
+    final currentBudgetRaw = _budgetController.text.replaceAll(',', '').trim();
+    final currentBudget = double.tryParse(currentBudgetRaw) ?? 0.0;
+    if ((originalBudget - currentBudget).abs() > 0.001) return true;
+
+    return false;
+  }
+
+  /// Returns true if the selected month is before the current calendar month.
+  bool get _isPastMonth {
+    if (widget.monthYearKey == null) return false;
+    final now = DateTime.now();
+    final key = widget.monthYearKey!;
+    return key.year < now.year || (key.year == now.year && key.month < now.month);
+  }
+
+  Future<void> _showDeleteDialog() async {
+    final cat = widget.categoryToEdit;
+    if (cat == null) return;
+
+    final l10n = ref.read(localizationProvider);
+    final displayName = l10n.translateCategoryName(cat.id, cat.name);
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        title: Text(l10n.deleteCategory),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('${l10n.deleteCategoryConfirm} "$displayName"?'),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.amber.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.amber.withValues(alpha: 0.5)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      l10n.deleteCategoryWarning,
+                      style: const TextStyle(fontSize: 12.5),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx, false),
+            child: Text(l10n.cancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: Text(l10n.delete),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      try {
+        await ref.read(categoryProvider.notifier).deleteCategory(cat.id);
+        ref.invalidate(transactionProvider);
+        if (mounted) {
+          Navigator.pop(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(l10n.categoryDeleted)),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('${l10n.error}: $e')),
+          );
+        }
+      }
+    }
   }
 
   Color _parseColor(String? colorStr) {
@@ -148,13 +268,16 @@ class _CategoryFormModalState extends ConsumerState<CategoryFormModal> {
       if (widget.categoryToEdit != null) {
         // Edit existing
         final cat = widget.categoryToEdit!;
+        // When modifying a past month's budget, keep existing global default budget intact.
+        final effectiveGlobalBudget = _isPastMonth ? cat.budgetLimit : budget;
+
         await ref.read(categoryProvider.notifier).updateCategory(
               cat.id,
               isSystem ? cat.name : name,
               _selectedType,
               icon: _selectedIcon,
               color: _selectedColor,
-              budgetLimit: budget,
+              budgetLimit: effectiveGlobalBudget,
             );
 
         // If context has a monthYearKey, sync monthly budget too
@@ -227,6 +350,7 @@ class _CategoryFormModalState extends ConsumerState<CategoryFormModal> {
       constraints: BoxConstraints(
         maxHeight: MediaQuery.of(context).size.height * 0.90,
       ),
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
@@ -460,7 +584,13 @@ class _CategoryFormModalState extends ConsumerState<CategoryFormModal> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              l10n.locale == 'vi' ? 'Hạn mức chi tiêu tháng' : 'Monthly Spending Limit',
+                              widget.monthYearKey != null
+                                  ? (l10n.locale == 'vi'
+                                      ? 'Hạn mức tháng ${widget.monthYearKey!.month}/${widget.monthYearKey!.year}'
+                                      : 'Limit for ${widget.monthYearKey!.month}/${widget.monthYearKey!.year}')
+                                  : (l10n.locale == 'vi'
+                                      ? 'Hạn mức chi tiêu'
+                                      : 'Spending Limit'),
                               style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
                             ),
                             Text(
@@ -476,6 +606,18 @@ class _CategoryFormModalState extends ConsumerState<CategoryFormModal> {
                           inputFormatters: [CurrencyInputFormatter()],
                           decoration: InputDecoration(
                             hintText: '0 $currencySymbol',
+                            helperText: widget.monthYearKey != null
+                                ? (_isPastMonth
+                                    ? (l10n.locale == 'vi'
+                                        ? 'Chỉ áp dụng cho tháng ${widget.monthYearKey!.month}/${widget.monthYearKey!.year}'
+                                        : 'Applies only to ${widget.monthYearKey!.month}/${widget.monthYearKey!.year}')
+                                    : (l10n.locale == 'vi'
+                                        ? 'Áp dụng cho tháng ${widget.monthYearKey!.month}/${widget.monthYearKey!.year} và các tháng tiếp theo'
+                                        : 'Applies to ${widget.monthYearKey!.month}/${widget.monthYearKey!.year} and future months'))
+                                : (l10n.locale == 'vi'
+                                    ? 'Hạn mức mặc định cho các tháng'
+                                    : 'Default limit for monthly budgets'),
+                            helperMaxLines: 2,
                             prefixIcon: const Icon(Icons.account_balance_wallet_outlined),
                             suffixText: currencySymbol,
                             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -653,40 +795,131 @@ class _CategoryFormModalState extends ConsumerState<CategoryFormModal> {
                                 },
                               ),
                       ),
-                      const SizedBox(height: 24),
-
-                      // SAVE BUTTON
-                      SizedBox(
-                        width: double.infinity,
-                        height: 50,
-                        child: FilledButton(
-                          onPressed: _isSubmitting ? null : _submit,
-                          style: FilledButton.styleFrom(
-                            backgroundColor: previewColor,
-                            foregroundColor: iconColor,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                          ),
-                          child: _isSubmitting
-                              ? const SizedBox(
-                                  width: 22,
-                                  height: 22,
-                                  child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
-                                )
-                              : Text(
-                                  isEdit ? l10n.save : l10n.add,
-                                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                                ),
-                        ),
-                      ),
                       const SizedBox(height: 16),
                     ],
                   ),
                 ),
               ),
             ),
+
+            // Sticky Action Bar (Fixed at bottom)
+            _buildStickyBottomBar(
+              context: context,
+              l10n: l10n,
+              theme: theme,
+              isDark: isDark,
+              isEdit: isEdit,
+              isSystem: isSystem,
+            ),
           ],
         ),
       ),
+    );
+  }
+
+  /// Sticky action buttons fixed at the bottom of the modal.
+  Widget _buildStickyBottomBar({
+    required BuildContext context,
+    required dynamic l10n,
+    required ThemeData theme,
+    required bool isDark,
+    required bool isEdit,
+    required bool isSystem,
+  }) {
+    final canSave = _isDirty && !_isSubmitting;
+
+    final saveButtonChild = _isSubmitting
+        ? const SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+          )
+        : Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                isEdit ? Icons.check_rounded : Icons.add_rounded,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                isEdit ? l10n.save : l10n.add,
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+            ],
+          );
+
+    final saveButtonStyle = ElevatedButton.styleFrom(
+      backgroundColor: isDark ? Colors.white : AppColors.primary,
+      foregroundColor: isDark ? Colors.black : Colors.white,
+      disabledBackgroundColor: isDark ? Colors.grey[850] : Colors.grey[300],
+      disabledForegroundColor: isDark ? Colors.grey[600] : Colors.grey[500],
+      padding: const EdgeInsets.symmetric(vertical: 14),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+    );
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        border: Border(
+          top: BorderSide(
+            color: isDark ? Colors.grey[800]! : Colors.grey[200]!,
+            width: 1,
+          ),
+        ),
+      ),
+      child: isEdit && !isSystem
+          ? Row(
+              children: [
+                // Delete Button
+                Expanded(
+                  flex: 1,
+                  child: OutlinedButton.icon(
+                    icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
+                    label: Text(
+                      l10n.delete,
+                      style: const TextStyle(
+                        color: Colors.red,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                      ),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(color: Colors.red.shade300, width: 1.2),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    onPressed: _isSubmitting ? null : _showDeleteDialog,
+                  ),
+                ),
+                const SizedBox(width: 12),
+
+                // Save Button (Primary Slate 900 / Black)
+                Expanded(
+                  flex: 2,
+                  child: ElevatedButton(
+                    onPressed: canSave ? _submit : null,
+                    style: saveButtonStyle,
+                    child: saveButtonChild,
+                  ),
+                ),
+              ],
+            )
+          : SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: canSave ? _submit : null,
+                style: saveButtonStyle,
+                child: saveButtonChild,
+              ),
+            ),
     );
   }
 }

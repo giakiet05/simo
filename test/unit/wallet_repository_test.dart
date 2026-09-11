@@ -168,5 +168,52 @@ void main() {
       expect(wallets.first.currentBalance, equals(0.0));
       expect(wallets.first.isDefault, isTrue);
     });
+
+    test('wallets are sorted by priority DESC, isDefault DESC, createdAt ASC', () async {
+      await DatabaseHelper.instance.clearAllData();
+
+      final wLow = Wallet(
+        id: 'w_low',
+        name: 'Low Priority Wallet',
+        type: 'bank',
+        initialBalance: 1000.0,
+        color: '#10B981',
+        icon: 'wallet',
+        priority: 0,
+        createdAt: DateTime.now().subtract(const Duration(hours: 2)),
+        updatedAt: DateTime.now(),
+      );
+      final wHigh = Wallet(
+        id: 'w_high',
+        name: 'High Priority Wallet',
+        type: 'bank',
+        initialBalance: 1000.0,
+        color: '#3B82F6',
+        icon: 'wallet',
+        priority: 10,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+      final wMid = Wallet(
+        id: 'w_mid',
+        name: 'Mid Priority Wallet',
+        type: 'bank',
+        initialBalance: 1000.0,
+        color: '#F59E0B',
+        icon: 'wallet',
+        priority: 5,
+        createdAt: DateTime.now().subtract(const Duration(hours: 1)),
+        updatedAt: DateTime.now(),
+      );
+
+      await repo.createWallet(wLow);
+      await repo.createWallet(wHigh);
+      await repo.createWallet(wMid);
+
+      final wallets = await repo.getAllWallets();
+      // First should be w_high (priority: 10), then w_mid (5), then w_low or default
+      expect(wallets[0].id, equals('w_high'));
+      expect(wallets[1].id, equals('w_mid'));
+    });
   });
 }

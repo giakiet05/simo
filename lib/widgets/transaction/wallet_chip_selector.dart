@@ -6,8 +6,8 @@ import '../../providers/localization_provider.dart';
 import '../../providers/settings_provider.dart';
 import '../../services/currency_service.dart';
 
-/// A vertical column selector for wallets, displaying wallet color,
-/// name, and current available balance for fast one-tap switching without horizontal scrolling.
+/// A horizontal scrollable selector for wallets, displaying wallet color,
+/// name, and current available balance for quick one-tap switching.
 class WalletChipSelector extends ConsumerWidget {
   /// All available wallets in the application.
   final List<Wallet> wallets;
@@ -48,101 +48,106 @@ class WalletChipSelector extends ConsumerWidget {
     }
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Row(
-          children: [
-            Icon(Icons.account_balance_wallet_outlined,
-                size: 15, color: theme.colorScheme.primary),
-            const SizedBox(width: 6),
-            Text(
-              l10n.wallet,
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
+        Padding(
+          padding: const EdgeInsets.only(left: 2, bottom: 6),
+          child: Row(
+            children: [
+              Icon(
+                Icons.account_balance_wallet_outlined,
+                size: 15,
+                color: theme.colorScheme.primary,
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        ...wallets.map((wallet) {
-          final isSelected = wallet.id == selectedWalletId;
-          final walletColor = _parseColor(wallet.color);
-          final formattedBalance =
-              NumberFormat.compact(locale: 'en_US').format(wallet.currentBalance);
-
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 6),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: () => onWalletChanged(wallet),
-                borderRadius: BorderRadius.circular(10),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? theme.colorScheme.primary.withValues(alpha: isDark ? 0.25 : 0.12)
-                        : (isDark ? Colors.grey[850] : Colors.grey[100]),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: isSelected
-                          ? theme.colorScheme.primary
-                          : (isDark ? Colors.grey[750]! : Colors.grey[300]!),
-                      width: isSelected ? 1.5 : 0.8,
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 6,
-                        backgroundColor: walletColor,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              wallet.name,
-                              style: TextStyle(
-                                fontSize: 12.5,
-                                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                                color: isSelected
-                                    ? theme.colorScheme.primary
-                                    : (isDark ? Colors.grey[200] : Colors.grey[800]),
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            Text(
-                              '$formattedBalance $symbol',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: isSelected
-                                    ? theme.colorScheme.primary.withValues(alpha: 0.85)
-                                    : (isDark ? Colors.grey[400] : Colors.grey[600]),
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ),
-                      ),
-                      if (isSelected)
-                        Icon(
-                          Icons.check_circle_rounded,
-                          size: 16,
-                          color: theme.colorScheme.primary,
-                        ),
-                    ],
-                  ),
+              const SizedBox(width: 6),
+              Text(
+                l10n.wallet,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
-            ),
-          );
-        }),
+            ],
+          ),
+        ),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          physics: const BouncingScrollPhysics(),
+          child: Row(
+            children: wallets.map((wallet) {
+              final isSelected = wallet.id == selectedWalletId;
+              final walletColor = _parseColor(wallet.color);
+              final formattedBalance =
+                  NumberFormat.compact(locale: 'en_US').format(wallet.currentBalance);
+
+              return Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () => onWalletChanged(wallet),
+                    borderRadius: BorderRadius.circular(20),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? theme.colorScheme.primary.withValues(alpha: isDark ? 0.25 : 0.12)
+                            : (isDark ? Colors.grey[850] : Colors.grey[100]),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: isSelected
+                              ? theme.colorScheme.primary
+                              : (isDark ? Colors.grey[750]! : Colors.grey[300]!),
+                          width: isSelected ? 1.5 : 0.8,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          CircleAvatar(
+                            radius: 5,
+                            backgroundColor: walletColor,
+                          ),
+                          const SizedBox(width: 7),
+                          Text(
+                            wallet.name,
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                              color: isSelected
+                                  ? theme.colorScheme.primary
+                                  : (isDark ? Colors.grey[200] : Colors.grey[800]),
+                            ),
+                          ),
+                          const SizedBox(width: 5),
+                          Text(
+                            '($formattedBalance $symbol)',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: isSelected
+                                  ? theme.colorScheme.primary.withValues(alpha: 0.85)
+                                  : (isDark ? Colors.grey[400] : Colors.grey[600]),
+                            ),
+                          ),
+                          if (isSelected) ...[
+                            const SizedBox(width: 4),
+                            Icon(
+                              Icons.check_circle_rounded,
+                              size: 14,
+                              color: theme.colorScheme.primary,
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ),
       ],
     );
   }

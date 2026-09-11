@@ -111,6 +111,8 @@ class AppLocalizations {
       'delete_category': 'Delete Category',
       'category_name': 'Category name',
       'delete_category_confirm': 'Are you sure you want to delete',
+      'delete_category_warning':
+          'Transactions in this category will become unassigned (No category).',
       'category_added': 'Category added',
       'category_updated': 'Category updated',
       'category_deleted': 'Category deleted',
@@ -402,6 +404,8 @@ class AppLocalizations {
       'wallet_created': 'Wallet created successfully!',
       'wallet_updated': 'Wallet updated successfully!',
       'wallet_deleted': 'Wallet deleted!',
+      'wallet_priority': 'Priority',
+      'wallet_priority_hint': 'Higher numbers are displayed first',
       'no_wallets': 'No wallets found',
       'no_wallets_desc':
           'Create wallets to organize your money across cash, banks, and e-wallets',
@@ -568,6 +572,7 @@ class AppLocalizations {
       'delete_category': '删除类别',
       'category_name': '类别名称',
       'delete_category_confirm': '您确定要删除',
+      'delete_category_warning': '该类别下的所有交易将变更为“无类别”。',
       'category_added': '类别已添加',
       'category_updated': '类别已更新',
       'category_deleted': '类别已删除',
@@ -840,6 +845,8 @@ class AppLocalizations {
       'wallet_created': '钱包创建成功！',
       'wallet_updated': '钱包更新成功！',
       'wallet_deleted': '钱包已删除！',
+      'wallet_priority': '优先级',
+      'wallet_priority_hint': '数值越大越靠前显示',
       'no_wallets': '暂无钱包',
       'no_wallets_desc': '创建钱包以管理现金、银行和电子钱包',
       'transfer': '转账',
@@ -1004,6 +1011,8 @@ class AppLocalizations {
       'delete_category': 'Xóa danh mục',
       'category_name': 'Tên danh mục',
       'delete_category_confirm': 'Bạn chắc chắn muốn xóa',
+      'delete_category_warning':
+          'Các giao dịch thuộc danh mục này sẽ được chuyển thành "Không có danh mục".',
       'category_added': 'Đã thêm danh mục',
       'category_updated': 'Đã cập nhật danh mục',
       'category_deleted': 'Đã xóa danh mục',
@@ -1292,6 +1301,8 @@ class AppLocalizations {
       'wallet_created': 'Tạo ví mới thành công!',
       'wallet_updated': 'Cập nhật ví thành công!',
       'wallet_deleted': 'Đã xóa ví!',
+      'wallet_priority': 'Độ ưu tiên',
+      'wallet_priority_hint': 'Số càng lớn càng hiển thị lên đầu',
       'no_wallets': 'Chưa có ví nào',
       'no_wallets_desc':
           'Tạo các ví để quản lý tiền mặt, tài khoản ngân hàng và ví điện tử của bạn',
@@ -1414,6 +1425,7 @@ class AppLocalizations {
   String get deleteCategory => translate('delete_category');
   String get categoryName => translate('category_name');
   String get deleteCategoryConfirm => translate('delete_category_confirm');
+  String get deleteCategoryWarning => translate('delete_category_warning');
   String get categoryAdded => translate('category_added');
   String get categoryUpdated => translate('category_updated');
   String get categoryDeleted => translate('category_deleted');
@@ -1704,6 +1716,8 @@ class AppLocalizations {
   String get walletCreated => translate('wallet_created');
   String get walletUpdated => translate('wallet_updated');
   String get walletDeleted => translate('wallet_deleted');
+  String get walletPriority => translate('wallet_priority');
+  String get walletPriorityHint => translate('wallet_priority_hint');
   String get noWallets => translate('no_wallets');
   String get noWalletsDesc => translate('no_wallets_desc');
   String get transfer => translate('transfer');

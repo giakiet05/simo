@@ -16,11 +16,15 @@ class CategoryGridPicker extends ConsumerWidget {
   /// Callback triggered when the user taps on a category tile.
   final ValueChanged<Category> onCategorySelected;
 
+  /// Callback triggered when the user long-presses a category tile.
+  final ValueChanged<Category>? onCategoryLongPressed;
+
   const CategoryGridPicker({
     super.key,
     required this.categories,
     required this.selectedCategoryId,
     required this.onCategorySelected,
+    this.onCategoryLongPressed,
   });
 
   @override
@@ -63,6 +67,9 @@ class CategoryGridPicker extends ConsumerWidget {
 
         return InkWell(
           onTap: () => onCategorySelected(category),
+          onLongPress: onCategoryLongPressed != null
+              ? () => onCategoryLongPressed!(category)
+              : null,
           borderRadius: BorderRadius.circular(16),
           child: Column(
             mainAxisSize: MainAxisSize.min,

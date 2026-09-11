@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../models/category.dart';
 import '../providers/category_provider.dart';
 import '../providers/localization_provider.dart';
 import '../utils/icon_data.dart';
@@ -155,7 +154,10 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
 
                     return Card(
                       child: InkWell(
-                        onTap: () => _showActionMenu(context, ref, category),
+                        onTap: () => CategoryFormModal.show(
+                          context,
+                          categoryToEdit: category,
+                        ),
                         child: Padding(
                           padding: const EdgeInsets.all(8),
                           child: Column(
@@ -230,84 +232,6 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
             ],
           );
         },
-      ),
-    );
-  }
-
-  void _showActionMenu(BuildContext context, WidgetRef ref, Category category) {
-    final l10n = ref.read(localizationProvider);
-    final isSystem = category.id.startsWith('sys_');
-
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.edit),
-              title: Text(isSystem
-                  ? (l10n.locale == 'vi' ? 'Sửa Icon/Màu (Hệ thống)' : 'Edit Icon/Color (System)')
-                  : l10n.edit),
-              onTap: () {
-                Navigator.pop(context);
-                CategoryFormModal.show(context, categoryToEdit: category);
-              },
-            ),
-            if (!isSystem)
-              ListTile(
-                leading: const Icon(Icons.delete, color: Colors.red),
-                title: Text(l10n.delete, style: const TextStyle(color: Colors.red)),
-                onTap: () {
-                  Navigator.pop(context);
-                  _showDeleteDialog(context, ref, category);
-                },
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showDeleteDialog(
-      BuildContext context, WidgetRef ref, Category category) {
-    final l10n = ref.read(localizationProvider);
-    final displayName = l10n.translateCategoryName(category.id, category.name);
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(l10n.deleteCategory),
-        content: Text('${l10n.deleteCategoryConfirm} "$displayName"?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(l10n.cancel),
-          ),
-          TextButton(
-            onPressed: () async {
-              try {
-                await ref
-                    .read(categoryProvider.notifier)
-                    .deleteCategory(category.id);
-                if (context.mounted) {
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(l10n.categoryDeleted)),
-                  );
-                }
-              } catch (e) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('${l10n.error}: $e')),
-                  );
-                }
-              }
-            },
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: Text(l10n.delete),
-          ),
-        ],
       ),
     );
   }

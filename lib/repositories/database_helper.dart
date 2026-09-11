@@ -19,7 +19,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 15,
+      version: 16,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -198,6 +198,7 @@ class DatabaseHelper {
         currency TEXT,
         is_default INTEGER NOT NULL DEFAULT 0,
         exclude_from_total INTEGER NOT NULL DEFAULT 0,
+        priority INTEGER NOT NULL DEFAULT 0,
         created_at $textType,
         updated_at $textType
       )
@@ -569,6 +570,14 @@ class DatabaseHelper {
       final hasWalletId = tableInfo.any((col) => col['name'] == 'wallet_id');
       if (!hasWalletId) {
         await db.execute('ALTER TABLE recurring_configs ADD COLUMN wallet_id TEXT');
+      }
+    }
+
+    if (oldVersion < 16) {
+      final tableInfo = await db.rawQuery('PRAGMA table_info(wallets)');
+      final hasPriority = tableInfo.any((col) => col['name'] == 'priority');
+      if (!hasPriority) {
+        await db.execute('ALTER TABLE wallets ADD COLUMN priority INTEGER NOT NULL DEFAULT 0');
       }
     }
   }

@@ -17,7 +17,7 @@ class WalletRepository {
     final db = await _db;
     final results = await db.query(
       'wallets',
-      orderBy: 'is_default DESC, created_at ASC',
+      orderBy: 'priority DESC, is_default DESC, created_at ASC',
     );
     return results.map((map) => Wallet.fromMap(map)).toList();
   }

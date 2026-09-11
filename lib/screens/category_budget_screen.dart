@@ -95,7 +95,7 @@ class _CategoryBudgetScreenState extends ConsumerState<CategoryBudgetScreen>
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(l10n.locale == 'vi' ? 'Danh mục & Ngân sách' : 'Categories & Budgets'),
+        title: Text(l10n.locale == 'vi' ? 'Danh mục & Hạn mức' : 'Categories & Limits'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         bottom: TabBar(
           controller: _tabController,
@@ -182,7 +182,7 @@ class _CategoryBudgetScreenState extends ConsumerState<CategoryBudgetScreen>
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                l10n.locale == 'vi' ? 'Ngân sách từng danh mục' : 'Category Budgets',
+                l10n.locale == 'vi' ? 'Danh mục' : 'Categories',
                 style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
               ),
               FilledButton.tonal(
@@ -368,7 +368,12 @@ class _CategoryBudgetScreenState extends ConsumerState<CategoryBudgetScreen>
     }
 
     return InkWell(
-      onTap: () => _showActionMenu(context, category, key, status),
+      onTap: () => CategoryFormModal.show(
+        context,
+        categoryToEdit: category,
+        initialBudget: status?.budgetLimit ?? category.budgetLimit,
+        monthYearKey: key,
+      ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         child: Row(
@@ -484,7 +489,10 @@ class _CategoryBudgetScreenState extends ConsumerState<CategoryBudgetScreen>
                   itemBuilder: (context, index) {
                     final cat = incomeCats[index];
                     return InkWell(
-                      onTap: () => _showActionMenu(context, cat, null, null),
+                      onTap: () => CategoryFormModal.show(
+                        context,
+                        categoryToEdit: cat,
+                      ),
                       child: ListTile(
                         contentPadding:
                             const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -566,94 +574,6 @@ class _CategoryBudgetScreenState extends ConsumerState<CategoryBudgetScreen>
               }
             },
             child: Text(l10n.save),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showActionMenu(
-    BuildContext context,
-    Category category,
-    MonthYearKey? key,
-    CategoryBudgetStatus? status,
-  ) {
-    final l10n = ref.read(localizationProvider);
-    final isSystem = category.id.startsWith('sys_');
-
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.edit_note, color: Colors.teal),
-              title: Text(
-                isSystem
-                    ? (l10n.locale == 'vi'
-                        ? 'Sửa Icon/Màu & Hạn mức'
-                        : 'Edit Icon/Color & Budget')
-                    : (l10n.locale == 'vi'
-                        ? 'Chỉnh sửa & Hạn mức'
-                        : 'Edit & Budget'),
-              ),
-              subtitle: category.type == 'expense' && key != null
-                  ? Text(
-                      l10n.locale == 'vi'
-                          ? 'Cập nhật thông tin & hạn mức tháng $_selectedMonth/$_selectedYear'
-                          : 'Update info & budget for $_selectedMonth/$_selectedYear',
-                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                    )
-                  : null,
-              onTap: () {
-                Navigator.pop(context);
-                CategoryFormModal.show(
-                  context,
-                  categoryToEdit: category,
-                  initialBudget: status?.budgetLimit ?? category.budgetLimit,
-                  monthYearKey: key,
-                );
-              },
-            ),
-            if (!isSystem)
-              ListTile(
-                leading: const Icon(Icons.delete, color: Colors.red),
-                title: Text(l10n.delete, style: const TextStyle(color: Colors.red)),
-                onTap: () {
-                  Navigator.pop(context);
-                  _showDeleteDialog(category);
-                },
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showDeleteDialog(Category category) {
-    final l10n = ref.read(localizationProvider);
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(l10n.deleteCategory),
-        content: Text(l10n.deleteCategoryConfirm),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(l10n.cancel),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () async {
-              Navigator.pop(context);
-              await ref.read(categoryProvider.notifier).deleteCategory(category.id);
-            },
-            child: Text(l10n.delete),
           ),
         ],
       ),

@@ -9,6 +9,7 @@ class Wallet {
   final String? currency;
   final bool isDefault;
   final bool excludeFromTotal;
+  final int priority;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -23,6 +24,7 @@ class Wallet {
     this.currency,
     this.isDefault = false,
     this.excludeFromTotal = false,
+    this.priority = 0,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -39,6 +41,7 @@ class Wallet {
       'currency': currency,
       'is_default': isDefault ? 1 : 0,
       'exclude_from_total': excludeFromTotal ? 1 : 0,
+      'priority': priority,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };
@@ -56,6 +59,7 @@ class Wallet {
       currency: map['currency'] as String?,
       isDefault: (map['is_default'] as int?) == 1,
       excludeFromTotal: (map['exclude_from_total'] as int?) == 1,
+      priority: (map['priority'] as num?)?.toInt() ?? 0,
       createdAt: map['created_at'] != null
           ? DateTime.tryParse(map['created_at'].toString()) ?? DateTime.now()
           : DateTime.now(),
@@ -76,6 +80,7 @@ class Wallet {
     String? currency,
     bool? isDefault,
     bool? excludeFromTotal,
+    int? priority,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -90,6 +95,7 @@ class Wallet {
       currency: currency ?? this.currency,
       isDefault: isDefault ?? this.isDefault,
       excludeFromTotal: excludeFromTotal ?? this.excludeFromTotal,
+      priority: priority ?? this.priority,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

@@ -34,6 +34,7 @@ class _WalletFormModalState extends ConsumerState<WalletFormModal> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _initialBalanceController = TextEditingController();
+  final _priorityController = TextEditingController(text: '0');
   final _uuid = const Uuid();
 
   String _selectedType = 'cash';
@@ -80,6 +81,7 @@ class _WalletFormModalState extends ConsumerState<WalletFormModal> {
         _initialBalanceController.text =
             NumberFormat('#,###').format(w.initialBalance.toInt());
       }
+      _priorityController.text = w.priority.toString();
       _selectedType = w.type;
       _selectedColor = w.color;
       _selectedIcon = w.icon;
@@ -92,6 +94,7 @@ class _WalletFormModalState extends ConsumerState<WalletFormModal> {
   void dispose() {
     _nameController.dispose();
     _initialBalanceController.dispose();
+    _priorityController.dispose();
     super.dispose();
   }
 
@@ -129,6 +132,7 @@ class _WalletFormModalState extends ConsumerState<WalletFormModal> {
     final balanceRaw =
         _initialBalanceController.text.replaceAll(',', '').trim();
     final initialBalance = double.tryParse(balanceRaw) ?? 0.0;
+    final priority = int.tryParse(_priorityController.text.trim()) ?? 0;
 
     final now = DateTime.now();
     if (widget.walletToEdit != null) {
@@ -140,6 +144,7 @@ class _WalletFormModalState extends ConsumerState<WalletFormModal> {
         icon: _selectedIcon,
         isDefault: _isDefault,
         excludeFromTotal: _excludeFromTotal,
+        priority: priority,
         updatedAt: now,
       );
       await ref.read(walletProvider.notifier).updateWallet(updated);
@@ -154,6 +159,7 @@ class _WalletFormModalState extends ConsumerState<WalletFormModal> {
         icon: _selectedIcon,
         isDefault: _isDefault,
         excludeFromTotal: _excludeFromTotal,
+        priority: priority,
         createdAt: now,
         updatedAt: now,
       );
@@ -281,6 +287,22 @@ class _WalletFormModalState extends ConsumerState<WalletFormModal> {
                   }
                   return null;
                 },
+              ),
+              const SizedBox(height: 16),
+
+              // Priority
+              TextFormField(
+                controller: _priorityController,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  labelText: l10n.walletPriority,
+                  hintText: '0',
+                  helperText: l10n.walletPriorityHint,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  prefixIcon: const Icon(Icons.low_priority_rounded),
+                ),
               ),
               const SizedBox(height: 16),
 

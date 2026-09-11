@@ -6,6 +6,7 @@ import '../providers/settings_provider.dart';
 import '../providers/transaction_provider.dart';
 import '../providers/wallet_provider.dart';
 import '../utils/app_constants.dart';
+import '../widgets/category_form_modal.dart';
 import '../widgets/custom_num_pad.dart';
 import '../widgets/transaction/category_grid_picker.dart';
 import '../widgets/transaction/date_quick_bar.dart';
@@ -398,49 +399,59 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                       _buildNoteInput(l10n),
                       const SizedBox(height: 14),
 
-                      // Wallet & Date Side-by-Side Columns (Zero Horizontal Scrolling)
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (wallets.isNotEmpty)
-                            Expanded(
-                              child: WalletChipSelector(
-                                wallets: wallets,
-                                selectedWalletId: effectiveWalletId,
-                                onWalletChanged: (wallet) {
-                                  setState(() {
-                                    _selectedWalletId = wallet.id;
-                                  });
-                                },
-                              ),
-                            ),
-                          if (wallets.isNotEmpty) const SizedBox(width: 12),
-                          Expanded(
-                            child: DateQuickChipsBar(
-                              selectedDate: _selectedDate,
-                              originalDate: _isEditMode ? _originalDate : null,
-                              onDateChanged: (date) {
-                                setState(() {
-                                  _selectedDate = date;
-                                });
-                              },
-                            ),
-                          ),
-                        ],
+                      // Wallet Horizontal Row
+                      if (wallets.isNotEmpty) ...[
+                        WalletChipSelector(
+                          wallets: wallets,
+                          selectedWalletId: effectiveWalletId,
+                          onWalletChanged: (wallet) {
+                            setState(() {
+                              _selectedWalletId = wallet.id;
+                            });
+                          },
+                        ),
+                        const SizedBox(height: 10),
+                      ],
+
+                      // Date Horizontal Row
+                      DateQuickChipsBar(
+                        selectedDate: _selectedDate,
+                        originalDate: _isEditMode ? _originalDate : null,
+                        onDateChanged: (date) {
+                          setState(() {
+                            _selectedDate = date;
+                          });
+                        },
                       ),
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 12),
 
                       // Visual Category Icon Grid
                       Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Icon(Icons.grid_view_rounded,
-                              size: 16, color: Theme.of(context).colorScheme.primary),
-                          const SizedBox(width: 6),
+                          Row(
+                            children: [
+                              Icon(Icons.grid_view_rounded,
+                                  size: 16, color: Theme.of(context).colorScheme.primary),
+                              const SizedBox(width: 6),
+                              Text(
+                                l10n.category,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
                           Text(
-                            l10n.category,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
+                            l10n.locale == 'vi'
+                                ? 'Nhấn giữ để sửa/xóa'
+                                : 'Long press to edit/delete',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Theme.of(context).brightness == Brightness.dark
+                                  ? Colors.grey[500]
+                                  : Colors.grey[600],
                             ),
                           ),
                         ],
@@ -453,6 +464,12 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                           setState(() {
                             _selectedCategoryId = category.id;
                           });
+                        },
+                        onCategoryLongPressed: (category) {
+                          CategoryFormModal.show(
+                            context,
+                            categoryToEdit: category,
+                          );
                         },
                       ),
                       const SizedBox(height: 16),
