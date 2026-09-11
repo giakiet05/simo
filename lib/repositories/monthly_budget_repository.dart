@@ -6,12 +6,30 @@ import 'database_helper.dart';
 class MonthlyBudgetRepository {
   final _uuid = const Uuid();
 
+  /// Retrieves the raw monthly budget record explicitly set for the specified month.
   Future<MonthlyBudget?> getMonthlyBudget(int year, int month) async {
     final db = await DatabaseHelper.instance.database;
     final maps = await db.query(
       'monthly_budgets',
       where: 'year = ? AND month = ?',
       whereArgs: [year, month],
+    );
+
+    if (maps.isNotEmpty) {
+      return MonthlyBudget.fromMap(maps.first);
+    }
+    return null;
+  }
+
+  /// Retrieves the latest monthly budget record set before the specified month.
+  Future<MonthlyBudget?> getLatestMonthlyBudgetBefore(int year, int month) async {
+    final db = await DatabaseHelper.instance.database;
+    final maps = await db.query(
+      'monthly_budgets',
+      where: 'year < ? OR (year == ? AND month < ?)',
+      whereArgs: [year, year, month],
+      orderBy: 'year DESC, month DESC',
+      limit: 1,
     );
 
     if (maps.isNotEmpty) {
@@ -51,13 +69,36 @@ class MonthlyBudgetRepository {
     }
   }
 
+  /// Clears the monthly budget for the specified month by setting amount to 0.0.
   Future<void> deleteMonthlyBudget(int year, int month) async {
     final db = await DatabaseHelper.instance.database;
-    await db.delete(
-      'monthly_budgets',
-      where: 'year = ? AND month = ?',
-      whereArgs: [year, month],
-    );
+    final now = DateTime.now().toIso8601String();
+
+    final existing = await getMonthlyBudget(year, month);
+    if (existing != null) {
+      await db.update(
+        'monthly_budgets',
+        {
+          'amount': 0.0,
+          'updated_at': now,
+        },
+        where: 'id = ?',
+        whereArgs: [existing.id],
+      );
+    } else {
+      await db.insert(
+        'monthly_budgets',
+        {
+          'id': _uuid.v4(),
+          'year': year,
+          'month': month,
+          'amount': 0.0,
+          'created_at': now,
+          'updated_at': now,
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    }
   }
 
   Future<Map<String, CategoryMonthlyBudget>> getCategoryMonthlyBudgets(int year, int month) async {

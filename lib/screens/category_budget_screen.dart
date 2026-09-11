@@ -1,21 +1,20 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../models/category.dart';
 import '../models/monthly_budget.dart';
-import '../providers/settings_provider.dart';
 import '../providers/category_provider.dart';
 import '../providers/localization_provider.dart';
 import '../providers/monthly_budget_provider.dart';
-import '../services/currency_service.dart';
-import '../widgets/icon_picker_dialog.dart';
-import '../widgets/color_picker_dialog.dart';
-import '../widgets/banner_ad_widget.dart';
-import '../widgets/category_icon_widget.dart';
+import '../providers/settings_provider.dart';
 import '../providers/transaction_provider.dart';
-import '../widgets/month_year_picker_modal.dart';
+import '../services/currency_service.dart';
 import '../utils/app_constants.dart';
+import '../utils/currency_input_formatter.dart';
+import '../widgets/banner_ad_widget.dart';
+import '../widgets/category_form_modal.dart';
+import '../widgets/category_icon_widget.dart';
+import '../widgets/month_year_picker_modal.dart';
 
 class CategoryBudgetScreen extends ConsumerStatefulWidget {
   const CategoryBudgetScreen({super.key});
@@ -186,42 +185,17 @@ class _CategoryBudgetScreenState extends ConsumerState<CategoryBudgetScreen>
                 l10n.locale == 'vi' ? 'Ngân sách từng danh mục' : 'Category Budgets',
                 style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
               ),
-              Row(
-                children: [
-                  if (!summary.hasBudget)
-                    TextButton.icon(
-                      onPressed: () async {
-                        await ref
-                            .read(monthlyBudgetFamily(key).notifier)
-                            .copyFromPreviousMonth();
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(l10n.copyBudgetSuccess),
-                              behavior: SnackBarBehavior.floating,
-                            ),
-                          );
-                        }
-                      },
-                      icon: const Icon(Icons.copy, size: 14),
-                      label: Text(
-                        l10n.locale == 'vi' ? 'Chép tháng trước' : 'Copy Prev',
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                      style: TextButton.styleFrom(
-                        visualDensity: VisualDensity.compact,
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                      ),
-                    ),
-                  FilledButton.tonal(
-                    onPressed: () => _showAddCategoryDialog('expense'),
-                    style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      minimumSize: Size.zero,
-                    ),
-                    child: Text(l10n.locale == 'vi' ? '+ Thêm' : '+ Add'),
-                  ),
-                ],
+              FilledButton.tonal(
+                onPressed: () => CategoryFormModal.show(
+                  context,
+                  initialType: 'expense',
+                  monthYearKey: key,
+                ),
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  minimumSize: Size.zero,
+                ),
+                child: Text(l10n.locale == 'vi' ? '+ Thêm' : '+ Add'),
               ),
             ],
           ),
@@ -485,7 +459,10 @@ class _CategoryBudgetScreenState extends ConsumerState<CategoryBudgetScreen>
                 style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
               FilledButton.tonal(
-                onPressed: () => _showAddCategoryDialog('income'),
+                onPressed: () => CategoryFormModal.show(
+                  context,
+                  initialType: 'income',
+                ),
                 style: FilledButton.styleFrom(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   minimumSize: Size.zero,
@@ -568,7 +545,7 @@ class _CategoryBudgetScreenState extends ConsumerState<CategoryBudgetScreen>
                 Navigator.pop(dialogCtx);
                 await ref.read(monthlyBudgetFamily(key).notifier).deleteTotalBudget();
               },
-              child: Text(l10n.locale == 'vi' ? 'Xóa hạn mức' : 'Clear'),
+              child: Text(l10n.locale == 'vi' ? 'Xóa ngân sách' : 'Clear'),
             ),
           TextButton(
             onPressed: () => Navigator.pop(dialogCtx),
@@ -595,79 +572,6 @@ class _CategoryBudgetScreenState extends ConsumerState<CategoryBudgetScreen>
     );
   }
 
-  void _showSetCategoryBudgetDialog(
-    Category category,
-    MonthYearKey key,
-    CategoryBudgetStatus? status,
-    dynamic l10n,
-    String currency,
-  ) {
-    final currentAmount = status?.budgetLimit ?? 0.0;
-    final controller = TextEditingController(
-      text: currentAmount > 0 ? currentAmount.toInt().toString() : '',
-    );
-
-    showDialog(
-      context: context,
-      builder: (dialogCtx) => AlertDialog(
-        title: Text(
-          '${l10n.locale == 'vi' ? 'Hạn mức' : 'Budget'}: ${l10n.translateCategoryName(category.id, category.name)} ($_selectedMonth/$_selectedYear)',
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: controller,
-              keyboardType: TextInputType.number,
-              inputFormatters: [CurrencyInputFormatter()],
-              autofocus: true,
-              decoration: InputDecoration(
-                labelText: l10n.locale == 'vi' ? 'Hạn mức chi tiêu' : 'Spending Limit',
-                prefixText: '${CurrencyService.getSymbol(currency)} ',
-                border: const OutlineInputBorder(),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          if (currentAmount > 0)
-            TextButton(
-              style: TextButton.styleFrom(foregroundColor: Colors.red),
-              onPressed: () async {
-                Navigator.pop(dialogCtx);
-                await ref
-                    .read(monthlyBudgetFamily(key).notifier)
-                    .deleteCategoryBudget(category.id);
-              },
-              child: Text(l10n.locale == 'vi' ? 'Xóa hạn mức' : 'Clear'),
-            ),
-          TextButton(
-            onPressed: () => Navigator.pop(dialogCtx),
-            child: Text(l10n.cancel),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              final val = double.tryParse(controller.text.replaceAll(',', ''));
-              if (val != null && val >= 0) {
-                if (val > AppConstants.maxAmount) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(AppConstants.maxAmountError(l10n))),
-                  );
-                  return;
-                }
-                Navigator.pop(dialogCtx);
-                await ref
-                    .read(monthlyBudgetFamily(key).notifier)
-                    .setCategoryBudget(category.id, val);
-              }
-            },
-            child: Text(l10n.save),
-          ),
-        ],
-      ),
-    );
-  }
-
   void _showActionMenu(
     BuildContext context,
     Category category,
@@ -676,8 +580,6 @@ class _CategoryBudgetScreenState extends ConsumerState<CategoryBudgetScreen>
   ) {
     final l10n = ref.read(localizationProvider);
     final isSystem = category.id.startsWith('sys_');
-    final settingsAsync = ref.read(settingsProvider);
-    final String currency = settingsAsync.value?.currency ?? 'VND';
 
     showModalBottomSheet(
       context: context,
@@ -685,29 +587,33 @@ class _CategoryBudgetScreenState extends ConsumerState<CategoryBudgetScreen>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (category.type == 'expense' && key != null)
-              ListTile(
-                leading: const Icon(Icons.account_balance_wallet, color: Colors.teal),
-                title: Text(
-                  l10n.locale == 'vi'
-                      ? 'Đặt hạn mức tháng $_selectedMonth/$_selectedYear'
-                      : 'Set budget for $_selectedMonth/$_selectedYear',
-                ),
-                onTap: () {
-                  Navigator.pop(context);
-                  _showSetCategoryBudgetDialog(category, key, status, l10n, currency);
-                },
-              ),
             ListTile(
-              leading: const Icon(Icons.edit),
-              title: Text(isSystem
-                  ? (l10n.locale == 'vi'
-                      ? 'Sửa Icon/Màu (Hệ thống)'
-                      : 'Edit Icon/Color (System)')
-                  : l10n.edit),
+              leading: const Icon(Icons.edit_note, color: Colors.teal),
+              title: Text(
+                isSystem
+                    ? (l10n.locale == 'vi'
+                        ? 'Sửa Icon/Màu & Hạn mức'
+                        : 'Edit Icon/Color & Budget')
+                    : (l10n.locale == 'vi'
+                        ? 'Chỉnh sửa & Hạn mức'
+                        : 'Edit & Budget'),
+              ),
+              subtitle: category.type == 'expense' && key != null
+                  ? Text(
+                      l10n.locale == 'vi'
+                          ? 'Cập nhật thông tin & hạn mức tháng $_selectedMonth/$_selectedYear'
+                          : 'Update info & budget for $_selectedMonth/$_selectedYear',
+                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                    )
+                  : null,
               onTap: () {
                 Navigator.pop(context);
-                _showEditCategoryDialog(category);
+                CategoryFormModal.show(
+                  context,
+                  categoryToEdit: category,
+                  initialBudget: status?.budgetLimit ?? category.budgetLimit,
+                  monthYearKey: key,
+                );
               },
             ),
             if (!isSystem)
@@ -721,314 +627,6 @@ class _CategoryBudgetScreenState extends ConsumerState<CategoryBudgetScreen>
               ),
           ],
         ),
-      ),
-    );
-  }
-
-  void _showAddCategoryDialog(String type) {
-    final controller = TextEditingController();
-    final budgetController = TextEditingController();
-    final l10n = ref.read(localizationProvider);
-    String selectedType = type;
-    String? selectedIcon;
-    String? selectedColor;
-
-    showDialog(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) {
-          return Dialog(
-            child: Container(
-              constraints: const BoxConstraints(maxWidth: 500, maxHeight: 600),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 16, 24, 12),
-                    child: Text(
-                      l10n.addCategory,
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                  Expanded(
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          TextField(
-                            controller: controller,
-                            decoration: InputDecoration(
-                              labelText: l10n.categoryName,
-                              border: const OutlineInputBorder(),
-                              contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 14),
-                            ),
-                            autofocus: true,
-                          ),
-                          const SizedBox(height: 12),
-                          if (selectedType == 'expense') ...[
-                            TextField(
-                              controller: budgetController,
-                              keyboardType: TextInputType.number,
-                              inputFormatters: [CurrencyInputFormatter()],
-                              decoration: InputDecoration(
-                                labelText: l10n.locale == 'vi'
-                                    ? 'Hạn mức tháng này (Tùy chọn)'
-                                    : 'Monthly Budget (Optional)',
-                                border: const OutlineInputBorder(),
-                                contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 14),
-                                prefixIcon: const Icon(Icons.account_balance_wallet),
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                          ],
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              border: Border.all(color: Colors.grey[300]!),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Column(
-                              children: [
-                                CategoryIconWidget(
-                                  iconName: selectedIcon,
-                                  colorHex: selectedColor,
-                                  size: 60,
-                                ),
-                                const SizedBox(height: 12),
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                                  children: [
-                                    OutlinedButton.icon(
-                                      onPressed: () async {
-                                        final result = await showDialog<String>(
-                                          context: context,
-                                          builder: (context) => IconPickerDialog(
-                                            selectedIcon: selectedIcon,
-                                            categoryType: selectedType,
-                                          ),
-                                        );
-                                        if (result != null) {
-                                          setState(() => selectedIcon = result);
-                                        }
-                                      },
-                                      icon: const Icon(Icons.interests),
-                                      label: const Text('Icon'),
-                                    ),
-                                    OutlinedButton.icon(
-                                      onPressed: () async {
-                                        final result = await showDialog<String>(
-                                          context: context,
-                                          builder: (context) => ColorPickerDialog(
-                                            selectedColor: selectedColor,
-                                          ),
-                                        );
-                                        if (result != null) {
-                                          setState(() => selectedColor = result);
-                                        }
-                                      },
-                                      icon: const Icon(Icons.color_lens),
-                                      label: const Text('Màu'),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(context),
-                          child: Text(l10n.cancel),
-                        ),
-                        const SizedBox(width: 8),
-                        ElevatedButton(
-                          onPressed: () async {
-                            final name = controller.text.trim();
-                            if (name.isEmpty) return;
-
-                            final budgetText = budgetController.text.replaceAll(',', '').trim();
-                            final budget = budgetText.isNotEmpty ? double.tryParse(budgetText) : null;
-
-                            Navigator.pop(context);
-                            await ref.read(categoryProvider.notifier).createCategory(
-                                  name,
-                                  selectedType,
-                                  icon: selectedIcon,
-                                  color: selectedColor,
-                                  budgetLimit: budget,
-                                );
-
-                            if (budget != null && budget > 0 && selectedType == 'expense') {
-                              final key = MonthYearKey(_selectedYear, _selectedMonth);
-                              final cats = await ref.read(categoryRepositoryProvider).getAll();
-                              final createdCat = cats.where((c) => c.name == name).firstOrNull;
-                              if (createdCat != null) {
-                                await ref
-                                    .read(monthlyBudgetFamily(key).notifier)
-                                    .setCategoryBudget(createdCat.id, budget);
-                              }
-                            }
-                          },
-                          child: Text(l10n.save),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  void _showEditCategoryDialog(Category category) {
-    final controller = TextEditingController(text: category.name);
-    final l10n = ref.read(localizationProvider);
-    final isSystem = category.id.startsWith('sys_');
-    String? selectedIcon = category.icon;
-    String? selectedColor = category.color;
-
-    showDialog(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) {
-          return Dialog(
-            child: Container(
-              constraints: const BoxConstraints(maxWidth: 500, maxHeight: 500),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 16, 24, 12),
-                    child: Text(
-                      l10n.editCategory,
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                  Expanded(
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (!isSystem) ...[
-                            TextField(
-                              controller: controller,
-                              decoration: InputDecoration(
-                                labelText: l10n.categoryName,
-                                border: const OutlineInputBorder(),
-                                contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 14),
-                              ),
-                              autofocus: true,
-                            ),
-                            const SizedBox(height: 12),
-                          ],
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              border: Border.all(color: Colors.grey[300]!),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Column(
-                              children: [
-                                CategoryIconWidget(
-                                  category: category,
-                                  iconName: selectedIcon,
-                                  colorHex: selectedColor,
-                                  size: 60,
-                                ),
-                                const SizedBox(height: 12),
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                                  children: [
-                                    OutlinedButton.icon(
-                                      onPressed: () async {
-                                        final result = await showDialog<String>(
-                                          context: context,
-                                          builder: (context) => IconPickerDialog(
-                                            selectedIcon: selectedIcon,
-                                            categoryType: category.type,
-                                          ),
-                                        );
-                                        if (result != null) {
-                                          setState(() => selectedIcon = result);
-                                        }
-                                      },
-                                      icon: const Icon(Icons.interests),
-                                      label: const Text('Icon'),
-                                    ),
-                                    OutlinedButton.icon(
-                                      onPressed: () async {
-                                        final result = await showDialog<String>(
-                                          context: context,
-                                          builder: (context) => ColorPickerDialog(
-                                            selectedColor: selectedColor,
-                                          ),
-                                        );
-                                        if (result != null) {
-                                          setState(() => selectedColor = result);
-                                        }
-                                      },
-                                      icon: const Icon(Icons.color_lens),
-                                      label: const Text('Màu'),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(context),
-                          child: Text(l10n.cancel),
-                        ),
-                        const SizedBox(width: 8),
-                        ElevatedButton(
-                          onPressed: () async {
-                            final name = controller.text.trim();
-                            if (name.isEmpty && !isSystem) return;
-
-                            Navigator.pop(context);
-                            await ref.read(categoryProvider.notifier).updateCategory(
-                                  category.id,
-                                  isSystem ? category.name : name,
-                                  category.type,
-                                  icon: selectedIcon,
-                                  color: selectedColor,
-                                  budgetLimit: category.budgetLimit,
-                                );
-                          },
-                          child: Text(l10n.save),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
       ),
     );
   }
@@ -1059,27 +657,6 @@ class _CategoryBudgetScreenState extends ConsumerState<CategoryBudgetScreen>
           ),
         ],
       ),
-    );
-  }
-}
-
-class CurrencyInputFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-    TextEditingValue oldValue,
-    TextEditingValue newValue,
-  ) {
-    if (newValue.text.isEmpty) return newValue;
-
-    String clean = newValue.text.replaceAll(',', '');
-    final number = int.tryParse(clean);
-    if (number == null) return oldValue;
-    if (number > AppConstants.maxAmount) return oldValue;
-
-    final formatted = NumberFormat('#,###').format(number);
-    return TextEditingValue(
-      text: formatted,
-      selection: TextSelection.collapsed(offset: formatted.length),
     );
   }
 }

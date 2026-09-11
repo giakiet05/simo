@@ -45,7 +45,18 @@ class MonthlyBudgetNotifier extends StateNotifier<AsyncValue<MonthlyBudgetSummar
     try {
       state = const AsyncValue.loading();
 
-      final totalBudgetObj = await _repository.getMonthlyBudget(year, month);
+      final explicitBudget = await _repository.getMonthlyBudget(year, month);
+      double totalBudget = 0.0;
+      if (explicitBudget != null) {
+        totalBudget = explicitBudget.amount;
+      } else {
+        // Automatically carry over total budget from previous month
+        final previousBudget = await _repository.getLatestMonthlyBudgetBefore(year, month);
+        if (previousBudget != null && previousBudget.amount > 0) {
+          totalBudget = previousBudget.amount;
+        }
+      }
+
       final categoryBudgetsMap = await _repository.getCategoryMonthlyBudgets(year, month);
 
       final txsState = _ref.read(transactionProvider);
@@ -61,7 +72,6 @@ class MonthlyBudgetNotifier extends StateNotifier<AsyncValue<MonthlyBudgetSummar
           tx.transactionDate.month == month).toList();
 
       final double totalSpent = monthExpenseTxs.fold(0.0, (sum, tx) => sum + tx.amount);
-      final double totalBudget = totalBudgetObj?.amount ?? 0.0;
 
       final categoryStatuses = <String, CategoryBudgetStatus>{};
 

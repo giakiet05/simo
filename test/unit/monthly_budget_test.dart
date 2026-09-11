@@ -79,5 +79,32 @@ void main() {
       expect(juneCats[cat1.id]?.amount, 6000000.0);
       expect(juneCats[cat2.id]?.amount, 2000000.0);
     });
+
+    test('getLatestMonthlyBudgetBefore retrieves the most recent budget prior to target month', () async {
+      await repo.setMonthlyBudget(2026, 2, 15000000.0);
+      await repo.setMonthlyBudget(2026, 4, 20000000.0);
+
+      // Month 3 should inherit month 2 (15m)
+      final beforeMonth3 = await repo.getLatestMonthlyBudgetBefore(2026, 3);
+      expect(beforeMonth3?.amount, 15000000.0);
+
+      // Month 5 should inherit month 4 (20m)
+      final beforeMonth5 = await repo.getLatestMonthlyBudgetBefore(2026, 5);
+      expect(beforeMonth5?.amount, 20000000.0);
+
+      // Month 1 should have nothing before it
+      final beforeMonth1 = await repo.getLatestMonthlyBudgetBefore(2026, 1);
+      expect(beforeMonth1, isNull);
+    });
+
+    test('deleteMonthlyBudget sets amount to 0.0 to explicitly clear budget', () async {
+      await repo.setMonthlyBudget(2026, 7, 18000000.0);
+      final setBudget = await repo.getMonthlyBudget(2026, 7);
+      expect(setBudget?.amount, 18000000.0);
+
+      await repo.deleteMonthlyBudget(2026, 7);
+      final clearedBudget = await repo.getMonthlyBudget(2026, 7);
+      expect(clearedBudget?.amount, 0.0);
+    });
   });
 }
