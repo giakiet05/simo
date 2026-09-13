@@ -57,7 +57,7 @@ class SyncService {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString('sync_api_base_url') ??
         (dotenv.isInitialized ? dotenv.env['SYNC_API_BASE_URL'] : null) ??
-        'http://10.0.2.2:8080/api/v1';
+        'https://simo-api.giakiet.io.vn/api/v1';
   }
 
   /// Returns the configured Auth token.

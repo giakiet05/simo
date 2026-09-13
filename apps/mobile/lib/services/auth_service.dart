@@ -44,7 +44,7 @@ class AuthService {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(_keyApiBaseUrl) ??
         (dotenv.isInitialized ? dotenv.env['SYNC_API_BASE_URL'] : null) ??
-        'http://10.0.2.2:8080/api/v1';
+        'https://simo-api.giakiet.io.vn/api/v1';
   }
 
   /// Restores cached session from local persistent storage without network call.
