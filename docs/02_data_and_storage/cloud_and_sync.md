@@ -2,7 +2,7 @@
 
 Simo cung cấp hai cơ chế bảo toàn dữ liệu tài chính:
 1. **Local Snapshot JSON**: Xuất/nhập file sao lưu độc lập (có thể chia sẻ qua Drive, Zalo, Email).
-2. **Cloud Backup (Supabase)**: Đồng bộ mã hóa lên backend Supabase thông qua PostgreSQL và Edge Functions.
+2. **Cloud Delta Sync**: Đồng bộ hai chiều liên tục (Two-Way Delta Sync) với Go Backend & PostgreSQL (Homeserver/Cloud) với Google OAuth.
 
 ---
 
@@ -40,25 +40,10 @@ Trước khi ghi đè hoặc hợp nhất dữ liệu từ file backup, lớp `I
 
 ---
 
-## 2. Kiến Trúc Đồng Bộ Supabase Cloud
+## 2. Kiến Trúc Đồng Bộ Hai Chiều (Two-Way Delta Sync Engine)
 
-Khi người dùng kích hoạt tính năng Sao lưu Đám mây:
+Xem chi tiết tại tài liệu chuyên sâu: [**Kiến Trúc Đồng Bộ Offline-First**](../01_architecture/offline_first_sync_architecture.md).
 
-```mermaid
-sequenceDiagram
-    autonumber
-    participant App as Simo Mobile App
-    participant Edge as Supabase Edge Function
-    participant PG as PostgreSQL (Supabase)
-
-    App->>Edge: POST /backup (Payload JSON đã mã hóa + Auth Token)
-    Edge->>Edge: Validate Token & Check Rate Limits
-    Edge->>PG: Upsert dữ liệu vào bảng user_backups
-    PG-->>Edge: OK
-    Edge-->>App: Trả về trạng thái Backup thành công kèm Timestamp
-```
-
-### 2.1. Lược Đồ Bảng Trên Supabase (`supabase_schema.sql`)
-- `profiles`: Lưu thông tin tài khoản người dùng (`id`, `email`, `created_at`).
-- `user_backups`: Lưu bản snapshot JSON mới nhất của từng người dùng (`user_id`, `snapshot_data`, `updated_at`).
-- **Row Level Security (RLS)**: Bật 100% RLS trên tất cả các bảng, đảm bảo người dùng chỉ có thể đọc/ghi dữ liệu của chính họ (`auth.uid() = user_id`).
+- **Backend**: Go 1.24+ (`apps/server`) chạy trên Homeserver / Coolify.
+- **Database**: PostgreSQL với bảng `users` và các bảng phân quyền đa người dùng (`WHERE user_id = $1`).
+- **Cơ chế đồng bộ**: Push-First, Pull-Second dựa trên con trỏ thời gian `last_synced_server_time` và cờ `synced = 0`.

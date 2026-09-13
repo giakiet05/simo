@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "LiveSyncSSEEventsContract",
+  "description": "Server-Sent Events streaming specification for Simo real-time live synchronization",
+  "endpoint": {
+    "path": "/api/v1/sync/events",
+    "method": "GET",
+    "query_parameters": {
+      "client_id": {
+        "type": "string",
+        "description": "Unique client device identifier used for self-echo suppression"
+      },
+      "token": {
+        "type": "string",
+        "description": "JWT authentication token for environments where Authorization header cannot be passed (e.g. browser EventSource)"
+      }
+    },
+    "headers": {
+      "Authorization": "Bearer <jwt_token> (Optional if query token provided)",
+      "Accept": "text/event-stream"
+    },
+    "response": {
+      "status": 200,
+      "headers": {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+        "X-Accel-Buffering": "no"
+      }
+    }
+  },
+  "events": {
+    "connected": {
+      "description": "Sent upon connection establishment",
+      "type": "object",
+      "properties": {
+        "user_id": { "type": "string", "format": "uuid" },
+        "client_id": { "type": "string" },
+        "server_time": { "type": "string", "format": "date-time" },
+        "heartbeat_interval_sec": { "type": "integer", "default": 20 }
+      },
+      "required": ["user_id", "server_time"]
+    },
+    "data_changed": {
+      "description": "Broadcasted when mutations are committed on any device belonging to the user",
+      "type": "object",
+      "properties": {
+        "source_client_id": { "type": "string" },
+        "table_names": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "server_time": { "type": "string", "format": "date-time" }
+      },
+      "required": ["source_client_id", "server_time"]
+    }
+  }
+}

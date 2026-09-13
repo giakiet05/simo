@@ -10,13 +10,14 @@ Toàn bộ tài liệu được phân chia thành các chủ đề chuyên sâu,
 
 ### 📐 01. Kiến Trúc Hệ Thống (Architecture)
 - [**Kiến trúc tổng quan & Triết lý thiết kế**](01_architecture/overview.md): Mục tiêu dự án, tech stack chiến lược, mô hình phân tầng (Layered Architecture), và luồng dữ liệu chuẩn.
+- [**Kiến trúc Đồng bộ Offline-First (Sync Engine)**](01_architecture/offline_first_sync_architecture.md): So sánh Online-First vs Offline-First, 5 trụ cột kỹ thuật, giải pháp 5 Edge Cases kinh điển và sơ đồ tuần tự chi tiết.
 - [**Cấu trúc thư mục & Bản đồ mã nguồn**](01_architecture/project_structure.md): Chi tiết trách nhiệm của từng thư mục trong `lib/` (Models, Repositories, Providers, Screens, Services, Widgets).
 - [**Quản lý trạng thái với Riverpod**](01_architecture/state_management.md): Notifier, Family Providers (`monthlyBudgetFamily`), cơ chế xử lý bất đồng bộ (`AsyncValue`), và quy trình vô hiệu hóa cache (Invalidation flow).
 
 ### 🗄️ 02. Dữ Liệu & Lưu Trữ (Data & Storage)
 - [**Lược đồ cơ sở dữ liệu SQLite**](02_data_and_storage/database_schema.md): Sơ đồ ERD quan hệ thực thể, đặc tả 11 bảng dữ liệu, và toàn bộ lịch sử Migration từ v1 đến v16.
 - [**Cơ chế DatabaseHelper & Repository Pattern**](02_data_and_storage/database_helper_and_repos.md): Xử lý kết nối Singleton, giao dịch ACID đơn nguyên (`transferFunds`, soft-unlink khi xóa category), và kiểm soát concurrency.
-- [**Đồng bộ Đám mây & Sao lưu Snapshot JSON**](02_data_and_storage/cloud_and_sync.md): Cấu trúc tệp sao lưu JSON, quy trình kiểm tra toàn vẹn (Import inspection), và kiến trúc backend Supabase Edge Functions.
+- [**Đồng bộ Đám mây & Sao lưu Snapshot JSON**](02_data_and_storage/cloud_and_sync.md): Cấu trúc tệp sao lưu JSON, quy trình kiểm tra toàn vẹn (Import inspection), và kiến trúc Two-Way Delta Sync.
 
 ### 💡 03. Đặc Tả Nghiệp Vụ Cốt Lõi (Core Features)
 - [**Ví tiền & Chuyển tiền nội bộ**](03_core_features/wallets_and_transfers.md): Quản lý đa ví, tính năng chuyển tiền Atomic giữa 2 ví, và cơ chế sắp xếp ví theo độ ưu tiên `priority`.

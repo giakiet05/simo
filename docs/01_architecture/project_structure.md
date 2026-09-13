@@ -8,7 +8,7 @@ Tài liệu này mô tả chi tiết cây thư mục của mã nguồn Simo (`li
 
 ```text
 lib/
-├── config/                  # Cấu hình môi trường (API Keys, Supabase, AdMob, Flavors)
+├── config/                  # Cấu hình môi trường (API Keys, Backend Sync URL, AdMob, Flavors)
 ├── models/                  # Domain Entities & Immutable Data Models
 ├── providers/               # Riverpod State Management & Notifiers
 ├── repositories/            # Data Access Object (DAO) & SQLite Queries

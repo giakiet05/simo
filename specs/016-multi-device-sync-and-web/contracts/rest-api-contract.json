@@ -1,0 +1,69 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Simo Web REST & Query API",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/api/v1/dashboard": {
+      "get": {
+        "summary": "Get aggregate financial dashboard data",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "month", "in": "query", "schema": { "type": "integer" } },
+          { "name": "year", "in": "query", "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Dashboard summary with total assets, monthly cashflow, and spending breakdowns"
+          }
+        }
+      }
+    },
+    "/api/v1/transactions": {
+      "get": {
+        "summary": "Query paginated transactions with filters",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 30 } },
+          { "name": "wallet_id", "in": "query", "schema": { "type": "string" } },
+          { "name": "category_id", "in": "query", "schema": { "type": "string" } },
+          { "name": "start_date", "in": "query", "schema": { "type": "string", "format": "date" } },
+          { "name": "end_date", "in": "query", "schema": { "type": "string", "format": "date" } },
+          { "name": "type", "in": "query", "schema": { "type": "string", "enum": ["income", "expense"] } },
+          { "name": "keyword", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "Paginated transaction list" } }
+      },
+      "post": {
+        "summary": "Create one or multiple transactions directly from Web interface",
+        "security": [{ "BearerAuth": [] }],
+        "responses": { "201": { "description": "Created transactions" } }
+      }
+    },
+    "/api/v1/wallets": {
+      "get": {
+        "summary": "List all user wallets with calculated balances",
+        "security": [{ "BearerAuth": [] }],
+        "responses": { "200": { "description": "List of wallets" } }
+      }
+    },
+    "/api/v1/categories": {
+      "get": {
+        "summary": "List all categories",
+        "security": [{ "BearerAuth": [] }],
+        "responses": { "200": { "description": "List of categories" } }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  }
+}

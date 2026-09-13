@@ -1,0 +1,287 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Simo Multi-Device Sync API",
+    "version": "1.0.0",
+    "description": "Full-duplex Push-First Pull-Second Delta Synchronization Contract"
+  },
+  "paths": {
+    "/api/v1/sync": {
+      "post": {
+        "summary": "Synchronize local mutations and pull remote changes",
+        "description": "Processes client mutations (Push) within a database transaction and returns server changes updated since last_synced_server_time (Pull).",
+        "security": [
+          { "BearerAuth": [] }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["device_id", "mutations"],
+                "properties": {
+                  "last_synced_server_time": {
+                    "type": "string",
+                    "format": "date-time",
+                    "nullable": true,
+                    "description": "The server timestamp returned from the previous successful sync cycle. If null, pulls all records."
+                  },
+                  "device_id": {
+                    "type": "string",
+                    "description": "Unique identifier of the client device to prevent echoing back the client's own pushed mutations."
+                  },
+                  "mutations": {
+                    "type": "object",
+                    "properties": {
+                      "wallets": { "type": "array", "items": { "$ref": "#/components/schemas/WalletMutation" } },
+                      "wallet_transfers": { "type": "array", "items": { "$ref": "#/components/schemas/WalletTransferMutation" } },
+                      "categories": { "type": "array", "items": { "$ref": "#/components/schemas/CategoryMutation" } },
+                      "transactions": { "type": "array", "items": { "$ref": "#/components/schemas/TransactionMutation" } },
+                      "monthly_budgets": { "type": "array", "items": { "$ref": "#/components/schemas/MonthlyBudgetMutation" } },
+                      "category_monthly_budgets": { "type": "array", "items": { "$ref": "#/components/schemas/CategoryMonthlyBudgetMutation" } },
+                      "saving_goals": { "type": "array", "items": { "$ref": "#/components/schemas/SavingGoalMutation" } },
+                      "saving_goal_logs": { "type": "array", "items": { "$ref": "#/components/schemas/SavingGoalLogMutation" } },
+                      "loan_contacts": { "type": "array", "items": { "$ref": "#/components/schemas/LoanContactMutation" } },
+                      "loan_transactions": { "type": "array", "items": { "$ref": "#/components/schemas/LoanTransactionMutation" } },
+                      "recurring_configs": { "type": "array", "items": { "$ref": "#/components/schemas/RecurringConfigMutation" } },
+                      "deletions": { "type": "array", "items": { "$ref": "#/components/schemas/TombstoneDeletion" } }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Sync completed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": { "type": "string", "example": "Sync completed successfully" },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "server_time": { "type": "string", "format": "date-time" },
+                        "changes": {
+                          "type": "object",
+                          "properties": {
+                            "wallets": { "type": "array", "items": { "type": "object" } },
+                            "wallet_transfers": { "type": "array", "items": { "type": "object" } },
+                            "categories": { "type": "array", "items": { "type": "object" } },
+                            "transactions": { "type": "array", "items": { "type": "object" } },
+                            "monthly_budgets": { "type": "array", "items": { "type": "object" } },
+                            "category_monthly_budgets": { "type": "array", "items": { "type": "object" } },
+                            "saving_goals": { "type": "array", "items": { "type": "object" } },
+                            "saving_goal_logs": { "type": "array", "items": { "type": "object" } },
+                            "loan_contacts": { "type": "array", "items": { "type": "object" } },
+                            "loan_transactions": { "type": "array", "items": { "type": "object" } },
+                            "recurring_configs": { "type": "array", "items": { "type": "object" } },
+                            "deletions": { "type": "array", "items": { "$ref": "#/components/schemas/TombstoneDeletion" } }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized - invalid or expired token" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "TombstoneDeletion": {
+        "type": "object",
+        "required": ["table_name", "id", "deleted_at"],
+        "properties": {
+          "table_name": { "type": "string", "enum": ["wallets", "wallet_transfers", "categories", "transactions", "monthly_budgets", "category_monthly_budgets", "saving_goals", "saving_goal_logs", "loan_contacts", "loan_transactions", "recurring_configs"] },
+          "id": { "type": "string" },
+          "deleted_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "TransactionMutation": {
+        "type": "object",
+        "required": ["id", "amount", "type", "transaction_date", "updated_at"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "wallet_id": { "type": "string", "format": "uuid", "nullable": true },
+          "category_id": { "type": "string", "nullable": true },
+          "recurring_config_id": { "type": "string", "format": "uuid", "nullable": true },
+          "amount": { "type": "number" },
+          "formula": { "type": "string", "nullable": true },
+          "note": { "type": "string", "nullable": true },
+          "type": { "type": "string", "enum": ["income", "expense"] },
+          "transaction_date": { "type": "string", "format": "date" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "WalletMutation": {
+        "type": "object",
+        "required": ["id", "name", "type", "initial_balance", "updated_at"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "name": { "type": "string" },
+          "type": { "type": "string" },
+          "initial_balance": { "type": "number" },
+          "color": { "type": "string" },
+          "icon": { "type": "string" },
+          "currency": { "type": "string", "nullable": true },
+          "is_default": { "type": "boolean" },
+          "exclude_from_total": { "type": "boolean" },
+          "priority": { "type": "integer" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "WalletTransferMutation": {
+        "type": "object",
+        "required": ["id", "source_wallet_id", "destination_wallet_id", "amount", "transfer_date", "updated_at"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "source_wallet_id": { "type": "string", "format": "uuid" },
+          "destination_wallet_id": { "type": "string", "format": "uuid" },
+          "amount": { "type": "number" },
+          "fee": { "type": "number" },
+          "transfer_date": { "type": "string", "format": "date-time" },
+          "note": { "type": "string", "nullable": true },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "CategoryMutation": {
+        "type": "object",
+        "required": ["id", "name", "type", "updated_at"],
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "type": { "type": "string", "enum": ["income", "expense"] },
+          "icon": { "type": "string", "nullable": true },
+          "color": { "type": "string", "nullable": true },
+          "budget_limit": { "type": "number", "nullable": true },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "MonthlyBudgetMutation": {
+        "type": "object",
+        "required": ["id", "year", "month", "amount", "updated_at"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "year": { "type": "integer" },
+          "month": { "type": "integer" },
+          "amount": { "type": "number" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "CategoryMonthlyBudgetMutation": {
+        "type": "object",
+        "required": ["id", "category_id", "year", "month", "amount", "updated_at"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "category_id": { "type": "string" },
+          "year": { "type": "integer" },
+          "month": { "type": "integer" },
+          "amount": { "type": "number" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "SavingGoalMutation": {
+        "type": "object",
+        "required": ["id", "name", "target_amount", "status", "updated_at"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "name": { "type": "string" },
+          "target_amount": { "type": "number" },
+          "current_amount": { "type": "number" },
+          "target_date": { "type": "string", "format": "date", "nullable": true },
+          "color": { "type": "string", "nullable": true },
+          "icon": { "type": "string", "nullable": true },
+          "note": { "type": "string", "nullable": true },
+          "status": { "type": "string" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "SavingGoalLogMutation": {
+        "type": "object",
+        "required": ["id", "goal_id", "amount", "type", "log_date", "updated_at"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "goal_id": { "type": "string", "format": "uuid" },
+          "amount": { "type": "number" },
+          "type": { "type": "string", "enum": ["deposit", "withdraw"] },
+          "log_date": { "type": "string", "format": "date-time" },
+          "note": { "type": "string", "nullable": true },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "LoanContactMutation": {
+        "type": "object",
+        "required": ["id", "contact_name", "type", "total_amount", "remaining_amount", "status", "updated_at"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "contact_name": { "type": "string" },
+          "type": { "type": "string", "enum": ["lend", "borrow"] },
+          "total_amount": { "type": "number" },
+          "remaining_amount": { "type": "number" },
+          "status": { "type": "string" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "LoanTransactionMutation": {
+        "type": "object",
+        "required": ["id", "loan_id", "amount", "type", "date", "updated_at"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "loan_id": { "type": "string", "format": "uuid" },
+          "amount": { "type": "number" },
+          "type": { "type": "string" },
+          "date": { "type": "string", "format": "date-time" },
+          "due_date": { "type": "string", "format": "date", "nullable": true },
+          "note": { "type": "string", "nullable": true },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "RecurringConfigMutation": {
+        "type": "object",
+        "required": ["id", "name", "amount", "type", "frequency", "interval", "next_run", "updated_at"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "category_id": { "type": "string", "nullable": true },
+          "wallet_id": { "type": "string", "format": "uuid", "nullable": true },
+          "name": { "type": "string" },
+          "amount": { "type": "number" },
+          "type": { "type": "string" },
+          "frequency": { "type": "string" },
+          "interval": { "type": "integer" },
+          "day_of_week": { "type": "integer", "nullable": true },
+          "day_of_month": { "type": "integer", "nullable": true },
+          "next_run": { "type": "string", "format": "date-time" },
+          "is_active": { "type": "boolean" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" }
+        }
+      }
+    }
+  }
+}

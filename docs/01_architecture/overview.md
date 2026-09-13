@@ -1,6 +1,6 @@
 # Kiến Trúc Tổng Quan (System Overview & Architecture)
 
-**Simo** là ứng dụng quản lý tài chính cá nhân đa nền tảng (ưu tiên Android/iOS) được thiết kế theo triết lý **Offline-First & Privacy-First**. Người dùng có toàn quyền kiểm soát dữ liệu tài chính của mình trên thiết bị local, đồng thời hỗ trợ sao lưu đám mây (Cloud Backup) an toàn thông qua Supabase.
+**Simo** là ứng dụng quản lý tài chính cá nhân đa nền tảng (ưu tiên Android/iOS) được thiết kế theo triết lý **Offline-First & Privacy-First**. Người dùng có toàn quyền kiểm soát dữ liệu tài chính của mình trên thiết bị local, đồng thời hỗ trợ đồng bộ đa thiết bị và sao lưu đám mây an toàn thông qua Go Backend & PostgreSQL (Homeserver / Cloud).
 
 ---
 
@@ -24,7 +24,7 @@
 | **AI & Voice** | [speech_to_text](https://pub.dev/packages/speech_to_text) + [dart_openai](https://pub.dev/packages/dart_openai) | Nhận diện giọng nói và bóc tách thực thể giao dịch bằng AI |
 | **Data Visualization** | [fl_chart](https://pub.dev/packages/fl_chart) `^0.69.2` | Biểu đồ tròn (PieChart) & cột phân tích dòng tiền |
 | **Export & Reporting** | [excel](https://pub.dev/packages/excel), [csv](https://pub.dev/packages/csv), [pdf](https://pub.dev/packages/pdf), [printing](https://pub.dev/packages/printing) | Xuất báo cáo tài chính sao kê đa định dạng |
-| **Backend / Cloud** | [Supabase](https://supabase.com) (PostgreSQL + Edge Functions) | Sao lưu đám mây snapshot JSON & đồng bộ đa thiết bị |
+| **Backend / Cloud** | [Go Backend](https://go.dev) + [PostgreSQL](https://postgresql.org) | Two-Way Delta Sync Hub, Google OAuth & Web API |
 | **Monetization** | [google_mobile_ads](https://pub.dev/packages/google_mobile_ads) `^5.1.0` | Quảng cáo banner & video thưởng 12h ad-free (tùy chọn compile) |
 
 ---
@@ -38,7 +38,7 @@ graph TD
     UI[Presentation Layer: Screens & Widgets] -->|Watch / Listen| Notifier[State Management: Riverpod Notifiers]
     Notifier -->|Call CRUD / Logic| Repos[Data Layer: Repositories]
     Repos -->|SQL Execution| DB[(Local SQLite: DatabaseHelper)]
-    Repos -->|Sync / Snapshot| Cloud[(Supabase Cloud Backup)]
+    Repos -->|Sync / Snapshot| Cloud[(Go Backend & PostgreSQL)]
     Notifier -->|Delegate Utility| Services[Domain Services: AI, Currency, Export]
 ```
 

@@ -6,6 +6,6 @@
 - Job scheduler: Go lib (gocron)
 - Auth: Google OAuth
 # Deploy
-- Backend: Render
-- Postgres: Supabase (500MB free)
-- Web: Vercel (better than Render)
+- Backend: Coolify / Homeserver (Docker)
+- Postgres: PostgreSQL (Self-hosted on Homeserver)
+- Web: Coolify / Homeserver
