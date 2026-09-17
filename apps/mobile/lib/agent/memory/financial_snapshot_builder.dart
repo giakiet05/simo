@@ -50,6 +50,16 @@ class FinancialSnapshotBuilder {
 
     final summaryStr = 'Tổng chi hôm nay: ${todayExpense.toInt()} VND, Tổng thu hôm nay: ${todayIncome.toInt()} VND, Số giao dịch hôm nay: ${todayTxs.length}.';
 
+    final recentTxs = transactions.take(10).toList();
+    final recentTxsStr = recentTxs.isEmpty
+        ? 'Chưa có giao dịch gần đây'
+        : recentTxs.map((tx) {
+            final cat = categories.where((c) => c.id == tx.categoryId).firstOrNull?.name ?? 'Chưa phân loại';
+            final wal = wallets.where((w) => w.id == tx.walletId).firstOrNull?.name ?? 'Mặc định';
+            final dateStr = '${tx.transactionDate.year}-${tx.transactionDate.month.toString().padLeft(2, '0')}-${tx.transactionDate.day.toString().padLeft(2, '0')}';
+            return 'ID: ${tx.id}, Ghi chú: "${tx.note ?? ''}", Tiền: ${tx.amount.toInt()} VND, Loại: ${tx.type}, Danh mục: $cat (ID: ${tx.categoryId ?? 'null'}), Ví: $wal, Ngày: $dateStr';
+          }).join('\n');
+
     return """
 [Danh mục (Categories)]:
 $categoryStr
@@ -62,6 +72,9 @@ $loanStr
 
 [Mục tiêu tích lũy (Goals)]:
 $goalStr
+
+[Giao dịch gần đây (Recent Transactions)]:
+$recentTxsStr
 
 [Tổng quan hôm nay]:
 $summaryStr

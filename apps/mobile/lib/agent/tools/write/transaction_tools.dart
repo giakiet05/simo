@@ -2,6 +2,7 @@ import 'package:uuid/uuid.dart';
 import '../agent_tool.dart';
 import '../../../models/category.dart';
 import '../../../models/wallet.dart';
+import '../../../models/transaction.dart';
 import '../../../providers/transaction_provider.dart';
 import '../../../providers/category_provider.dart';
 import '../../../providers/wallet_provider.dart';
@@ -143,7 +144,10 @@ class UpdateTransactionTool extends SimoAgentTool<Map<String, dynamic>, bool> {
   Future<bool> execute(Map<String, dynamic> input, AgentExecutionContext context) async {
     final categories = context.ref.read(categoryProvider).value ?? [];
     final wallets = context.ref.read(walletProvider).value ?? [];
+    final txs = context.ref.read(transactionProvider).value ?? [];
+    if (txs.isEmpty) return false;
 
+    // 1. Resolve category
     String? categoryId = input['categoryId'] as String?;
     final categoryName = (input['categoryName'] as String?) ?? (input['category'] as String?);
     if (categoryName != null && categoryName.trim().isNotEmpty) {
@@ -154,6 +158,7 @@ class UpdateTransactionTool extends SimoAgentTool<Map<String, dynamic>, bool> {
       }
     }
 
+    // 2. Resolve wallet
     String? walletId = input['walletId'] as String?;
     final walletName = (input['walletName'] as String?) ?? (input['wallet'] as String?);
     if (walletName != null && walletName.trim().isNotEmpty) {
@@ -164,36 +169,56 @@ class UpdateTransactionTool extends SimoAgentTool<Map<String, dynamic>, bool> {
       }
     }
 
-    final transactionId = input['transactionId'] as String?;
-    if (transactionId == null || transactionId.isEmpty) {
-      // If no explicit ID, fallback to finding the most recent transaction
-      final txs = context.ref.read(transactionProvider).value ?? [];
-      if (txs.isEmpty) return false;
-      final target = txs.first;
-      final amount = (input['amount'] as num?)?.toDouble();
-      final note = input['note'] as String?;
+    // 3. Resolve target transaction
+    final rawTxId = input['transactionId'] as String?;
+    final targetNote = (input['note'] as String?)?.toLowerCase().trim();
 
-      await context.ref.read(transactionProvider.notifier).updateTransaction(
-        target.id,
-        amount: amount,
-        note: note,
-        categoryId: categoryId,
-        walletId: walletId,
-      );
-      return true;
+    Transaction? target;
+    if (rawTxId != null && rawTxId.isNotEmpty) {
+      target = txs.where((t) => t.id == rawTxId).firstOrNull;
     }
 
-    final amount = (input['amount'] as num?)?.toDouble();
-    final note = input['note'] as String?;
-    final type = input['type'] as String?;
+    // Handle placeholder IDs like "transaction_id_of_coffee"
+    if (target == null && rawTxId != null && rawTxId.isNotEmpty) {
+      final cleanQuery = rawTxId.toLowerCase()
+          .replaceAll('transaction_id_of_', '')
+          .replaceAll('tx_', '')
+          .replaceAll('_', ' ')
+          .trim();
+      if (cleanQuery.isNotEmpty) {
+        target = txs.where((t) {
+          final note = (t.note ?? '').toLowerCase();
+          return note.contains(cleanQuery) || cleanQuery.contains(note);
+        }).firstOrNull;
+      }
+    }
+
+    // Match by note query
+    if (target == null && targetNote != null && targetNote.isNotEmpty) {
+      target = txs.where((t) {
+        final note = (t.note ?? '').toLowerCase();
+        return note.contains(targetNote) || targetNote.contains(note);
+      }).firstOrNull;
+    }
+
+    // Fallback to most recent transaction
+    target ??= txs.first;
+
+    // 4. Safe amount handling (ignore 0)
+    final double? rawAmount = (input['amount'] as num?)?.toDouble();
+    final double? newAmount = (rawAmount != null && rawAmount > 0) ? rawAmount : null;
+
+    final String? newNote = (input['newNote'] as String?) ??
+        (targetNote != null && targetNote.isNotEmpty && targetNote != target.note?.toLowerCase() ? input['note'] as String? : null);
+    final String? newType = input['type'] as String?;
 
     await context.ref.read(transactionProvider.notifier).updateTransaction(
-      transactionId,
-      amount: amount,
-      note: note,
+      target.id,
+      amount: newAmount,
+      note: newNote,
       categoryId: categoryId,
       walletId: walletId,
-      type: type,
+      type: newType,
     );
 
     return true;
@@ -222,19 +247,41 @@ class DeleteTransactionTool extends SimoAgentTool<Map<String, dynamic>, bool> {
 
   @override
   Future<bool> execute(Map<String, dynamic> input, AgentExecutionContext context) async {
-    final transactionId = input['transactionId'] as String?;
-    if (transactionId != null && transactionId.isNotEmpty) {
-      await context.ref.read(transactionProvider.notifier).deleteTransactions([transactionId]);
-      return true;
-    }
-
-    // If ID omitted, find most recent transaction
     final txs = context.ref.read(transactionProvider).value ?? [];
-    if (txs.isNotEmpty) {
-      await context.ref.read(transactionProvider.notifier).deleteTransactions([txs.first.id]);
-      return true;
+    if (txs.isEmpty) return false;
+
+    final rawTxId = input['transactionId'] as String?;
+    final targetNote = (input['note'] as String?)?.toLowerCase().trim();
+
+    Transaction? target;
+    if (rawTxId != null && rawTxId.isNotEmpty) {
+      target = txs.where((t) => t.id == rawTxId).firstOrNull;
     }
 
-    return false;
+    if (target == null && rawTxId != null && rawTxId.isNotEmpty) {
+      final cleanQuery = rawTxId.toLowerCase()
+          .replaceAll('transaction_id_of_', '')
+          .replaceAll('tx_', '')
+          .replaceAll('_', ' ')
+          .trim();
+      if (cleanQuery.isNotEmpty) {
+        target = txs.where((t) {
+          final note = (t.note ?? '').toLowerCase();
+          return note.contains(cleanQuery) || cleanQuery.contains(note);
+        }).firstOrNull;
+      }
+    }
+
+    if (target == null && targetNote != null && targetNote.isNotEmpty) {
+      target = txs.where((t) {
+        final note = (t.note ?? '').toLowerCase();
+        return note.contains(targetNote) || targetNote.contains(note);
+      }).firstOrNull;
+    }
+
+    target ??= txs.first;
+
+    await context.ref.read(transactionProvider.notifier).deleteTransactions([target.id]);
+    return true;
   }
 }

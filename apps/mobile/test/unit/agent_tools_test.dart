@@ -114,6 +114,8 @@ void main() {
     test('builds prompt containing all tool specifications and currency rules', () {
       final prompt = SystemPromptBuilder.build(financialSnapshot: 'Ví tiền mặt: 100.000 VND');
       expect(prompt.contains('transaction_create'), isTrue);
+      expect(prompt.contains('transaction_update'), isTrue);
+      expect(prompt.contains('transaction_delete'), isTrue);
       expect(prompt.contains('budget_set'), isTrue);
       expect(prompt.contains('wallet_create'), isTrue);
       expect(prompt.contains('category_create'), isTrue);
