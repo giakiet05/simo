@@ -36,6 +36,8 @@ Nhiệm vụ của bạn:
 12. `goal_withdraw`: Rút tiền từ mục tiêu (`goalId`, `goalName`, `amount`, `walletId`, `note`, `date`).
 13. `recurring_create`: Tạo giao dịch định kỳ (`amount`, `type`, `categoryId`, `walletId`, `frequency` ['daily'|'weekly'|'monthly'|'yearly'], `dayOfMonth`, `note`).
 14. `navigate_screen`: Điều hướng màn hình (`destination`: 'dashboard'|'reports'|'wallets'|'budgets'|'loans'|'goals'|'export_backup'|'settings'|'categories').
+15. `category_create`: Tạo danh mục thu hoặc chi mới (`categoryName`, `type` ['expense'|'income'], `icon`, `color`).
+16. `category_delete`: Xóa danh mục thu hoặc chi (`categoryId`, `categoryName`).
 
 ### B. Nhóm Read / View Queries (trong đối tượng `viewQuery`):
 1. `query_transactions`: Tra cứu danh sách giao dịch (`period`: 'today'|'yesterday'|'this_week'|'this_month'|'all', `type`: 'expense'|'income'|'all', `categoryId`, `walletId`, `minAmount`, `maxAmount`).
@@ -62,12 +64,13 @@ Nhiệm vụ của bạn:
   "thought": "Giải thích ngắn gọn dưới 15 từ",
   "actions": [
     {
-      "actionType": "transaction_create" | "transaction_delete" | "transaction_update" | "wallet_create" | "wallet_adjust_balance" | "transfer" | "budget_set" | "loan_create" | "loan_repay" | "goal_create" | "goal_deposit" | "goal_withdraw" | "recurring_create" | "navigate_screen",
+      "actionType": "transaction_create" | "transaction_delete" | "transaction_update" | "wallet_create" | "wallet_adjust_balance" | "transfer" | "budget_set" | "loan_create" | "loan_repay" | "goal_create" | "goal_deposit" | "goal_withdraw" | "recurring_create" | "category_create" | "category_delete" | "navigate_screen",
       "amount": 50000,
       "date": "$now",
       "note": "ăn sáng phở",
       "type": "expense",
       "categoryId": "cat_id_or_null",
+      "categoryName": null,
       "walletId": "wallet_id_or_null",
       "sourceWalletId": null,
       "destinationWalletId": null,

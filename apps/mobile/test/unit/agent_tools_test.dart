@@ -115,6 +115,8 @@ void main() {
       expect(prompt.contains('transaction_create'), isTrue);
       expect(prompt.contains('budget_set'), isTrue);
       expect(prompt.contains('wallet_create'), isTrue);
+      expect(prompt.contains('category_create'), isTrue);
+      expect(prompt.contains('category_delete'), isTrue);
       expect(prompt.contains('query_transactions'), isTrue);
       expect(prompt.contains('view_budgets'), isTrue);
       expect(prompt.contains('navigate_screen'), isTrue);

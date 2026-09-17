@@ -20,6 +20,7 @@ import '../agent/tools/read/view_budgets_tool.dart';
 import '../agent/tools/read/view_debts_tool.dart';
 import '../agent/tools/read/view_goals_tool.dart';
 
+import '../agent/tools/write/category_tools.dart';
 import '../agent/tools/write/transaction_tools.dart';
 import '../agent/tools/write/wallet_tools.dart';
 import '../agent/tools/write/budget_tools.dart';
@@ -112,6 +113,8 @@ class AiAssistantNotifier extends StateNotifier<AiAssistantState> {
     _toolRegistry.register(GoalDepositTool());
     _toolRegistry.register(GoalWithdrawTool());
     _toolRegistry.register(CreateRecurringTool());
+    _toolRegistry.register(CreateCategoryTool());
+    _toolRegistry.register(DeleteCategoryTool());
 
     // Navigation Tool
     _toolRegistry.register(NavigateScreenTool());
@@ -440,6 +443,19 @@ class AiAssistantNotifier extends StateNotifier<AiAssistantState> {
       case 'recurring_create':
         title = 'Tạo giao dịch định kỳ';
         subtitle = 'Lặp lại: $note';
+        break;
+
+      case 'category_create':
+        title = 'Tạo danh mục mới';
+        final catName = rawAction['categoryName'] as String? ?? rawAction['name'] as String? ?? 'Danh mục mới';
+        final catType = (rawAction['type'] as String? ?? 'expense') == 'income' ? 'Thu nhập' : 'Chi tiêu';
+        subtitle = 'Tên danh mục: $catName ($catType)';
+        break;
+
+      case 'category_delete':
+        title = 'Xóa danh mục';
+        final delName = rawAction['categoryName'] as String? ?? 'Danh mục';
+        subtitle = 'Đã xóa danh mục: $delName';
         break;
 
       case 'navigate_screen':
