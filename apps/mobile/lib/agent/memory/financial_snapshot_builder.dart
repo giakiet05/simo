@@ -15,9 +15,10 @@ class FinancialSnapshotBuilder {
     final goals = ref.read(savingGoalProvider).value ?? [];
     final transactions = ref.read(transactionProvider).value ?? [];
 
-    final categoryStr = categories.isEmpty
+    final userCategories = categories.where((c) => !c.id.startsWith('sys_')).toList();
+    final categoryStr = userCategories.isEmpty
         ? 'Chưa có danh mục'
-        : categories.map((c) => 'ID: ${c.id}, Tên: ${c.name}, Loại: ${c.type}').join('\n');
+        : userCategories.map((c) => 'ID: ${c.id}, Tên: ${c.name}, Loại: ${c.type}').join('\n');
 
     final walletStr = wallets.isEmpty
         ? 'Chưa có ví cụ thể'

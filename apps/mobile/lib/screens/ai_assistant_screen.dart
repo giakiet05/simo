@@ -7,6 +7,11 @@ import '../providers/wallet_provider.dart';
 import '../providers/loan_provider.dart';
 import '../providers/saving_goal_provider.dart';
 
+import '../models/ai_message.dart';
+import '../models/transaction.dart';
+import '../models/loan_contact.dart';
+import '../models/saving_goal.dart';
+
 import '../agent/ui/memory_horizon_divider.dart';
 import '../widgets/ai/ai_message_bubble.dart';
 import '../widgets/ai/ai_quick_prompts.dart';
@@ -171,6 +176,128 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
     );
   }
 
+  void _handleActionCardTap(AiExecutedAction action) {
+    final type = action.actionType.toLowerCase();
+    final raw = action.rawAction ?? {};
+
+    if (type.startsWith('transaction')) {
+      final txs = ref.read(transactionProvider).value ?? [];
+      final rawId = raw['transactionId'] as String? ?? raw['id'] as String?;
+      final targetNote = (raw['note'] as String?)?.toLowerCase();
+
+      Transaction? targetTx;
+      if (rawId != null && rawId.isNotEmpty) {
+        targetTx = txs.where((t) => t.id == rawId).firstOrNull;
+      }
+      if (targetTx == null && targetNote != null && targetNote.isNotEmpty) {
+        targetTx = txs.where((t) => (t.note ?? '').toLowerCase().contains(targetNote)).firstOrNull;
+      }
+      targetTx ??= txs.firstOrNull;
+
+      if (targetTx != null) {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => TransactionFormScreen(editTransactionId: targetTx!.id),
+          ),
+        );
+      } else {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => const TransactionFormScreen(),
+          ),
+        );
+      }
+    } else if (type.startsWith('category')) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => const CategoryScreen(),
+        ),
+      );
+    } else if (type.startsWith('wallet') || type == 'transfer') {
+      final wallets = ref.read(walletProvider).value ?? [];
+      final wid = (raw['walletId'] as String?) ??
+          (raw['destinationWalletId'] as String?) ??
+          (raw['sourceWalletId'] as String?);
+      final wallet = wid != null ? wallets.where((w) => w.id == wid).firstOrNull : null;
+      if (wallet != null) {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => WalletDetailScreen(walletId: wallet.id),
+          ),
+        );
+      } else {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => const WalletsScreen(),
+          ),
+        );
+      }
+    } else if (type == 'budget_set') {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => const CategoryBudgetScreen(),
+        ),
+      );
+    } else if (type.startsWith('loan')) {
+      final loans = ref.read(loanProvider).value ?? [];
+      final cid = raw['contactId'] as String?;
+      final cname = (raw['contactName'] as String?)?.toLowerCase();
+      LoanContact? contact;
+      if (cid != null) {
+        contact = loans.where((l) => l.id == cid).firstOrNull;
+      }
+      if (contact == null && cname != null) {
+        contact = loans.where((l) => l.contactName.toLowerCase().contains(cname)).firstOrNull;
+      }
+      if (contact != null) {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => LoanDetailScreen(contact: contact!),
+          ),
+        );
+      } else {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => const LoanScreen(),
+          ),
+        );
+      }
+    } else if (type.startsWith('goal')) {
+      final goals = ref.read(savingGoalProvider).value ?? [];
+      final gid = raw['goalId'] as String?;
+      final gname = (raw['goalName'] as String?)?.toLowerCase();
+      SavingGoal? goal;
+      if (gid != null) {
+        goal = goals.where((g) => g.id == gid).firstOrNull;
+      }
+      if (goal == null && gname != null) {
+        goal = goals.where((g) => g.name.toLowerCase().contains(gname)).firstOrNull;
+      }
+      if (goal != null) {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => SavingGoalDetailScreen(goalId: goal!.id),
+          ),
+        );
+      } else {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => const SavingGoalsScreen(),
+          ),
+        );
+      }
+    } else if (type.startsWith('recurring')) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => const RecurringScreen(),
+        ),
+      );
+    } else if (type == 'navigate_screen') {
+      final dest = raw['destination'] as String? ?? '';
+      _handleNavigate(dest);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(aiAssistantProvider);
@@ -239,6 +366,7 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
                               onLoanContactTap: _handleLoanContactTap,
                               onSavingGoalTap: _handleSavingGoalTap,
                               onBudgetTap: _handleBudgetTap,
+                              onActionTap: _handleActionCardTap,
                             ),
                           ],
                         );

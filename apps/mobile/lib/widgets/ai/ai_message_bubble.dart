@@ -15,6 +15,7 @@ class AiMessageBubble extends StatelessWidget {
   final void Function(String)? onLoanContactTap;
   final void Function(String)? onSavingGoalTap;
   final VoidCallback? onBudgetTap;
+  final void Function(AiExecutedAction)? onActionTap;
 
   const AiMessageBubble({
     super.key,
@@ -24,6 +25,7 @@ class AiMessageBubble extends StatelessWidget {
     this.onLoanContactTap,
     this.onSavingGoalTap,
     this.onBudgetTap,
+    this.onActionTap,
   });
 
   @override
@@ -61,7 +63,10 @@ class AiMessageBubble extends StatelessWidget {
                 // Render Action Confirmation Cards
                 if (message.actions.isNotEmpty) ...[
                   const SizedBox(height: 4),
-                  ...message.actions.map((action) => AiActionCard(action: action)),
+                  ...message.actions.map((action) => AiActionCard(
+                        action: action,
+                        onTap: onActionTap,
+                      )),
                 ],
 
                 // Render Generative UI View Query Card

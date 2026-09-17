@@ -57,6 +57,11 @@ Nhiệm vụ của bạn:
 # 4. QUY TẮC THỜI GIAN & THỰC THỂ
 - Thời gian hiện tại: $now
 - Khớp ID từ Dữ liệu ngữ cảnh. Nếu sửa giao dịch, dùng ID trong phần [Giao dịch gần đây] hoặc truyền note/categoryName. Không tự bịa ID lạ.
+- QUY TẮC CHỌN DANH MỤC GIAO DỊCH:
+  1. Chọn danh mục trong [Danh mục (Categories)] phù hợp nhất với nội dung giao dịch.
+  2. Nếu KHÔNG tìm thấy danh mục phù hợp (ví dụ: "đổ xăng" mà danh sách không có Xăng xe/Đi lại), BẮT BUỘC chọn danh mục "Khác" (nếu có).
+  3. Nếu không có danh mục "Khác", hãy để `categoryId: null` và `categoryName: null` (để trống danh mục, TUYỆT ĐỐI KHÔNG gán ép vào danh mục không liên quan).
+  4. TUYỆT ĐỐI CẤM tự ý gán giao dịch thông thường vào các danh mục vay nợ.
 
 # 5. CẤU TRÚC JSON ĐẦU RA (BẮT BUỘC)
 {

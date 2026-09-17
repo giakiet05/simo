@@ -39,42 +39,45 @@ class CreateTransactionTool extends SimoAgentTool<Map<String, dynamic>, bool> {
     final dateStr = input['date'] as String?;
     final date = dateStr != null ? (DateTime.tryParse(dateStr) ?? DateTime.now()) : DateTime.now();
 
-    final categories = context.ref.read(categoryProvider).value ?? [];
+    final allCategories = context.ref.read(categoryProvider).value ?? [];
+    final userCategories = allCategories.where((c) => !c.id.startsWith('sys_')).toList();
     final wallets = context.ref.read(walletProvider).value ?? [];
 
     final rawCatId = input['categoryId'] as String?;
     final rawCatName = (input['categoryName'] as String?) ?? (input['category'] as String?);
 
     Category? matchedCategory;
-    // 1. Direct ID match
-    if (rawCatId != null && rawCatId.isNotEmpty) {
-      matchedCategory = categories.where((c) => c.id == rawCatId).firstOrNull;
+    // 1. Direct ID match (exclude internal sys_ categories)
+    if (rawCatId != null && rawCatId.isNotEmpty && !rawCatId.startsWith('sys_')) {
+      matchedCategory = userCategories.where((c) => c.id == rawCatId).firstOrNull;
     }
 
     // 2. Exact or partial match by categoryName
     if (matchedCategory == null && rawCatName != null && rawCatName.trim().isNotEmpty) {
       final query = rawCatName.trim().toLowerCase();
-      matchedCategory = categories.where((c) => c.name.toLowerCase() == query).firstOrNull ??
-          categories.where((c) => c.name.toLowerCase().contains(query) || query.contains(c.name.toLowerCase())).firstOrNull;
+      matchedCategory = userCategories.where((c) => c.name.toLowerCase() == query).firstOrNull ??
+          userCategories.where((c) => c.name.toLowerCase().contains(query) || query.contains(c.name.toLowerCase())).firstOrNull;
     }
 
     // 3. In case the AI put the category name inside categoryId
-    if (matchedCategory == null && rawCatId != null && rawCatId.trim().isNotEmpty) {
+    if (matchedCategory == null && rawCatId != null && rawCatId.trim().isNotEmpty && !rawCatId.startsWith('sys_')) {
       final query = rawCatId.trim().toLowerCase();
-      matchedCategory = categories.where((c) => c.name.toLowerCase() == query).firstOrNull ??
-          categories.where((c) => c.name.toLowerCase().contains(query) || query.contains(c.name.toLowerCase())).firstOrNull;
+      matchedCategory = userCategories.where((c) => c.name.toLowerCase() == query).firstOrNull ??
+          userCategories.where((c) => c.name.toLowerCase().contains(query) || query.contains(c.name.toLowerCase())).firstOrNull;
     }
 
     // 4. Match based on note keywords
     if (matchedCategory == null && note.isNotEmpty) {
       final noteLower = note.toLowerCase();
-      matchedCategory = categories.where((c) =>
+      matchedCategory = userCategories.where((c) =>
         c.type == type && (noteLower.contains(c.name.toLowerCase()) || c.name.toLowerCase().contains(noteLower))
       ).firstOrNull;
     }
 
-    // 5. Fallback to first category of matching type or first available
-    matchedCategory ??= categories.where((c) => c.type == type).firstOrNull ?? (categories.isNotEmpty ? categories.first : null);
+    // 5. Fallback rule: If no specific category matches, prioritize 'Khác' / 'Other'. If none, leave null!
+    matchedCategory ??= userCategories.where((c) =>
+      c.type == type && (c.name.toLowerCase().contains('khác') || c.name.toLowerCase().contains('other'))
+    ).firstOrNull;
 
     final String? categoryId = matchedCategory?.id;
 
@@ -142,17 +145,21 @@ class UpdateTransactionTool extends SimoAgentTool<Map<String, dynamic>, bool> {
 
   @override
   Future<bool> execute(Map<String, dynamic> input, AgentExecutionContext context) async {
-    final categories = context.ref.read(categoryProvider).value ?? [];
+    final allCategories = context.ref.read(categoryProvider).value ?? [];
+    final userCategories = allCategories.where((c) => !c.id.startsWith('sys_')).toList();
     final wallets = context.ref.read(walletProvider).value ?? [];
     final txs = context.ref.read(transactionProvider).value ?? [];
     if (txs.isEmpty) return false;
 
     // 1. Resolve category
     String? categoryId = input['categoryId'] as String?;
+    if (categoryId != null && categoryId.startsWith('sys_')) {
+      categoryId = null;
+    }
     final categoryName = (input['categoryName'] as String?) ?? (input['category'] as String?);
     if (categoryName != null && categoryName.trim().isNotEmpty) {
-      final matched = categories.where((c) => c.name.toLowerCase() == categoryName.toLowerCase().trim()).firstOrNull ??
-          categories.where((c) => c.name.toLowerCase().contains(categoryName.toLowerCase().trim())).firstOrNull;
+      final matched = userCategories.where((c) => c.name.toLowerCase() == categoryName.toLowerCase().trim()).firstOrNull ??
+          userCategories.where((c) => c.name.toLowerCase().contains(categoryName.toLowerCase().trim())).firstOrNull;
       if (matched != null) {
         categoryId = matched.id;
       }
