@@ -7,15 +7,33 @@ import '../models/category.dart';
 import '../models/wallet.dart';
 import '../models/loan_contact.dart';
 import '../models/saving_goal.dart';
-import '../services/ai_action_dispatcher.dart';
-import '../services/ai_transaction_service.dart';
+
+import '../agent/brain/agent_brain.dart';
+import '../agent/memory/agent_memory_context.dart';
+import '../agent/memory/financial_snapshot_builder.dart';
+import '../agent/tools/agent_tool.dart';
+import '../agent/tools/tool_registry.dart';
+
+import '../agent/tools/read/query_transactions_tool.dart';
+import '../agent/tools/read/view_wallets_tool.dart';
+import '../agent/tools/read/view_budgets_tool.dart';
+import '../agent/tools/read/view_debts_tool.dart';
+import '../agent/tools/read/view_goals_tool.dart';
+
+import '../agent/tools/write/transaction_tools.dart';
+import '../agent/tools/write/wallet_tools.dart';
+import '../agent/tools/write/budget_tools.dart';
+import '../agent/tools/write/loan_tools.dart';
+import '../agent/tools/write/goal_tools.dart';
+import '../agent/tools/write/recurring_tools.dart';
+import '../agent/tools/navigation/navigate_screen_tool.dart';
+
 import '../services/speech/speech_recognition_service.dart';
 import '../services/speech/speech_service_factory.dart';
 import 'category_provider.dart';
 import 'wallet_provider.dart';
 import 'loan_provider.dart';
 import 'saving_goal_provider.dart';
-import 'transaction_provider.dart';
 
 /// State representation of the conversational AI Assistant.
 class AiAssistantState {
@@ -25,6 +43,7 @@ class AiAssistantState {
   final String recognizedSpeechText;
   final int silenceCountdown;
   final String? errorMessage;
+  final int? horizonIndex;
 
   const AiAssistantState({
     this.messages = const [],
@@ -33,6 +52,7 @@ class AiAssistantState {
     this.recognizedSpeechText = '',
     this.silenceCountdown = 5,
     this.errorMessage,
+    this.horizonIndex,
   });
 
   AiAssistantState copyWith({
@@ -42,6 +62,8 @@ class AiAssistantState {
     String? recognizedSpeechText,
     int? silenceCountdown,
     String? errorMessage,
+    int? horizonIndex,
+    bool clearHorizon = false,
   }) {
     return AiAssistantState(
       messages: messages ?? this.messages,
@@ -50,36 +72,72 @@ class AiAssistantState {
       recognizedSpeechText: recognizedSpeechText ?? this.recognizedSpeechText,
       silenceCountdown: silenceCountdown ?? this.silenceCountdown,
       errorMessage: errorMessage,
+      horizonIndex: clearHorizon ? null : (horizonIndex ?? this.horizonIndex),
     );
   }
 }
 
-/// State notifier managing dialogue turns, multimodal input, and agent action dispatch.
+/// State notifier managing dialogue turns, multimodal input, decoupled brain orchestration, and tool execution.
 class AiAssistantNotifier extends StateNotifier<AiAssistantState> {
   final Ref _ref;
-  final AiTransactionService _aiService = AiTransactionService();
+  final AgentBrain _brain = AgentBrain();
+  final ToolRegistry _toolRegistry = ToolRegistry();
   late final SpeechRecognitionService _speechService;
   Timer? _countdownTimer;
 
   AiAssistantNotifier(this._ref) : super(const AiAssistantState()) {
     _speechService = SpeechServiceFactory.create();
+    _registerDefaultTools();
+  }
+
+  void _registerDefaultTools() {
+    // Read Tools
+    _toolRegistry.register(QueryTransactionsTool());
+    _toolRegistry.register(ViewWalletsTool());
+    _toolRegistry.register(ViewBudgetsTool());
+    _toolRegistry.register(ViewDebtsTool());
+    _toolRegistry.register(ViewGoalsTool());
+
+    // Write Tools
+    _toolRegistry.register(CreateTransactionTool());
+    _toolRegistry.register(UpdateTransactionTool());
+    _toolRegistry.register(DeleteTransactionTool());
+    _toolRegistry.register(CreateWalletTool());
+    _toolRegistry.register(AdjustWalletBalanceTool());
+    _toolRegistry.register(TransferWalletTool());
+    _toolRegistry.register(SetBudgetTool());
+    _toolRegistry.register(CreateLoanTool());
+    _toolRegistry.register(RepayLoanTool());
+    _toolRegistry.register(CreateGoalTool());
+    _toolRegistry.register(GoalDepositTool());
+    _toolRegistry.register(GoalWithdrawTool());
+    _toolRegistry.register(CreateRecurringTool());
+
+    // Navigation Tool
+    _toolRegistry.register(NavigateScreenTool());
   }
 
   /// Sends a text message to the AI agent and executes any resulting financial operations.
-  Future<void> sendMessage(String rawText) async {
+  Future<void> sendMessage(
+    String rawText, {
+    Future<void> Function(String route, {Map<String, dynamic>? arguments})? onNavigate,
+  }) async {
     final text = rawText.trim();
     if (text.isEmpty || state.isProcessing) return;
 
     final userMessage = AiMessage.user(text);
     final thinkingMessage = AiMessage.assistantThinking();
 
-    // Append user message and thinking placeholder
+    final updatedMessages = [...state.messages, userMessage, thinkingMessage];
+    final horizon = AgentMemoryContext.calculateHorizonIndex(updatedMessages);
+
     if (mounted) {
       state = state.copyWith(
-        messages: [...state.messages, userMessage, thinkingMessage],
+        messages: updatedMessages,
         isProcessing: true,
         errorMessage: null,
         recognizedSpeechText: '',
+        horizonIndex: horizon,
       );
     }
 
@@ -89,86 +147,79 @@ class AiAssistantNotifier extends StateNotifier<AiAssistantState> {
       final loans = _ref.read(loanProvider).value ?? [];
       final goals = _ref.read(savingGoalProvider).value ?? [];
 
-      // Build financial snapshot for context awareness
-      final summaryContext = _buildFinancialSummary();
+      // Extract bounded 10-turn sliding history
+      final workingHistory = AgentMemoryContext.extractWorkingTurns(state.messages);
 
-      // Collect last 6 conversational turns
-      final chatHistory = <Map<String, String>>[];
-      for (final msg in state.messages) {
-        if (msg.id == thinkingMessage.id) continue;
-        if (msg.role == AiMessageRole.user) {
-          chatHistory.add({'role': 'user', 'content': msg.content});
-        } else if (msg.role == AiMessageRole.assistant && msg.content.isNotEmpty) {
-          chatHistory.add({'role': 'assistant', 'content': msg.content});
-        }
-      }
-      final trimmedHistory = chatHistory.length > 6
-          ? chatHistory.sublist(chatHistory.length - 6)
-          : chatHistory;
+      // Build live financial snapshot
+      final snapshot = FinancialSnapshotBuilder.buildSystemContext(_ref);
 
-      final parsed = await _aiService.parseUserIntent(
-        spokenText: text,
-        categories: categories,
-        wallets: wallets,
-        loanContacts: loans,
-        savingGoals: goals,
-        financialSummaryContext: summaryContext,
-        chatHistory: trimmedHistory,
+      // Process via Agent Brain
+      final brainResult = await _brain.process(
+        userInput: text,
+        financialSnapshot: snapshot,
+        workingHistory: workingHistory,
       );
 
       if (!mounted) return;
 
-      if (parsed == null) {
-        throw Exception('Không thể kết nối với AI. Vui lòng kiểm tra lại kết nối mạng.');
-      }
+      final executionContext = AgentExecutionContext(
+        ref: _ref,
+        onNavigate: onNavigate,
+      );
 
-      final isSuccess = parsed['isSuccess'] as bool? ?? false;
-      final responseMessage = parsed['responseMessage'] as String? ??
-          parsed['message'] as String? ??
-          'Tôi đã nhận được thông tin của bạn.';
-
-      if (!isSuccess && (parsed['actions'] as List<dynamic>? ?? []).isEmpty) {
-        // Pure conversational or unhandled reply without mutations
-        _replaceThinkingMessage(
-          thinkingMessage.id,
-          AiMessage.assistant(content: responseMessage),
-        );
-        return;
-      }
-
-      // Execute extracted actions via existing dispatcher
-      final actionsList = parsed['actions'] as List<dynamic>? ?? [];
+      // Execute Mutations (actions)
       final executedActions = <AiExecutedAction>[];
-
-      if (actionsList.isNotEmpty) {
-        await AiActionDispatcher.dispatch(
-          ref: _ref,
-          aiResult: parsed,
-          availableWallets: wallets,
-          availableLoanContacts: loans,
-          availableSavingGoals: goals,
-        );
-
-        for (final rawAction in actionsList) {
-          if (rawAction is! Map<String, dynamic>) continue;
+      for (final actionMap in brainResult.actions) {
+        final actionType = actionMap['actionType'] as String? ?? 'transaction_create';
+        try {
+          await _toolRegistry.dispatch(actionType, actionMap, executionContext);
           final executed = _formatExecutedAction(
-            rawAction,
+            actionMap,
             categories,
             wallets,
             loans,
             goals,
           );
           executedActions.add(executed);
+        } catch (err) {
+          debugPrint('AiAssistantNotifier: Error executing action $actionType: $err');
+        }
+      }
+
+      // Execute View Queries (Generative UI)
+      AiViewPayload? viewPayload;
+      if (brainResult.viewQuery != null) {
+        final viewType = brainResult.viewQuery!['viewType'] as String?;
+        if (viewType != null) {
+          try {
+            final result = await _toolRegistry.dispatch(
+              viewType,
+              brainResult.viewQuery!,
+              executionContext,
+            );
+            if (result is AiViewPayload) {
+              viewPayload = result;
+            }
+          } catch (err) {
+            debugPrint('AiAssistantNotifier: Error executing view query $viewType: $err');
+          }
         }
       }
 
       if (mounted) {
-        _replaceThinkingMessage(
+        final newMessages = _replaceThinkingMessage(
           thinkingMessage.id,
           AiMessage.assistant(
-            content: responseMessage,
+            content: brainResult.responseMessage,
             actions: executedActions,
+            viewPayload: viewPayload,
           ),
+        );
+
+        final newHorizon = AgentMemoryContext.calculateHorizonIndex(newMessages);
+        state = state.copyWith(
+          messages: newMessages,
+          horizonIndex: newHorizon,
         );
       }
     } catch (e) {
@@ -178,9 +229,14 @@ class AiAssistantNotifier extends StateNotifier<AiAssistantState> {
         errorText = errorText.substring(11);
       }
       if (mounted) {
-        _replaceThinkingMessage(
+        final newMessages = _replaceThinkingMessage(
           thinkingMessage.id,
           AiMessage.error(errorMessage: errorText),
+        );
+        final newHorizon = AgentMemoryContext.calculateHorizonIndex(newMessages);
+        state = state.copyWith(
+          messages: newMessages,
+          horizonIndex: newHorizon,
         );
       }
     } finally {
@@ -191,7 +247,9 @@ class AiAssistantNotifier extends StateNotifier<AiAssistantState> {
   }
 
   /// Begins speech recording and live transcription.
-  Future<void> startListening() async {
+  Future<void> startListening({
+    Future<void> Function(String route, {Map<String, dynamic>? arguments})? onNavigate,
+  }) async {
     if (state.isListening || state.isProcessing) return;
 
     final available = await _speechService.initialize(
@@ -203,7 +261,7 @@ class AiAssistantNotifier extends StateNotifier<AiAssistantState> {
           _countdownTimer?.cancel();
           state = state.copyWith(isListening: false);
           if (state.recognizedSpeechText.isNotEmpty) {
-            sendMessage(state.recognizedSpeechText);
+            sendMessage(state.recognizedSpeechText, onNavigate: onNavigate);
           }
         }
       },
@@ -221,12 +279,12 @@ class AiAssistantNotifier extends StateNotifier<AiAssistantState> {
         recognizedSpeechText: '',
         silenceCountdown: 5,
       );
-      _resetSilenceTimer();
+      _resetSilenceTimer(onNavigate: onNavigate);
       await _speechService.startListening(
         onResult: (text) {
           if (mounted) {
             state = state.copyWith(recognizedSpeechText: text);
-            _resetSilenceTimer();
+            _resetSilenceTimer(onNavigate: onNavigate);
           }
         },
         listenFor: const Duration(seconds: 30),
@@ -235,7 +293,9 @@ class AiAssistantNotifier extends StateNotifier<AiAssistantState> {
   }
 
   /// Stops ongoing speech recording and dispatches any captured speech text.
-  Future<void> stopListening() async {
+  Future<void> stopListening({
+    Future<void> Function(String route, {Map<String, dynamic>? arguments})? onNavigate,
+  }) async {
     _countdownTimer?.cancel();
     if (!state.isListening) return;
 
@@ -244,7 +304,7 @@ class AiAssistantNotifier extends StateNotifier<AiAssistantState> {
     }
     await _speechService.stop();
     if (state.recognizedSpeechText.isNotEmpty) {
-      sendMessage(state.recognizedSpeechText);
+      sendMessage(state.recognizedSpeechText, onNavigate: onNavigate);
     }
   }
 
@@ -255,10 +315,13 @@ class AiAssistantNotifier extends StateNotifier<AiAssistantState> {
       messages: [],
       errorMessage: null,
       recognizedSpeechText: '',
+      clearHorizon: true,
     );
   }
 
-  void _resetSilenceTimer() {
+  void _resetSilenceTimer({
+    Future<void> Function(String route, {Map<String, dynamic>? arguments})? onNavigate,
+  }) {
     _countdownTimer?.cancel();
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted || !state.isListening) {
@@ -269,43 +332,15 @@ class AiAssistantNotifier extends StateNotifier<AiAssistantState> {
         state = state.copyWith(silenceCountdown: state.silenceCountdown - 1);
       } else {
         timer.cancel();
-        stopListening();
+        stopListening(onNavigate: onNavigate);
       }
     });
   }
 
-  void _replaceThinkingMessage(String placeholderId, AiMessage newMessage) {
-    if (!mounted) return;
-    final updated = state.messages.map((m) {
+  List<AiMessage> _replaceThinkingMessage(String placeholderId, AiMessage newMessage) {
+    return state.messages.map((m) {
       return m.id == placeholderId ? newMessage : m;
     }).toList();
-    state = state.copyWith(messages: updated);
-  }
-
-  String _buildFinancialSummary() {
-    try {
-      final txList = _ref.read(transactionProvider).value ?? [];
-      final now = DateTime.now();
-      final todayTxs = txList.where((tx) {
-        return tx.transactionDate.year == now.year &&
-            tx.transactionDate.month == now.month &&
-            tx.transactionDate.day == now.day;
-      }).toList();
-
-      double todayExpense = 0;
-      double todayIncome = 0;
-      for (final tx in todayTxs) {
-        if (tx.type == 'expense') {
-          todayExpense += tx.amount;
-        } else {
-          todayIncome += tx.amount;
-        }
-      }
-
-      return 'Tong chi tieu hom nay: ${todayExpense.toInt()} VND, Tong thu hom nay: ${todayIncome.toInt()} VND, So luong giao dich hom nay: ${todayTxs.length}.';
-    } catch (_) {
-      return 'Chua co du lieu chi tieu hom nay.';
-    }
   }
 
   AiExecutedAction _formatExecutedAction(
@@ -315,14 +350,14 @@ class AiAssistantNotifier extends StateNotifier<AiAssistantState> {
     List<LoanContact> loans,
     List<SavingGoal> goals,
   ) {
-    final actionType = rawAction['actionType'] as String? ?? 'transaction';
-    final double amount = (rawAction['amount'] as num?)?.toDouble() ?? 0.0;
+    final actionType = rawAction['actionType'] as String? ?? 'transaction_create';
     final note = rawAction['note'] as String? ?? '';
 
     String title = 'Giao dịch';
     String subtitle = note;
 
     switch (actionType) {
+      case 'transaction_create':
       case 'transaction':
         final isExpense = (rawAction['type'] as String? ?? 'expense') == 'expense';
         title = isExpense ? 'Khoản chi tiêu' : 'Khoản thu nhập';
@@ -333,6 +368,28 @@ class AiAssistantNotifier extends StateNotifier<AiAssistantState> {
         subtitle = '$catName • Ví $walletName${note.isNotEmpty ? ' ($note)' : ''}';
         break;
 
+      case 'transaction_update':
+        title = 'Cập nhật giao dịch';
+        subtitle = note.isNotEmpty ? note : 'Đã chỉnh sửa giao dịch';
+        break;
+
+      case 'transaction_delete':
+        title = 'Xóa giao dịch';
+        subtitle = note.isNotEmpty ? note : 'Đã xóa giao dịch khỏi hệ thống';
+        break;
+
+      case 'wallet_create':
+        title = 'Tạo ví mới';
+        final name = rawAction['walletName'] as String? ?? 'Ví mới';
+        subtitle = 'Tên ví: $name';
+        break;
+
+      case 'wallet_adjust_balance':
+        title = 'Điều chỉnh số dư';
+        final name = rawAction['walletName'] as String? ?? 'Ví';
+        subtitle = 'Cập nhật số dư ví $name';
+        break;
+
       case 'transfer':
         title = 'Chuyển khoản ví';
         final srcId = rawAction['sourceWalletId'] as String?;
@@ -340,6 +397,12 @@ class AiAssistantNotifier extends StateNotifier<AiAssistantState> {
         final srcName = wallets.where((w) => w.id == srcId).firstOrNull?.name ?? 'Ví nguồn';
         final dstName = wallets.where((w) => w.id == dstId).firstOrNull?.name ?? 'Ví đích';
         subtitle = 'Từ $srcName ➔ $dstName';
+        break;
+
+      case 'budget_set':
+        title = 'Thiết lập ngân sách';
+        final catName = rawAction['categoryName'] as String? ?? 'Tổng chi tiêu';
+        subtitle = 'Hạn mức: $catName';
         break;
 
       case 'loan_create':
@@ -356,6 +419,12 @@ class AiAssistantNotifier extends StateNotifier<AiAssistantState> {
         subtitle = 'Đối tượng: $contactName';
         break;
 
+      case 'goal_create':
+        title = 'Tạo mục tiêu tiết kiệm';
+        final goalName = rawAction['goalName'] as String? ?? 'Mục tiêu mới';
+        subtitle = 'Mục tiêu: $goalName';
+        break;
+
       case 'goal_deposit':
         title = 'Tích lũy mục tiêu';
         final goalName = rawAction['goalName'] as String? ?? 'Heo đất';
@@ -367,13 +436,24 @@ class AiAssistantNotifier extends StateNotifier<AiAssistantState> {
         final goalName = rawAction['goalName'] as String? ?? 'Heo đất';
         subtitle = 'Mục tiêu: $goalName';
         break;
+
+      case 'recurring_create':
+        title = 'Tạo giao dịch định kỳ';
+        subtitle = 'Lặp lại: $note';
+        break;
+
+      case 'navigate_screen':
+        title = 'Điều hướng màn hình';
+        final destination = rawAction['destination'] as String? ?? 'Màn hình';
+        subtitle = 'Đang mở $destination';
+        break;
     }
 
     return AiExecutedAction.fromRawAction(
       rawAction: rawAction,
       title: title,
       subtitle: subtitle,
-      isSuccess: amount > 0,
+      isSuccess: true,
     );
   }
 

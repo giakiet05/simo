@@ -1,14 +1,29 @@
 import 'package:flutter/material.dart';
 import '../../models/ai_message.dart';
 import 'ai_action_card.dart';
+import '../../agent/ui/cards/ai_transaction_list_card.dart';
+import '../../agent/ui/cards/ai_wallet_summary_card.dart';
+import '../../agent/ui/cards/ai_budget_progress_card.dart';
+import '../../agent/ui/cards/ai_debt_ledger_card.dart';
+import '../../agent/ui/cards/ai_saving_goals_card.dart';
 
 /// Widget rendering a dialogue bubble for user or assistant turns in the chat stream.
 class AiMessageBubble extends StatelessWidget {
   final AiMessage message;
+  final void Function(String)? onTransactionTap;
+  final void Function(String)? onWalletTap;
+  final void Function(String)? onLoanContactTap;
+  final void Function(String)? onSavingGoalTap;
+  final VoidCallback? onBudgetTap;
 
   const AiMessageBubble({
     super.key,
     required this.message,
+    this.onTransactionTap,
+    this.onWalletTap,
+    this.onLoanContactTap,
+    this.onSavingGoalTap,
+    this.onBudgetTap,
   });
 
   @override
@@ -42,9 +57,17 @@ class AiMessageBubble extends StatelessWidget {
                   isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
               children: [
                 _buildBubbleBody(context, isUser),
+
+                // Render Action Confirmation Cards
                 if (message.actions.isNotEmpty) ...[
                   const SizedBox(height: 4),
                   ...message.actions.map((action) => AiActionCard(action: action)),
+                ],
+
+                // Render Generative UI View Query Card
+                if (message.viewPayload != null) ...[
+                  const SizedBox(height: 4),
+                  _buildViewPayloadCard(context, message.viewPayload!),
                 ],
               ],
             ),
@@ -67,6 +90,36 @@ class AiMessageBubble extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Widget _buildViewPayloadCard(BuildContext context, AiViewPayload payload) {
+    if (payload is TransactionListViewPayload) {
+      return AiTransactionListCard(
+        payload: payload,
+        onItemTap: onTransactionTap,
+      );
+    } else if (payload is WalletSummaryViewPayload) {
+      return AiWalletSummaryCard(
+        payload: payload,
+        onWalletTap: onWalletTap,
+      );
+    } else if (payload is BudgetProgressViewPayload) {
+      return AiBudgetProgressCard(
+        payload: payload,
+        onBudgetTap: onBudgetTap,
+      );
+    } else if (payload is DebtLedgerViewPayload) {
+      return AiDebtLedgerCard(
+        payload: payload,
+        onContactTap: onLoanContactTap,
+      );
+    } else if (payload is SavingGoalsViewPayload) {
+      return AiSavingGoalsCard(
+        payload: payload,
+        onGoalTap: onSavingGoalTap,
+      );
+    }
+    return const SizedBox.shrink();
   }
 
   Widget _buildBubbleBody(BuildContext context, bool isUser) {

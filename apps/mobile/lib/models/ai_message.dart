@@ -18,10 +18,10 @@ enum AiMessageStatus {
 
 /// Represents an individual structured action executed by the AI agent.
 class AiExecutedAction {
-  /// The specific operation type performed (e.g., transaction, transfer, loan_create).
+  /// The specific operation type performed (e.g., transaction_create, transfer, budget_set).
   final String actionType;
 
-  /// High-level readable title for presentation (e.g. "Chi tieu", "Chuyen khoan").
+  /// High-level readable title for presentation (e.g. "Chi tiêu", "Đặt ngân sách").
   final String title;
 
   /// Standardized numerical amount in local currency (VND).
@@ -63,7 +63,7 @@ class AiExecutedAction {
         : DateTime.now();
 
     return AiExecutedAction(
-      actionType: rawAction['actionType'] as String? ?? 'transaction',
+      actionType: rawAction['actionType'] as String? ?? 'transaction_create',
       title: title,
       amount: amount,
       subtitle: subtitle,
@@ -72,6 +72,171 @@ class AiExecutedAction {
       rawAction: rawAction,
     );
   }
+}
+
+/// Base class for rich interactive Generative UI cards displayed in the chat stream.
+abstract class AiViewPayload {
+  const AiViewPayload();
+}
+
+/// Data for a single transaction item in a query view card.
+class TransactionItemViewData {
+  final String id;
+  final double amount;
+  final String type; // 'expense' or 'income'
+  final String note;
+  final String categoryName;
+  final String categoryIcon;
+  final String categoryColor;
+  final String walletName;
+  final DateTime date;
+
+  const TransactionItemViewData({
+    required this.id,
+    required this.amount,
+    required this.type,
+    required this.note,
+    required this.categoryName,
+    required this.categoryIcon,
+    required this.categoryColor,
+    required this.walletName,
+    required this.date,
+  });
+}
+
+/// Payload for rendering the [AiTransactionListCard].
+class TransactionListViewPayload extends AiViewPayload {
+  final String title;
+  final double totalAmount;
+  final String period;
+  final List<TransactionItemViewData> transactions;
+
+  const TransactionListViewPayload({
+    required this.title,
+    required this.totalAmount,
+    required this.period,
+    required this.transactions,
+  });
+}
+
+/// Data for a single wallet item in the summary card.
+class WalletItemViewData {
+  final String id;
+  final String name;
+  final String type;
+  final double balance;
+  final String icon;
+
+  const WalletItemViewData({
+    required this.id,
+    required this.name,
+    required this.type,
+    required this.balance,
+    required this.icon,
+  });
+}
+
+/// Payload for rendering the [AiWalletSummaryCard].
+class WalletSummaryViewPayload extends AiViewPayload {
+  final double totalNetWorth;
+  final List<WalletItemViewData> wallets;
+
+  const WalletSummaryViewPayload({
+    required this.totalNetWorth,
+    required this.wallets,
+  });
+}
+
+/// Data for a category budget item.
+class CategoryBudgetItemViewData {
+  final String categoryId;
+  final String categoryName;
+  final String categoryIcon;
+  final double limitAmount;
+  final double spentAmount;
+  final double percentage; // 0.0 to 1.0+
+
+  const CategoryBudgetItemViewData({
+    required this.categoryId,
+    required this.categoryName,
+    required this.categoryIcon,
+    required this.limitAmount,
+    required this.spentAmount,
+    required this.percentage,
+  });
+}
+
+/// Payload for rendering the [AiBudgetProgressCard].
+class BudgetProgressViewPayload extends AiViewPayload {
+  final String month;
+  final double totalLimit;
+  final double totalSpent;
+  final double totalPercentage;
+  final List<CategoryBudgetItemViewData> categories;
+
+  const BudgetProgressViewPayload({
+    required this.month,
+    required this.totalLimit,
+    required this.totalSpent,
+    required this.totalPercentage,
+    required this.categories,
+  });
+}
+
+/// Data for a single debt contact item.
+class DebtContactItemViewData {
+  final String id;
+  final String contactName;
+  final String type; // 'lent' (they owe me) or 'borrowed' (I owe them)
+  final double remainingAmount;
+
+  const DebtContactItemViewData({
+    required this.id,
+    required this.contactName,
+    required this.type,
+    required this.remainingAmount,
+  });
+}
+
+/// Payload for rendering the [AiDebtLedgerCard].
+class DebtLedgerViewPayload extends AiViewPayload {
+  final double totalReceivable; // They owe me
+  final double totalPayable;    // I owe them
+  final List<DebtContactItemViewData> contacts;
+
+  const DebtLedgerViewPayload({
+    required this.totalReceivable,
+    required this.totalPayable,
+    required this.contacts,
+  });
+}
+
+/// Data for a single saving goal item.
+class SavingGoalItemViewData {
+  final String id;
+  final String name;
+  final double targetAmount;
+  final double currentAmount;
+  final double percentage;
+  final DateTime? targetDate;
+
+  const SavingGoalItemViewData({
+    required this.id,
+    required this.name,
+    required this.targetAmount,
+    required this.currentAmount,
+    required this.percentage,
+    this.targetDate,
+  });
+}
+
+/// Payload for rendering the [AiSavingGoalsCard].
+class SavingGoalsViewPayload extends AiViewPayload {
+  final List<SavingGoalItemViewData> goals;
+
+  const SavingGoalsViewPayload({
+    required this.goals,
+  });
 }
 
 /// Represents an individual chat message in the conversational AI Assistant stream.
@@ -97,6 +262,9 @@ class AiMessage {
   /// List of structured operations performed alongside this assistant turn.
   final List<AiExecutedAction> actions;
 
+  /// Optional rich visual data payload for Generative UI view cards.
+  final AiViewPayload? viewPayload;
+
   const AiMessage({
     required this.id,
     required this.role,
@@ -105,6 +273,7 @@ class AiMessage {
     this.status = AiMessageStatus.idle,
     this.errorMessage,
     this.actions = const [],
+    this.viewPayload,
   });
 
   /// Convenience constructor to instantiate a new user message.
@@ -133,6 +302,7 @@ class AiMessage {
   factory AiMessage.assistant({
     required String content,
     List<AiExecutedAction> actions = const [],
+    AiViewPayload? viewPayload,
   }) {
     return AiMessage(
       id: const Uuid().v4(),
@@ -141,6 +311,7 @@ class AiMessage {
       timestamp: DateTime.now(),
       status: AiMessageStatus.executed,
       actions: actions,
+      viewPayload: viewPayload,
     );
   }
 
@@ -168,6 +339,7 @@ class AiMessage {
     AiMessageStatus? status,
     String? errorMessage,
     List<AiExecutedAction>? actions,
+    AiViewPayload? viewPayload,
   }) {
     return AiMessage(
       id: id ?? this.id,
@@ -177,6 +349,7 @@ class AiMessage {
       status: status ?? this.status,
       errorMessage: errorMessage ?? this.errorMessage,
       actions: actions ?? this.actions,
+      viewPayload: viewPayload ?? this.viewPayload,
     );
   }
 }

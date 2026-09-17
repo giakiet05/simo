@@ -2,8 +2,28 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/ai_assistant_provider.dart';
+import '../providers/transaction_provider.dart';
+import '../providers/wallet_provider.dart';
+import '../providers/loan_provider.dart';
+import '../providers/saving_goal_provider.dart';
+
+import '../agent/ui/memory_horizon_divider.dart';
 import '../widgets/ai/ai_message_bubble.dart';
 import '../widgets/ai/ai_quick_prompts.dart';
+
+import 'category_budget_screen.dart';
+import 'category_screen.dart';
+import 'export_backup_screen.dart';
+import 'loan_screen.dart';
+import 'loan_detail_screen.dart';
+import 'recurring_screen.dart';
+import 'saving_goals_screen.dart';
+import 'saving_goal_detail_screen.dart';
+import 'settings_screen.dart';
+import 'statistics_screen.dart';
+import 'transaction_form_screen.dart';
+import 'wallet_detail_screen.dart';
+import 'wallets_screen.dart';
 
 /// Full conversational AI Assistant screen allowing ChatGPT-style text chatting
 /// and voice dictation with autonomous financial action execution.
@@ -39,13 +59,116 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
     });
   }
 
+  Future<void> _handleNavigate(String route, {Map<String, dynamic>? arguments}) async {
+    if (!mounted) return;
+
+    Widget targetScreen;
+    switch (route.toLowerCase()) {
+      case 'reports':
+      case 'statistics':
+        targetScreen = const StatisticsScreen();
+        break;
+      case 'wallets':
+        targetScreen = const WalletsScreen();
+        break;
+      case 'budgets':
+        targetScreen = const CategoryBudgetScreen();
+        break;
+      case 'loans':
+        targetScreen = const LoanScreen();
+        break;
+      case 'goals':
+        targetScreen = const SavingGoalsScreen();
+        break;
+      case 'recurring':
+        targetScreen = const RecurringScreen();
+        break;
+      case 'export_backup':
+      case 'backup':
+      case 'export':
+        targetScreen = const ExportBackupScreen();
+        break;
+      case 'categories':
+        targetScreen = const CategoryScreen();
+        break;
+      case 'settings':
+        targetScreen = const SettingsScreen();
+        break;
+      default:
+        return;
+    }
+
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => targetScreen),
+    );
+  }
+
   void _handleSend() {
     final text = _textController.text.trim();
     if (text.isEmpty) return;
 
     _textController.clear();
-    ref.read(aiAssistantProvider.notifier).sendMessage(text);
+    ref.read(aiAssistantProvider.notifier).sendMessage(
+          text,
+          onNavigate: _handleNavigate,
+        );
     _scrollToBottom();
+  }
+
+  void _handleTransactionTap(String transactionId) {
+    final txs = ref.read(transactionProvider).value ?? [];
+    final tx = txs.where((t) => t.id == transactionId).firstOrNull;
+    if (tx != null) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => TransactionFormScreen(editTransactionId: tx.id),
+        ),
+      );
+    }
+  }
+
+  void _handleWalletTap(String walletId) {
+    final wallets = ref.read(walletProvider).value ?? [];
+    final wallet = wallets.where((w) => w.id == walletId).firstOrNull;
+    if (wallet != null) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => WalletDetailScreen(walletId: wallet.id),
+        ),
+      );
+    }
+  }
+
+  void _handleLoanContactTap(String contactId) {
+    final loans = ref.read(loanProvider).value ?? [];
+    final loan = loans.where((l) => l.id == contactId).firstOrNull;
+    if (loan != null) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => LoanDetailScreen(contact: loan),
+        ),
+      );
+    }
+  }
+
+  void _handleSavingGoalTap(String goalId) {
+    final goals = ref.read(savingGoalProvider).value ?? [];
+    final goal = goals.where((g) => g.id == goalId).firstOrNull;
+    if (goal != null) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => SavingGoalDetailScreen(goalId: goal.id),
+        ),
+      );
+    }
+  }
+
+  void _handleBudgetTap() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const CategoryBudgetScreen(),
+      ),
+    );
   }
 
   @override
@@ -69,7 +192,7 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             Text(
-              'Mô hình GPT-5-nano',
+              'Mô hình GPT-4o-mini',
               style: TextStyle(
                 fontSize: 11,
                 color: theme.colorScheme.onSurfaceVariant,
@@ -103,7 +226,22 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
                       itemCount: state.messages.length,
                       itemBuilder: (context, index) {
                         final msg = state.messages[index];
-                        return AiMessageBubble(message: msg);
+                        final showHorizon = state.horizonIndex != null && index == state.horizonIndex;
+
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            if (showHorizon) const MemoryHorizonDivider(),
+                            AiMessageBubble(
+                              message: msg,
+                              onTransactionTap: _handleTransactionTap,
+                              onWalletTap: _handleWalletTap,
+                              onLoanContactTap: _handleLoanContactTap,
+                              onSavingGoalTap: _handleSavingGoalTap,
+                              onBudgetTap: _handleBudgetTap,
+                            ),
+                          ],
+                        );
                       },
                     ),
             ),
@@ -150,7 +288,7 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Nói hoặc gõ bằng tiếng Việt tự nhiên để ghi chép thu chi, chuyển khoản, vay nợ hoặc kiểm tra số dư ví.',
+              'Nói hoặc gõ bằng tiếng Việt tự nhiên để ghi chép thu chi, đặt ngân sách, xem báo cáo, quản lý ví và sổ nợ.',
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -200,7 +338,7 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
             const SizedBox(height: 16),
             GestureDetector(
               onTap: () {
-                ref.read(aiAssistantProvider.notifier).stopListening();
+                ref.read(aiAssistantProvider.notifier).stopListening(onNavigate: _handleNavigate);
               },
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 250),
@@ -254,7 +392,7 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
             onPressed: state.isProcessing
                 ? null
                 : () {
-                    ref.read(aiAssistantProvider.notifier).startListening();
+                    ref.read(aiAssistantProvider.notifier).startListening(onNavigate: _handleNavigate);
                   },
           ),
           Expanded(

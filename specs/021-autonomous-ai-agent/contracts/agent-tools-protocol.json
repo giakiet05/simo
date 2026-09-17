@@ -1,0 +1,94 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SimoAutonomousAgentProtocol",
+  "type": "object",
+  "required": ["isSuccess", "responseMessage", "thought"],
+  "properties": {
+    "isSuccess": {
+      "type": "boolean",
+      "description": "True if command was understood and parsed, false if incomprehensible"
+    },
+    "responseMessage": {
+      "type": "string",
+      "description": "Conversational reply in Vietnamese confirming actions or answering inquiries"
+    },
+    "thought": {
+      "type": "string",
+      "description": "Short internal reasoning summary under 20 words"
+    },
+    "actions": {
+      "type": "array",
+      "description": "List of mutation tools or actions to execute",
+      "items": {
+        "type": "object",
+        "required": ["actionType"],
+        "properties": {
+          "actionType": {
+            "type": "string",
+            "enum": [
+              "transaction_create",
+              "transaction_delete",
+              "transaction_update",
+              "wallet_create",
+              "wallet_adjust_balance",
+              "transfer",
+              "budget_set",
+              "loan_create",
+              "loan_repay",
+              "goal_create",
+              "goal_deposit",
+              "goal_withdraw",
+              "recurring_create",
+              "navigate_screen"
+            ]
+          },
+          "amount": { "type": "number" },
+          "date": { "type": "string", "format": "date-time" },
+          "note": { "type": "string" },
+          "type": { "type": "string", "enum": ["expense", "income"] },
+          "categoryId": { "type": ["string", "null"] },
+          "walletId": { "type": ["string", "null"] },
+          "sourceWalletId": { "type": ["string", "null"] },
+          "destinationWalletId": { "type": ["string", "null"] },
+          "fee": { "type": "number" },
+          "newBalance": { "type": "number" },
+          "walletName": { "type": "string" },
+          "walletType": { "type": "string" },
+          "loanType": { "type": ["string", "null"], "enum": ["lent", "borrowed"] },
+          "repayType": { "type": ["string", "null"], "enum": ["collect", "repay"] },
+          "contactName": { "type": ["string", "null"] },
+          "contactId": { "type": ["string", "null"] },
+          "goalId": { "type": ["string", "null"] },
+          "goalName": { "type": ["string", "null"] },
+          "targetAmount": { "type": "number" },
+          "targetDate": { "type": "string" },
+          "frequency": { "type": "string" },
+          "dayOfMonth": { "type": "integer" },
+          "destination": { "type": "string" }
+        }
+      }
+    },
+    "viewQuery": {
+      "type": "object",
+      "description": "Optional Read/Query tool indicating Generative UI card rendering request",
+      "properties": {
+        "viewType": {
+          "type": "string",
+          "enum": [
+            "query_transactions",
+            "view_wallets",
+            "view_budgets",
+            "view_debts",
+            "view_goals"
+          ]
+        },
+        "period": { "type": "string", "enum": ["today", "yesterday", "this_week", "this_month", "all"] },
+        "categoryId": { "type": ["string", "null"] },
+        "walletId": { "type": ["string", "null"] },
+        "type": { "type": ["string", "null"], "enum": ["expense", "income", "all"] },
+        "minAmount": { "type": "number" },
+        "maxAmount": { "type": "number" }
+      }
+    }
+  }
+}
