@@ -2,7 +2,10 @@ import 'package:uuid/uuid.dart';
 import '../agent_tool.dart';
 import '../../../models/loan_contact.dart';
 import '../../../models/loan_transaction.dart';
+import '../../../models/wallet.dart';
 import '../../../providers/loan_provider.dart';
+import '../../../providers/transaction_provider.dart';
+import '../../../providers/wallet_provider.dart';
 
 /// Mutation tool to create a new debt or lending record.
 class CreateLoanTool extends SimoAgentTool<Map<String, dynamic>, bool> {
@@ -22,6 +25,7 @@ class CreateLoanTool extends SimoAgentTool<Map<String, dynamic>, bool> {
       'contactName': {'type': 'string'},
       'contactId': {'type': ['string', 'null']},
       'walletId': {'type': ['string', 'null']},
+      'walletName': {'type': ['string', 'null']},
       'note': {'type': ['string', 'null']},
       'date': {'type': ['string', 'null']},
     },
@@ -49,7 +53,9 @@ class CreateLoanTool extends SimoAgentTool<Map<String, dynamic>, bool> {
       (l) => l.contactName.toLowerCase() == contactName.toLowerCase() && l.type == loanType,
     ).firstOrNull;
 
+    String savedLoanId;
     if (existingContact != null) {
+      savedLoanId = existingContact.id;
       final updated = existingContact.copyWith(
         remainingAmount: existingContact.remainingAmount + amount,
         totalAmount: existingContact.totalAmount + amount,
@@ -75,6 +81,7 @@ class CreateLoanTool extends SimoAgentTool<Map<String, dynamic>, bool> {
         remainingAmount: amount,
         status: 'active',
       );
+      savedLoanId = newContact.id;
       await context.ref.read(loanProvider.notifier).addLoanContact(newContact);
 
       final loanTx = LoanTransaction(
@@ -87,6 +94,50 @@ class CreateLoanTool extends SimoAgentTool<Map<String, dynamic>, bool> {
       );
       await context.ref.read(loanRepositoryProvider).insertLoanTransaction(loanTx);
     }
+
+    // Invalidate transaction history for this contact
+    context.ref.invalidate(loanTransactionsProvider(savedLoanId));
+
+    // Resolve wallet
+    final wallets = context.ref.read(walletProvider).value ?? [];
+    final rawWalletId = input['walletId'] as String?;
+    final rawWalletName = (input['walletName'] as String?) ?? (input['wallet'] as String?);
+
+    Wallet? matchedWallet;
+    if (rawWalletId != null && rawWalletId.isNotEmpty) {
+      matchedWallet = wallets.where((w) => w.id == rawWalletId).firstOrNull;
+    }
+    if (matchedWallet == null && rawWalletName != null && rawWalletName.trim().isNotEmpty) {
+      final query = rawWalletName.trim().toLowerCase();
+      matchedWallet = wallets.where((w) => w.name.toLowerCase() == query).firstOrNull ??
+          wallets.where((w) => w.name.toLowerCase().contains(query)).firstOrNull;
+    }
+    if (matchedWallet == null && rawWalletId != null && rawWalletId.trim().isNotEmpty) {
+      final query = rawWalletId.trim().toLowerCase();
+      matchedWallet = wallets.where((w) => w.name.toLowerCase() == query).firstOrNull ??
+          wallets.where((w) => w.name.toLowerCase().contains(query)).firstOrNull;
+    }
+    matchedWallet ??= wallets.where((w) => w.isDefault).firstOrNull ?? (wallets.isNotEmpty ? wallets.first : null);
+    final String? walletId = matchedWallet?.id;
+
+    // Create corresponding financial transaction in global transactions ledger
+    final isLent = loanType == 'lent';
+    final mainTxType = isLent ? 'expense' : 'income';
+    final categoryId = isLent ? 'sys_loan_lend' : 'sys_loan_borrow';
+    final defaultPrefix = isLent ? 'Cho $contactName mượn' : 'Vay từ $contactName';
+    final noteText = note.isNotEmpty ? '$defaultPrefix - $note' : defaultPrefix;
+
+    await context.ref.read(transactionProvider.notifier).createTransactions([
+      {
+        'id': const Uuid().v4(),
+        'categoryId': categoryId,
+        'walletId': walletId,
+        'amount': amount,
+        'note': noteText,
+        'type': mainTxType,
+        'transactionDate': date,
+      }
+    ]);
 
     return true;
   }
@@ -109,6 +160,8 @@ class RepayLoanTool extends SimoAgentTool<Map<String, dynamic>, bool> {
       'repayType': {'type': 'string', 'enum': ['collect', 'repay']},
       'contactName': {'type': ['string', 'null']},
       'contactId': {'type': ['string', 'null']},
+      'walletId': {'type': ['string', 'null']},
+      'walletName': {'type': ['string', 'null']},
       'note': {'type': ['string', 'null']},
       'date': {'type': ['string', 'null']},
     },
@@ -119,7 +172,6 @@ class RepayLoanTool extends SimoAgentTool<Map<String, dynamic>, bool> {
     final double amount = (input['amount'] as num?)?.toDouble() ?? 0.0;
     if (amount <= 0) return false;
 
-    final repayType = input['repayType'] as String? ?? 'repay';
     final contactName = (input['contactName'] as String?)?.trim();
     final contactId = input['contactId'] as String?;
     final note = input['note'] as String? ?? '';
@@ -146,15 +198,62 @@ class RepayLoanTool extends SimoAgentTool<Map<String, dynamic>, bool> {
       );
       await context.ref.read(loanProvider.notifier).updateLoanContact(updated);
 
+      final isBorrow = contact.type == 'borrowed';
+      final actualRepayType = isBorrow ? 'repay' : 'collect';
+
       final loanTx = LoanTransaction(
         id: const Uuid().v4(),
         loanId: contact.id,
         amount: amount,
-        type: repayType,
+        type: actualRepayType,
         date: date,
-        note: note.isNotEmpty ? note : (repayType == 'collect' ? 'Thu nợ qua AI' : 'Trả nợ qua AI'),
+        note: note.isNotEmpty ? note : (isBorrow ? 'Trả nợ qua AI' : 'Thu nợ qua AI'),
       );
       await context.ref.read(loanRepositoryProvider).insertLoanTransaction(loanTx);
+
+      // Invalidate transaction history for this contact
+      context.ref.invalidate(loanTransactionsProvider(contact.id));
+
+      // Resolve wallet
+      final wallets = context.ref.read(walletProvider).value ?? [];
+      final rawWalletId = input['walletId'] as String?;
+      final rawWalletName = (input['walletName'] as String?) ?? (input['wallet'] as String?);
+
+      Wallet? matchedWallet;
+      if (rawWalletId != null && rawWalletId.isNotEmpty) {
+        matchedWallet = wallets.where((w) => w.id == rawWalletId).firstOrNull;
+      }
+      if (matchedWallet == null && rawWalletName != null && rawWalletName.trim().isNotEmpty) {
+        final query = rawWalletName.trim().toLowerCase();
+        matchedWallet = wallets.where((w) => w.name.toLowerCase() == query).firstOrNull ??
+            wallets.where((w) => w.name.toLowerCase().contains(query)).firstOrNull;
+      }
+      if (matchedWallet == null && rawWalletId != null && rawWalletId.trim().isNotEmpty) {
+        final query = rawWalletId.trim().toLowerCase();
+        matchedWallet = wallets.where((w) => w.name.toLowerCase() == query).firstOrNull ??
+            wallets.where((w) => w.name.toLowerCase().contains(query)).firstOrNull;
+      }
+      matchedWallet ??= wallets.where((w) => w.isDefault).firstOrNull ?? (wallets.isNotEmpty ? wallets.first : null);
+      final String? walletId = matchedWallet?.id;
+
+      // Create corresponding financial transaction in global transactions ledger
+      final mainTxType = isBorrow ? 'expense' : 'income';
+      final categoryId = isBorrow ? 'sys_loan_repay' : 'sys_loan_collect';
+      final defaultPrefix = isBorrow ? 'Trả cho ${contact.contactName}' : 'Thu từ ${contact.contactName}';
+      final noteText = note.isNotEmpty ? '$defaultPrefix - $note' : defaultPrefix;
+
+      await context.ref.read(transactionProvider.notifier).createTransactions([
+        {
+          'id': const Uuid().v4(),
+          'categoryId': categoryId,
+          'walletId': walletId,
+          'amount': amount,
+          'note': noteText,
+          'type': mainTxType,
+          'transactionDate': date,
+        }
+      ]);
+
       return true;
     }
 

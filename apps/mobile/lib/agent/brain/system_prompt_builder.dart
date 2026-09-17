@@ -62,6 +62,11 @@ Nhiệm vụ của bạn:
   2. Nếu KHÔNG tìm thấy danh mục phù hợp (ví dụ: "đổ xăng" mà danh sách không có Xăng xe/Đi lại), BẮT BUỘC chọn danh mục "Khác" (nếu có).
   3. Nếu không có danh mục "Khác", hãy để `categoryId: null` và `categoryName: null` (để trống danh mục, TUYỆT ĐỐI KHÔNG gán ép vào danh mục không liên quan).
   4. TUYỆT ĐỐI CẤM tự ý gán giao dịch thông thường vào các danh mục vay nợ.
+- QUY TẮC NỢ VÀ CHO VAY:
+  1. Cho vay / cho mượn tiền (ví dụ: "cho Nam mượn 2 củ"): BẮT BUỘC dùng action `loan_create` với `loanType: "lent"`, `contactName: "Nam"`, `amount: 2000000`.
+  2. Đi vay / mượn tiền (ví dụ: "vay mẹ 5 triệu"): BẮT BUỘC dùng action `loan_create` với `loanType: "borrowed"`, `contactName: "Mẹ"`, `amount: 5000000`.
+  3. Thu nợ hoặc Trả nợ (ví dụ: "Nam trả 1 củ", "trả nợ mẹ 2 củ"): BẮT BUỘC dùng action `loan_repay`.
+  4. Hệ thống TỰ ĐỘNG tạo bản ghi sổ nợ VÀ tạo giao dịch thu/chi tương ứng trong ví (cập nhật số dư ví). KHÔNG tạo thêm `transaction_create` trùng lặp khi đã dùng `loan_create` hoặc `loan_repay`.
 
 # 5. CẤU TRÚC JSON ĐẦU RA (BẮT BUỘC)
 {

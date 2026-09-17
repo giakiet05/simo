@@ -6,6 +6,7 @@ import 'package:simo/agent/brain/system_prompt_builder.dart';
 import 'package:simo/agent/tools/agent_tool.dart';
 import 'package:simo/agent/tools/tool_registry.dart';
 import 'package:simo/agent/tools/write/category_tools.dart';
+import 'package:simo/agent/tools/write/loan_tools.dart';
 
 class MockTestTool extends SimoAgentTool<Map<String, dynamic>, String> {
   @override
@@ -155,6 +156,28 @@ void main() {
 
       expect(registry.hasTool('mock_test_tool'), isTrue);
       expect(registry.getTool('mock_test_tool'), equals(tool));
+    });
+  });
+
+  group('Loan Tools Schema and ToolRegistry Tests', () {
+    test('CreateLoanTool and RepayLoanTool have valid schemas and names', () {
+      final createLoanTool = CreateLoanTool();
+      expect(createLoanTool.name, equals('loan_create'));
+      expect(createLoanTool.parametersSchema['required'], contains('amount'));
+      expect(createLoanTool.parametersSchema['required'], contains('contactName'));
+
+      final repayLoanTool = RepayLoanTool();
+      expect(repayLoanTool.name, equals('loan_repay'));
+      expect(repayLoanTool.parametersSchema['required'], contains('amount'));
+    });
+
+    test('ToolRegistry registers and finds loan tools', () {
+      final registry = ToolRegistry();
+      registry.register(CreateLoanTool());
+      registry.register(RepayLoanTool());
+
+      expect(registry.hasTool('loan_create'), isTrue);
+      expect(registry.hasTool('loan_repay'), isTrue);
     });
   });
 

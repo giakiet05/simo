@@ -1,4 +1,3 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import '../models/loan_contact.dart';
@@ -184,11 +183,28 @@ class AiActionDispatcher {
             );
             await ref.read(loanRepositoryProvider).insertLoanTransaction(loanTx);
           }
+
+          // Create ledger transaction
+          final isLent = loanType == 'lent';
+          final mainTxType = isLent ? 'expense' : 'income';
+          final categoryId = isLent ? 'sys_loan_lend' : 'sys_loan_borrow';
+          final defaultPrefix = isLent ? 'Cho $contactName mượn' : 'Vay từ $contactName';
+          final noteText = note.isNotEmpty ? '$defaultPrefix - $note' : defaultPrefix;
+          final walletId = action['walletId'] as String? ?? defaultWalletId;
+
+          newTransactions.add({
+            'categoryId': categoryId,
+            'walletId': walletId,
+            'amount': amount,
+            'note': noteText,
+            'type': mainTxType,
+            'transactionDate': date,
+          });
+
           loanCount++;
           break;
 
         case 'loan_repay':
-          final repayType = action['repayType'] as String? ?? 'repay';
           final contactName = (action['contactName'] as String?)?.trim();
           final contactId = action['contactId'] as String?;
 
@@ -210,15 +226,35 @@ class AiActionDispatcher {
             );
             await ref.read(loanProvider.notifier).updateLoanContact(updated);
 
+            final isBorrow = contact.type == 'borrowed';
+            final actualRepayType = isBorrow ? 'repay' : 'collect';
+
             final loanTx = LoanTransaction(
               id: const Uuid().v4(),
               loanId: contact.id,
               amount: amount,
-              type: repayType,
+              type: actualRepayType,
               date: date,
-              note: note.isNotEmpty ? note : (repayType == 'collect' ? 'Thu nợ qua AI' : 'Trả nợ qua AI'),
+              note: note.isNotEmpty ? note : (isBorrow ? 'Trả nợ qua AI' : 'Thu nợ qua AI'),
             );
             await ref.read(loanRepositoryProvider).insertLoanTransaction(loanTx);
+
+            // Create ledger transaction
+            final mainTxType = isBorrow ? 'expense' : 'income';
+            final categoryId = isBorrow ? 'sys_loan_repay' : 'sys_loan_collect';
+            final defaultPrefix = isBorrow ? 'Trả cho ${contact.contactName}' : 'Thu từ ${contact.contactName}';
+            final noteText = note.isNotEmpty ? '$defaultPrefix - $note' : defaultPrefix;
+            final walletId = action['walletId'] as String? ?? defaultWalletId;
+
+            newTransactions.add({
+              'categoryId': categoryId,
+              'walletId': walletId,
+              'amount': amount,
+              'note': noteText,
+              'type': mainTxType,
+              'transactionDate': date,
+            });
+
             loanCount++;
           }
           break;
