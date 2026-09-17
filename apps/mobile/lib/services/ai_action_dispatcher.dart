@@ -33,7 +33,7 @@ class AiDispatchResult {
 class AiActionDispatcher {
   /// Executes all parsed actions and returns a human-readable summary.
   static Future<AiDispatchResult> dispatch({
-    required WidgetRef ref,
+    required dynamic ref,
     required Map<String, dynamic> aiResult,
     required List<Wallet> availableWallets,
     required List<LoanContact> availableLoanContacts,

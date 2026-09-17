@@ -103,8 +103,12 @@ class WhisperSpeechService implements SpeechRecognitionService {
         return;
       }
 
-      final apiKey = dotenv.env['WHISPER_API_KEY'] ?? dotenv.env['AI_API_KEY'] ?? '';
-      final baseUrl = dotenv.env['WHISPER_BASE_URL'] ?? dotenv.env['AI_BASE_URL'] ?? 'https://api.groq.com/openai/v1';
+      final apiKey = dotenv.env['WHISPER_API_KEY'] ??
+          dotenv.env['AI_API_KEY'] ??
+          dotenv.env['OPENAI_API_KEY'] ??
+          '';
+      final rawBaseUrl = dotenv.env['WHISPER_BASE_URL'] ?? dotenv.env['AI_BASE_URL'] ?? 'https://api.openai.com/v1';
+      final baseUrl = rawBaseUrl.endsWith('/v1') ? rawBaseUrl : '$rawBaseUrl/v1';
       final endpoint = baseUrl.endsWith('/audio/transcriptions') 
           ? baseUrl 
           : '${baseUrl.replaceAll(RegExp(r"/chat/completions$"), "")}/audio/transcriptions';
@@ -114,7 +118,7 @@ class WhisperSpeechService implements SpeechRecognitionService {
         'Authorization': 'Bearer $apiKey',
       });
       
-      request.fields['model'] = dotenv.env['WHISPER_MODEL'] ?? 'whisper-large-v3';
+      request.fields['model'] = dotenv.env['WHISPER_MODEL'] ?? 'whisper-1';
       request.fields['language'] = 'vi';
       // Gợi ý ngữ cảnh cho Whisper để dịch chuẩn xác hơn các từ lóng tiền tệ Việt Nam
       request.fields['prompt'] = 'Các giao dịch thu chi tài chính bằng tiếng Việt: k, ka, ca, ngàn, nghìn, cành, vạn, chục, lít, xị, củ, triệu, ăn sáng 70k, đi nhậu 1 củ, đổ xăng năm chục, cà phê 35 ka.';

@@ -112,8 +112,8 @@ void main() async {
       failed++;
     }
 
-    // Add a small delay to avoid rate limiting on Groq API
-    await Future.delayed(Duration(seconds: 1));
+    // Add a small delay to avoid rate limiting on OpenAI API
+    await Future.delayed(const Duration(milliseconds: 500));
   }
 
   print('=====================================');

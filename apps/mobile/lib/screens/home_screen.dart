@@ -12,7 +12,7 @@ import 'features_screen.dart';
 import 'settings_screen.dart';
 import 'transaction_form_screen.dart';
 
-import '../widgets/voice_record_sheet.dart';
+import 'ai_assistant_screen.dart';
 
 // Global key to access HomeScreen state from anywhere
 final GlobalKey<_HomeScreenState> homeScreenKey = GlobalKey<_HomeScreenState>();
@@ -51,10 +51,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   void _onItemTapped(int index) {
     if (index == 2) {
-      showModalBottomSheet(
-        context: context,
-        backgroundColor: Colors.transparent,
-        builder: (context) => const VoiceRecordSheet(),
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const AiAssistantScreen(),
+        ),
       );
       return;
     }

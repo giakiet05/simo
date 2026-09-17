@@ -13,6 +13,9 @@ import '../providers/loan_provider.dart';
 import '../providers/saving_goal_provider.dart';
 import '../screens/home_screen.dart';
 
+/// Legacy voice recording bottom sheet.
+/// Superseded by full conversational [AiAssistantScreen].
+@Deprecated('Use AiAssistantScreen instead')
 class VoiceRecordSheet extends ConsumerStatefulWidget {
   const VoiceRecordSheet({super.key});
 

@@ -1,0 +1,100 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "AiAgentResponseProtocol",
+  "description": "Structured JSON response contract produced by OpenAI gpt-5-nano for the Simo AI Assistant",
+  "type": "object",
+  "properties": {
+    "thought": {
+      "type": "string",
+      "description": "Internal chain of thought reasoning behind intent extraction and entity matching"
+    },
+    "isSuccess": {
+      "type": "boolean",
+      "description": "True if the user input was understood and handled successfully, false otherwise"
+    },
+    "responseMessage": {
+      "type": "string",
+      "description": "Natural conversational response in Vietnamese addressed to the user"
+    },
+    "actions": {
+      "type": "array",
+      "description": "List of financial mutations to execute in the local database",
+      "items": {
+        "type": "object",
+        "properties": {
+          "actionType": {
+            "type": "string",
+            "enum": [
+              "transaction",
+              "transfer",
+              "loan_create",
+              "loan_repay",
+              "goal_deposit",
+              "goal_withdraw"
+            ]
+          },
+          "amount": {
+            "type": "number",
+            "description": "Standardized monetary amount in VND"
+          },
+          "date": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 date timestamp"
+          },
+          "note": {
+            "type": "string",
+            "description": "Descriptive note for the transaction or action"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["expense", "income"],
+            "description": "Applicable when actionType is transaction"
+          },
+          "categoryId": {
+            "type": ["string", "null"],
+            "description": "Matched Category UUID"
+          },
+          "walletId": {
+            "type": ["string", "null"],
+            "description": "Matched Wallet UUID"
+          },
+          "sourceWalletId": {
+            "type": ["string", "null"],
+            "description": "Source Wallet UUID for transfer"
+          },
+          "destinationWalletId": {
+            "type": ["string", "null"],
+            "description": "Destination Wallet UUID for transfer"
+          },
+          "fee": {
+            "type": "number",
+            "description": "Transfer fee amount (default 0)"
+          },
+          "loanType": {
+            "type": ["string", "null"],
+            "enum": ["lent", "borrowed", null]
+          },
+          "repayType": {
+            "type": ["string", "null"],
+            "enum": ["collect", "repay", null]
+          },
+          "contactName": {
+            "type": ["string", "null"]
+          },
+          "contactId": {
+            "type": ["string", "null"]
+          },
+          "goalId": {
+            "type": ["string", "null"]
+          },
+          "goalName": {
+            "type": ["string", "null"]
+          }
+        },
+        "required": ["actionType", "amount", "note"]
+      }
+    }
+  },
+  "required": ["thought", "isSuccess", "responseMessage", "actions"]
+}

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:dart_openai/dart_openai.dart';
@@ -7,14 +8,35 @@ import '../models/wallet.dart';
 import '../models/loan_contact.dart';
 import '../models/saving_goal.dart';
 
+/// Service interacting with OpenAI API (gpt-5-nano) to parse natural language
+/// financial commands, execute multi-action workflows, and answer financial queries.
 class AiTransactionService {
   AiTransactionService() {
-    String baseUrl = dotenv.env['AI_BASE_URL'] ?? 'https://api.groq.com/openai';
+    _ensureConfigured();
+  }
+
+  String _getApiKey() {
+    return dotenv.env['AI_API_KEY'] ??
+        dotenv.env['OPENAI_API_KEY'] ??
+        '';
+  }
+
+  void _ensureConfigured() {
+    String baseUrl = dotenv.env['AI_BASE_URL'] ??
+        dotenv.env['OPENAI_BASE_URL'] ??
+        'https://api.openai.com';
+    while (baseUrl.endsWith('/')) {
+      baseUrl = baseUrl.substring(0, baseUrl.length - 1);
+    }
     if (baseUrl.endsWith('/v1')) {
       baseUrl = baseUrl.substring(0, baseUrl.length - 3);
     }
     OpenAI.baseUrl = baseUrl;
-    OpenAI.apiKey = dotenv.env['AI_API_KEY'] ?? '';
+    OpenAI.requestsTimeOut = const Duration(seconds: 45);
+    final key = _getApiKey();
+    if (key.isNotEmpty) {
+      OpenAI.apiKey = key;
+    }
   }
 
   /// Backward-compatible method for parsing basic transactions.
@@ -34,158 +56,193 @@ class AiTransactionService {
     );
   }
 
-  /// Parses user natural speech into structured actions covering:
+  /// Parses user natural speech or typed chat into structured actions and conversational reply.
+  /// Handles:
   /// - Standard Transactions (income/expense)
   /// - Wallet Transfers (between wallets)
   /// - Loans & Debts (borrow, lend, repay, collect)
   /// - Saving Goals (deposit, withdraw)
+  /// - Contextual Financial Inquiries (balances, daily spending)
   Future<Map<String, dynamic>?> parseUserIntent({
     required String spokenText,
     required List<Category> categories,
     List<Wallet> wallets = const [],
     List<LoanContact> loanContacts = const [],
     List<SavingGoal> savingGoals = const [],
+    String? financialSummaryContext,
+    List<Map<String, String>> chatHistory = const [],
   }) async {
-    final modelId = dotenv.env['AI_MODEL'] ?? 'llama-3.3-70b-versatile';
+    _ensureConfigured();
+
+    final apiKey = _getApiKey();
+    if (apiKey.isEmpty) {
+      debugPrint('AiTransactionService: No API key configured in .env (checked AI_API_KEY, OPENAI_API_KEY)');
+      return {
+        'thought': 'Missing API key',
+        'isSuccess': false,
+        'message': 'Chưa cấu hình API Key trong file .env.',
+        'responseMessage': 'Bạn chưa cấu hình OpenAI API Key trong file .env. Vui lòng thêm AI_API_KEY=sk-... hoặc OPENAI_API_KEY=sk-... vào file .env nhé!',
+        'actions': [],
+        'transactions': []
+      };
+    }
+
+    final modelId = dotenv.env['AI_MODEL'] ?? 'gpt-4o-mini';
 
     final categoryContext = categories.isEmpty
-        ? 'Chưa có danh mục'
-        : categories.map((c) => 'ID: ${c.id}, Tên: ${c.name}, Loại: ${c.type}').join('\n');
+        ? 'Chua co danh muc'
+        : categories.map((c) => 'ID: ${c.id}, Ten: ${c.name}, Loai: ${c.type}').join('\n');
 
     final walletContext = wallets.isEmpty
-        ? 'Chưa có ví cụ thể'
-        : wallets.map((w) => 'ID: ${w.id}, Tên: ${w.name}, Loại: ${w.type}').join('\n');
+        ? 'Chua co vi cu the'
+        : wallets.map((w) => 'ID: ${w.id}, Ten: ${w.name}, Loai: ${w.type}, So du: ${w.currentBalance.toInt()} VND').join('\n');
 
     final loanContactContext = loanContacts.isEmpty
-        ? 'Chưa có liên hệ nợ'
-        : loanContacts.map((l) => 'ID: ${l.id}, Tên: ${l.contactName}, Loại: ${l.type}, Dư nợ: ${l.remainingAmount}').join('\n');
+        ? 'Chua co lien he no'
+        : loanContacts.map((l) => 'ID: ${l.id}, Ten: ${l.contactName}, Loai: ${l.type}, Du no: ${l.remainingAmount.toInt()} VND').join('\n');
 
     final savingGoalContext = savingGoals.isEmpty
-        ? 'Chưa có mục tiêu'
-        : savingGoals.map((g) => 'ID: ${g.id}, Tên: ${g.name}, Đã tích lũy: ${g.currentAmount}/${g.targetAmount}').join('\n');
+        ? 'Chua co muc tieu'
+        : savingGoals.map((g) => 'ID: ${g.id}, Ten: ${g.name}, Da tich luy: ${g.currentAmount.toInt()}/${g.targetAmount.toInt()} VND').join('\n');
 
+    final summaryContext = financialSummaryContext ?? 'Chua co thong ke chi tiet hom nay.';
     final currentDate = DateTime.now().toIso8601String();
 
     final systemPrompt = """
-# 1. VAI TRÒ VÀ NHIỆM VỤ
-Bạn là trợ lý tài chính thông minh toàn diện cho ứng dụng quản lý tài chính cá nhân.
-Nhiệm vụ của bạn là phân tích câu nói của người dùng và trích xuất thành 1 đối tượng JSON duy nhất.
-Người dùng có thể yêu cầu 1 hoặc NHIỀU hành động trong cùng một câu nói. Hãy phân tách chúng thành các phần tử trong mảng 'actions'.
-KHÔNG giải thích, KHÔNG markdown, CHỈ trả về JSON hợp lệ.
+# 1. VAI TRO VA NHIEM VU
+Ban la tro ly tai chinh thong minh toan dien (AI Financial Agent) cho ung dung quan ly tai chinh ca nhan Simo.
+Nhiem vu cua ban:
+1. Giao tiep tu nhien, than thien bang tieng Viet giong nhu mot tro ly ca nhan chu dao (xung ho ban - toi hoac than mat, lich su).
+2. Phan tich cau noi/chat cua nguoi dung de nhan dien:
+   a. Lenh hanh dong (ghi thu chi, chuyen tien, vay no, tiet kiem): trich xuat cac hanh dong vao mang 'actions' va tra loi xac nhan trong 'responseMessage'.
+   b. Cau hoi/Thac mac tai chinh (vi du: "hom nay tieu bao nhieu?", "vi Techcom con bao nhieu?"): su dung Du lieu ngu canh duoc cung cap de giai dap chinh xac trong 'responseMessage', mang 'actions' de rong [].
+   c. Tro chuyen/Chao hoi xa giao: phan hoi lich thiep va huong dan nguoi dung ghi chep tai chinh, 'actions' de rong [].
+3. CHU Y: Luon tra ve DUY NHAT 1 doi tuong JSON hop le, KHONG giai thich them ngoai JSON, KHONG boc markdown.
 
-# 2. CÁC LOẠI HÀNH ĐỘNG (actionType)
-Phân loại chính xác từng hành động của người dùng vào 1 trong các loại sau:
+# 2. CAC LOAI HANH DONG (actionType trong actions)
+1) "transaction" - Thu chi thong thuong:
+   - Thuoc tinh: "amount", "type" ('expense' hoac 'income'), "note", "categoryId", "walletId", "date".
+2) "transfer" - Chuyen tien giua 2 vi:
+   - Thuoc tinh: "amount", "sourceWalletId", "destinationWalletId", "fee", "note", "date".
+3) "loan_create" - Tao khoan vay hoac cho vay moi:
+   - Thuoc tinh: "amount", "loanType" ('lent' hoac 'borrowed'), "contactName", "contactId", "walletId", "note", "date".
+4) "loan_repay" - Tra no hoac Thu hoi no:
+   - Thuoc tinh: "amount", "repayType" ('collect' hoac 'repay'), "contactName", "contactId", "walletId", "note", "date".
+5) "goal_deposit" - Gop tien / Bo heo vao muc tieu tiet kiem:
+   - Thuoc tinh: "amount", "goalId", "goalName", "walletId", "note", "date".
+6) "goal_withdraw" - Rut tien tu muc tieu tiet kiem:
+   - Thuoc tinh: "amount", "goalId", "goalName", "walletId", "note", "date".
 
-1) "transaction" - Thu chi thông thường:
-   - "Ăn sáng 50k", "Mua sắm 200k thẻ Techcombank", "Lương về ví MoMo 15 củ".
-   - Thuộc tính: "amount", "type" ('expense' hoặc 'income'), "note", "categoryId", "walletId", "date".
+# 3. QUY TAC TIEN TE VIET NAM
+- Quy doi ve so nguyen VND:
+  + x 1.000: "k", "ka", "ca", "ngan", "nghin", "canh" (70k -> 70000, 5 canh -> 5000)
+  + x 10.000: "van", "chuc" (1 van -> 10000, 7 chuc -> 70000)
+  + x 100.000: "lit", "xi" (1 lit -> 100000, 2 xi -> 200000)
+  + x 1.000.000: "cu", "trieu" (1 cu -> 1000000, 2 trieu -> 2000000)
+- So tran khong don vi: Neu < 1000 mac dinh nhan 1000 (vi du: "an sang 45" -> 45000). Neu >= 1000 giu nguyen.
 
-2) "transfer" - Chuyển tiền qua lại giữa 2 ví:
-   - "Chuyển 2 triệu từ Techcombank sang ví MoMo", "Rút 500k từ VCB về Tiền mặt".
-   - Thuộc tính: "amount", "sourceWalletId", "destinationWalletId", "fee", "note", "date".
+# 4. QUY TAC ANH XA THUC THE
+- Danh muc: Khop categoryId phu hop nhat. Neu khong tim thay, de null.
+- Vi tien: Khop walletId theo ten vi (tien mat, momo, techcom, vcb...). Neu khong nhac den vi, de null (he thong dung vi mac dinh).
+- Lien he no: Khop contactId neu co trong danh sach, neu nguoi moi thi contactId: null va dien contactName.
+- Muc tieu: Khop goalId theo ten muc tieu. Neu moi thi goalId: null va dien goalName.
+- TUYET DOI KHONG TU BIA RA ID KHONG CO TRONG NGU CANH.
 
-3) "loan_create" - Tạo khoản vay hoặc cho vay mới:
-   - "Cho Tuấn mượn 500k", "Cho anh Ba vay 2 triệu", "Vay mẹ 10 triệu tiêu dùng", "Vay VPBank 20 triệu".
-   - Thuộc tính: "amount", "loanType" ('lent' nếu mình cho người khác vay/mượn; 'borrowed' nếu mình đi vay/mượn tiền từ người khác), "contactName" (tên người/tổ chức), "contactId" (nếu có trong danh bạ), "walletId", "note", "date".
+# 5. QUY TAC THOI GIAN
+- Thoi gian hien tai: $currentDate
+- Tinh lui ngay neu co: "hom qua" (-1 ngay), "hom kia" (-2 ngay), "tuan truoc" (-7 ngay).
 
-4) "loan_repay" - Trả nợ hoặc Thu hồi nợ:
-   - "Tuấn trả 200k nợ", "Đã trả nợ mẹ 2 triệu", "Thu nợ anh Ba 500k".
-   - Thuộc tính: "amount", "repayType" ('collect' nếu người ta trả nợ cho mình; 'repay' nếu mình trả nợ cho người khác), "contactName", "contactId", "walletId", "note", "date".
-
-5) "goal_deposit" - Góp tiền / Bỏ heo vào mục tiêu tiết kiệm:
-   - "Bỏ heo 500k vào mục tiêu Mua xe", "Nạp 1 củ vô quỹ Du lịch", "Tiết kiệm 2 triệu mua iPhone".
-   - Thuộc tính: "amount", "goalId" (nếu khớp tên trong danh sách mục tiêu), "goalName", "walletId", "note", "date".
-
-6) "goal_withdraw" - Rút tiền từ mục tiêu tiết kiệm:
-   - "Rút 1 triệu từ quỹ Du lịch", "Lấy 500k từ heo Mua xe ra tiêu".
-   - Thuộc tính: "amount", "goalId", "goalName", "walletId", "note", "date".
-
-# 3. QUY TẮC XỬ LÝ SỐ TIỀN
-- Phải quy đổi tất cả về số nguyên chuẩn (VND). Người dùng có thể đọc bằng số hoặc chữ.
-- Các cách nói lóng/viết tắt thông dụng của người Việt:
-  + x 1.000: "k", "ka", "ca", "ngàn", "nghìn", "cành" (Ví dụ: "70k" -> 70000, "bảy mươi ngàn" -> 70000, "5 cành" -> 5000)
-  + x 10.000: "vạn", "chục" (Ví dụ: "1 vạn" -> 10000, "7 chục" -> 70000)
-  + x 100.000: "lít", "xị" (Ví dụ: "1 lít" -> 100000, "2 xị" -> 200000)
-  + x 1.000.000: "củ", "triệu" (Ví dụ: "1 củ" -> 1000000, "1000 củ" -> 1000000000)
-- NẾU CÓ ĐƠN VỊ đi kèm, LUÔN LUÔN nhân với hệ số của đơn vị đó (Ví dụ: "1000 củ" -> 1.000.000.000).
-- Nhận diện lỗi chính tả/nghe nhầm: "cụ", "cú" -> hiểu là "củ"; "ngành", "ngàng" -> "ngàn"; "lít" -> nghe nhầm thành "lịch"; "kí" -> "k".
-- Nói số trần (KHÔNG có đơn vị): Nếu con số nhắc đến < 1000, mặc định nhân với 1000 (Ví dụ: "ăn sáng 70" -> 70000). Nếu >= 1000 và không có đơn vị, giữ nguyên (Ví dụ: "mua đồ 20000" -> 20000).
-
-# 4. QUY TẮC ÁNH XẠ THỰC THỂ (MATCHING RULES)
-- Danh mục (category): Tìm ID khớp nhất theo ngữ nghĩa. Nếu không có danh mục phù hợp, gán null hoặc ID 'Khác'.
-- Ví tiền (walletId, sourceWalletId, destinationWalletId): Tìm ID trong danh sách ví có tên khớp hoặc tương đương (VD: "Techcom", "TCB" -> ví Techcombank; "tiền mặt", "bóp" -> ví Tiền mặt; "momo" -> ví MoMo). Nếu không nhắc đến ví, để null (hệ thống sẽ tự gán ví mặc định).
-- Người vay/cho vay (contactId): Nếu tên người dùng nhắc đến tương ứng với người đã có trong Danh sách Liên hệ nợ, hãy gán đúng ID của họ. Nếu là người mới, để contactId: null và điền contactName.
-- Mục tiêu tiết kiệm (goalId): Khớp ID nếu tên mục tiêu người dùng nói tương đồng với mục tiêu đã có. Nếu không khớp, để goalId: null và điền goalName.
-- TUYỆT ĐỐI KHÔNG TỰ BỊA RA ID KHÔNG TỒN TẠI.
-
-# 5. QUY TẮC THỜI GIAN
-- Thời gian hiện tại là: $currentDate
-- Tự động tính lùi ngày nếu nhắc: "hôm qua" (lùi 1 ngày), "hôm kia" (lùi 2 ngày), "tuần trước" (lùi 7 ngày). Nếu không nói thời gian, dùng thời gian hiện tại.
-
-# 6. ĐỊNH DẠNG JSON ĐẦU RA
+# 6. DINH DANG JSON DAU RA (BAT BUOC)
 {
-  "thought": <string> (Ghi rõ suy luận bóc tách từng hành động, số tiền, ví, đối tượng),
-  "isSuccess": <boolean> (true nếu hiểu và trích xuất được ít nhất 1 hành động hợp lệ, false nếu vô nghĩa/quá vô lý),
-  "message": <string> (Thông báo lỗi ngắn gọn nếu isSuccess=false),
+  "isSuccess": <boolean> (true neu hieu va xu ly duoc, false neu cau noi hoan toan vo nghia),
+  "responseMessage": <string> (Cau tra loi hoi thoai ngan gon bang tieng Viet xac nhan hanh dong hoac giai dap thac mac),
+  "message": <string> (Thong bao neu isSuccess=false),
   "actions": [
     {
       "actionType": "transaction" | "transfer" | "loan_create" | "loan_repay" | "goal_deposit" | "goal_withdraw",
       "amount": <number>,
       "date": <string> (ISO 8601),
       "note": <string>,
-      "type": "expense" | "income" (chỉ cho transaction),
+      "type": "expense" | "income",
       "categoryId": <string | null>,
       "walletId": <string | null>,
-      "sourceWalletId": <string | null> (chỉ cho transfer),
-      "destinationWalletId": <string | null> (chỉ cho transfer),
-      "fee": <number> (mặc định 0),
-      "loanType": "lent" | "borrowed" (chỉ cho loan_create),
-      "repayType": "collect" | "repay" (chỉ cho loan_repay),
+      "sourceWalletId": <string | null>,
+      "destinationWalletId": <string | null>,
+      "fee": <number>,
+      "loanType": "lent" | "borrowed" | null,
+      "repayType": "collect" | "repay" | null,
       "contactName": <string | null>,
       "contactId": <string | null>,
       "goalId": <string | null>,
       "goalName": <string | null>
     }
   ],
-  "transactions": [
-    // Tự động sao chép các action có actionType=="transaction" vào đây để tương thích ngược:
-    // { "amount": <number>, "note": <string>, "type": <string>, "categoryId": <string | null>, "walletId": <string | null>, "date": <string> }
-  ]
+  "thought": <string> (Giai thich ngan gon duoi 15 tu)
 }
 
 ---
-NGỮ CẢNH DỮ LIỆU CỦA NGƯỜI DÙNG:
-[Danh mục (Categories)]:
+DU LIEU NGU CANH NGUOI DUNG:
+[Danh muc (Categories)]:
 $categoryContext
 
-[Ví tiền (Wallets)]:
+[Vi tien (Wallets)]:
 $walletContext
 
-[Liên hệ nợ (Loan Contacts)]:
+[Lien he no (Loan Contacts)]:
 $loanContactContext
 
-[Mục tiêu tiết kiệm (Saving Goals)]:
+[Muc tieu tiet kiem (Saving Goals)]:
 $savingGoalContext
+
+[Tong quan hom nay (Today Summary)]:
+$summaryContext
 """;
 
     try {
-      final chatCompletion = await OpenAI.instance.chat.create(
-        model: modelId,
-        messages: [
-          OpenAIChatCompletionChoiceMessageModel(
-            role: OpenAIChatMessageRole.system,
-            content: [OpenAIChatCompletionChoiceMessageContentItemModel.text(systemPrompt)],
-          ),
-          OpenAIChatCompletionChoiceMessageModel(
-            role: OpenAIChatMessageRole.user,
-            content: [OpenAIChatCompletionChoiceMessageContentItemModel.text(spokenText)],
-          ),
-        ],
-        temperature: 0.1,
+      final messagesList = <OpenAIChatCompletionChoiceMessageModel>[
+        OpenAIChatCompletionChoiceMessageModel(
+          role: OpenAIChatMessageRole.system,
+          content: [OpenAIChatCompletionChoiceMessageContentItemModel.text(systemPrompt)],
+        ),
+      ];
+
+      // Append recent conversational context
+      for (final turn in chatHistory) {
+        final role = turn['role'] == 'user'
+            ? OpenAIChatMessageRole.user
+            : OpenAIChatMessageRole.assistant;
+        final content = turn['content'] ?? '';
+        if (content.isNotEmpty) {
+          messagesList.add(
+            OpenAIChatCompletionChoiceMessageModel(
+              role: role,
+              content: [OpenAIChatCompletionChoiceMessageContentItemModel.text(content)],
+            ),
+          );
+        }
+      }
+
+      // Append the current turn
+      messagesList.add(
+        OpenAIChatCompletionChoiceMessageModel(
+          role: OpenAIChatMessageRole.user,
+          content: [OpenAIChatCompletionChoiceMessageContentItemModel.text(spokenText)],
+        ),
       );
 
-      final responseText = chatCompletion.choices.first.message.content?.first.text;
-      if (responseText != null) {
+      final chatCompletion = await OpenAI.instance.chat.create(
+        model: modelId,
+        messages: messagesList,
+        responseFormat: const {"type": "json_object"},
+      );
+
+      final contentItems = chatCompletion.choices.first.message.content;
+      String? responseText;
+      if (contentItems != null && contentItems.isNotEmpty) {
+        responseText = contentItems.map((c) => c.text ?? '').join();
+      }
+
+      if (responseText != null && responseText.isNotEmpty) {
         var cleanJson = responseText.replaceAll('```json', '').replaceAll('```', '').trim();
         final startIndex = cleanJson.indexOf('{');
         final endIndex = cleanJson.lastIndexOf('}');
@@ -193,11 +250,19 @@ $savingGoalContext
           cleanJson = cleanJson.substring(startIndex, endIndex + 1);
         }
 
-        if (cleanJson.isEmpty) {
-          throw Exception('AI returned empty JSON');
+        Map<String, dynamic> parsed;
+        try {
+          parsed = jsonDecode(cleanJson) as Map<String, dynamic>;
+        } catch (e) {
+          debugPrint('AiTransactionService: Non-JSON response received, fallback gracefully: $responseText');
+          parsed = {
+            'isSuccess': true,
+            'responseMessage': responseText,
+            'thought': 'Raw text fallback',
+            'actions': [],
+            'transactions': [],
+          };
         }
-
-        final parsed = jsonDecode(cleanJson) as Map<String, dynamic>;
 
         // Backward compatibility fallback: ensure 'transactions' array exists
         if (!parsed.containsKey('transactions') && parsed.containsKey('actions')) {
@@ -207,14 +272,42 @@ $savingGoalContext
               .toList();
         }
 
+        // Ensure default response message if omitted by model
+        if (!parsed.containsKey('responseMessage') || parsed['responseMessage'] == null) {
+          final actions = parsed['actions'] as List<dynamic>? ?? [];
+          if (actions.isNotEmpty) {
+            parsed['responseMessage'] = 'Tôi đã ghi nhận xong các giao dịch của bạn!';
+          } else {
+            parsed['responseMessage'] = parsed['message'] ?? 'Tôi đã nhận được thông tin từ bạn!';
+          }
+        }
+
         return parsed;
       }
+    } on TimeoutException catch (e) {
+      debugPrint('AiTransactionService error: Request timed out: $e');
+      return {
+        'thought': 'Request timed out',
+        'isSuccess': false,
+        'message': 'Yêu cầu kết nối AI bị quá thời gian chờ (Timeout).',
+        'responseMessage': 'Kết nối tới OpenAI bị quá thời gian chờ (Timeout). Bạn vui lòng kiểm tra lại kết nối mạng hoặc thử lại nhé!',
+        'actions': [],
+        'transactions': []
+      };
     } catch (e) {
-      // Internal logging without exposing secrets
       debugPrint('AiTransactionService error: $e');
+      final errorStr = e.toString();
+      if (errorStr.contains('401') || errorStr.contains('API key')) {
+        return {
+          'thought': 'Invalid or Missing API Key',
+          'isSuccess': false,
+          'message': 'API Key không hợp lệ hoặc chưa được cung cấp (Lỗi 401).',
+          'responseMessage': 'OpenAI API Key không hợp lệ hoặc tài khoản chưa có quyền truy cập model (Lỗi 401). Bạn vui lòng kiểm tra biến AI_API_KEY hoặc OPENAI_API_KEY trong file .env nhé!',
+          'actions': [],
+          'transactions': []
+        };
+      }
     }
     return null;
   }
 }
-
-
