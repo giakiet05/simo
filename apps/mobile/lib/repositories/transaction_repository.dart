@@ -100,18 +100,26 @@ class TransactionRepository {
 
     for (var data in transactionData) {
       final targetWalletId =
-          (data['walletId'] as String?) ?? defaultWallet?.id;
+          (data['walletId'] as String?) ?? (data['wallet_id'] as String?) ?? defaultWallet?.id;
+
+      DateTime txDate = now;
+      final rawDate = data['transactionDate'] ?? data['transaction_date'];
+      if (rawDate is DateTime) {
+        txDate = rawDate;
+      } else if (rawDate is String) {
+        txDate = DateTime.tryParse(rawDate) ?? now;
+      }
 
       final transaction = Transaction(
         id: _uuid.v4(),
-        categoryId: data['categoryId'] as String?,
-        recurringConfigId: data['recurringConfigId'] as String?,
+        categoryId: (data['categoryId'] as String?) ?? (data['category_id'] as String?),
+        recurringConfigId: (data['recurringConfigId'] as String?) ?? (data['recurring_config_id'] as String?),
         walletId: targetWalletId,
-        amount: data['amount'] as double,
+        amount: (data['amount'] as num).toDouble(),
         formula: data['formula'] as String?,
         note: data['note'] as String?,
-        type: data['type'] as String,
-        transactionDate: data['transactionDate'] as DateTime? ?? now,
+        type: data['type'] as String? ?? 'expense',
+        transactionDate: txDate,
         createdAt: now,
         updatedAt: now,
       );

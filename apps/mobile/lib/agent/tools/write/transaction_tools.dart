@@ -1,5 +1,7 @@
 import 'package:uuid/uuid.dart';
 import '../agent_tool.dart';
+import '../../../models/category.dart';
+import '../../../models/wallet.dart';
 import '../../../providers/transaction_provider.dart';
 import '../../../providers/category_provider.dart';
 import '../../../providers/wallet_provider.dart';
@@ -39,27 +41,73 @@ class CreateTransactionTool extends SimoAgentTool<Map<String, dynamic>, bool> {
     final categories = context.ref.read(categoryProvider).value ?? [];
     final wallets = context.ref.read(walletProvider).value ?? [];
 
-    String categoryId = input['categoryId'] as String? ?? '';
-    if (categoryId.isEmpty || !categories.any((c) => c.id == categoryId)) {
-      categoryId = categories.where((c) => c.type == type).firstOrNull?.id ??
-          (categories.isNotEmpty ? categories.first.id : '');
+    final rawCatId = input['categoryId'] as String?;
+    final rawCatName = (input['categoryName'] as String?) ?? (input['category'] as String?);
+
+    Category? matchedCategory;
+    // 1. Direct ID match
+    if (rawCatId != null && rawCatId.isNotEmpty) {
+      matchedCategory = categories.where((c) => c.id == rawCatId).firstOrNull;
     }
 
-    String walletId = input['walletId'] as String? ?? '';
-    if (walletId.isEmpty || !wallets.any((w) => w.id == walletId)) {
-      walletId = wallets.where((w) => w.isDefault).firstOrNull?.id ??
-          (wallets.isNotEmpty ? wallets.first.id : '');
+    // 2. Exact or partial match by categoryName
+    if (matchedCategory == null && rawCatName != null && rawCatName.trim().isNotEmpty) {
+      final query = rawCatName.trim().toLowerCase();
+      matchedCategory = categories.where((c) => c.name.toLowerCase() == query).firstOrNull ??
+          categories.where((c) => c.name.toLowerCase().contains(query) || query.contains(c.name.toLowerCase())).firstOrNull;
     }
+
+    // 3. In case the AI put the category name inside categoryId
+    if (matchedCategory == null && rawCatId != null && rawCatId.trim().isNotEmpty) {
+      final query = rawCatId.trim().toLowerCase();
+      matchedCategory = categories.where((c) => c.name.toLowerCase() == query).firstOrNull ??
+          categories.where((c) => c.name.toLowerCase().contains(query) || query.contains(c.name.toLowerCase())).firstOrNull;
+    }
+
+    // 4. Match based on note keywords
+    if (matchedCategory == null && note.isNotEmpty) {
+      final noteLower = note.toLowerCase();
+      matchedCategory = categories.where((c) =>
+        c.type == type && (noteLower.contains(c.name.toLowerCase()) || c.name.toLowerCase().contains(noteLower))
+      ).firstOrNull;
+    }
+
+    // 5. Fallback to first category of matching type or first available
+    matchedCategory ??= categories.where((c) => c.type == type).firstOrNull ?? (categories.isNotEmpty ? categories.first : null);
+
+    final String? categoryId = matchedCategory?.id;
+
+    // Wallet matching
+    final rawWalletId = input['walletId'] as String?;
+    final rawWalletName = (input['walletName'] as String?) ?? (input['wallet'] as String?);
+
+    Wallet? matchedWallet;
+    if (rawWalletId != null && rawWalletId.isNotEmpty) {
+      matchedWallet = wallets.where((w) => w.id == rawWalletId).firstOrNull;
+    }
+    if (matchedWallet == null && rawWalletName != null && rawWalletName.trim().isNotEmpty) {
+      final query = rawWalletName.trim().toLowerCase();
+      matchedWallet = wallets.where((w) => w.name.toLowerCase() == query).firstOrNull ??
+          wallets.where((w) => w.name.toLowerCase().contains(query)).firstOrNull;
+    }
+    if (matchedWallet == null && rawWalletId != null && rawWalletId.trim().isNotEmpty) {
+      final query = rawWalletId.trim().toLowerCase();
+      matchedWallet = wallets.where((w) => w.name.toLowerCase() == query).firstOrNull ??
+          wallets.where((w) => w.name.toLowerCase().contains(query)).firstOrNull;
+    }
+    matchedWallet ??= wallets.where((w) => w.isDefault).firstOrNull ?? (wallets.isNotEmpty ? wallets.first : null);
+
+    final String? walletId = matchedWallet?.id;
 
     await context.ref.read(transactionProvider.notifier).createTransactions([
       {
         'id': const Uuid().v4(),
-        'category_id': categoryId,
-        'wallet_id': walletId,
+        'categoryId': categoryId,
+        'walletId': walletId,
         'amount': amount,
         'note': note,
         'type': type,
-        'transaction_date': date.toIso8601String(),
+        'transactionDate': date,
       }
     ]);
 
@@ -84,13 +132,38 @@ class UpdateTransactionTool extends SimoAgentTool<Map<String, dynamic>, bool> {
       'amount': {'type': ['number', 'null']},
       'note': {'type': ['string', 'null']},
       'categoryId': {'type': ['string', 'null']},
+      'categoryName': {'type': ['string', 'null']},
       'walletId': {'type': ['string', 'null']},
+      'walletName': {'type': ['string', 'null']},
       'type': {'type': ['string', 'null']},
     },
   };
 
   @override
   Future<bool> execute(Map<String, dynamic> input, AgentExecutionContext context) async {
+    final categories = context.ref.read(categoryProvider).value ?? [];
+    final wallets = context.ref.read(walletProvider).value ?? [];
+
+    String? categoryId = input['categoryId'] as String?;
+    final categoryName = (input['categoryName'] as String?) ?? (input['category'] as String?);
+    if (categoryName != null && categoryName.trim().isNotEmpty) {
+      final matched = categories.where((c) => c.name.toLowerCase() == categoryName.toLowerCase().trim()).firstOrNull ??
+          categories.where((c) => c.name.toLowerCase().contains(categoryName.toLowerCase().trim())).firstOrNull;
+      if (matched != null) {
+        categoryId = matched.id;
+      }
+    }
+
+    String? walletId = input['walletId'] as String?;
+    final walletName = (input['walletName'] as String?) ?? (input['wallet'] as String?);
+    if (walletName != null && walletName.trim().isNotEmpty) {
+      final matched = wallets.where((w) => w.name.toLowerCase() == walletName.toLowerCase().trim()).firstOrNull ??
+          wallets.where((w) => w.name.toLowerCase().contains(walletName.toLowerCase().trim())).firstOrNull;
+      if (matched != null) {
+        walletId = matched.id;
+      }
+    }
+
     final transactionId = input['transactionId'] as String?;
     if (transactionId == null || transactionId.isEmpty) {
       // If no explicit ID, fallback to finding the most recent transaction
@@ -99,8 +172,6 @@ class UpdateTransactionTool extends SimoAgentTool<Map<String, dynamic>, bool> {
       final target = txs.first;
       final amount = (input['amount'] as num?)?.toDouble();
       final note = input['note'] as String?;
-      final categoryId = input['categoryId'] as String?;
-      final walletId = input['walletId'] as String?;
 
       await context.ref.read(transactionProvider.notifier).updateTransaction(
         target.id,
@@ -114,8 +185,6 @@ class UpdateTransactionTool extends SimoAgentTool<Map<String, dynamic>, bool> {
 
     final amount = (input['amount'] as num?)?.toDouble();
     final note = input['note'] as String?;
-    final categoryId = input['categoryId'] as String?;
-    final walletId = input['walletId'] as String?;
     final type = input['type'] as String?;
 
     await context.ref.read(transactionProvider.notifier).updateTransaction(

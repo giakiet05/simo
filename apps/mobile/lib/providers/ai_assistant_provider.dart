@@ -114,6 +114,7 @@ class AiAssistantNotifier extends StateNotifier<AiAssistantState> {
     _toolRegistry.register(GoalWithdrawTool());
     _toolRegistry.register(CreateRecurringTool());
     _toolRegistry.register(CreateCategoryTool());
+    _toolRegistry.register(UpdateCategoryTool());
     _toolRegistry.register(DeleteCategoryTool());
 
     // Navigation Tool
@@ -450,6 +451,12 @@ class AiAssistantNotifier extends StateNotifier<AiAssistantState> {
         final catName = rawAction['categoryName'] as String? ?? rawAction['name'] as String? ?? 'Danh mục mới';
         final catType = (rawAction['type'] as String? ?? 'expense') == 'income' ? 'Thu nhập' : 'Chi tiêu';
         subtitle = 'Tên danh mục: $catName ($catType)';
+        break;
+
+      case 'category_update':
+        title = 'Cập nhật danh mục';
+        final updateName = rawAction['newName'] as String? ?? rawAction['categoryName'] as String? ?? 'Danh mục';
+        subtitle = 'Đã cập nhật: $updateName';
         break;
 
       case 'category_delete':

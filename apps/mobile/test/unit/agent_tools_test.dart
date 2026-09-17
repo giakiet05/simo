@@ -5,6 +5,7 @@ import 'package:simo/agent/brain/protocol_parser.dart';
 import 'package:simo/agent/brain/system_prompt_builder.dart';
 import 'package:simo/agent/tools/agent_tool.dart';
 import 'package:simo/agent/tools/tool_registry.dart';
+import 'package:simo/agent/tools/write/category_tools.dart';
 
 class MockTestTool extends SimoAgentTool<Map<String, dynamic>, String> {
   @override
@@ -116,11 +117,31 @@ void main() {
       expect(prompt.contains('budget_set'), isTrue);
       expect(prompt.contains('wallet_create'), isTrue);
       expect(prompt.contains('category_create'), isTrue);
+      expect(prompt.contains('category_update'), isTrue);
       expect(prompt.contains('category_delete'), isTrue);
       expect(prompt.contains('query_transactions'), isTrue);
       expect(prompt.contains('view_budgets'), isTrue);
       expect(prompt.contains('navigate_screen'), isTrue);
       expect(prompt.contains('Ví tiền mặt: 100.000 VND'), isTrue);
+    });
+  });
+
+  group('CategoryResolverHelper Tests', () {
+    test('resolves named colors and hex codes accurately', () {
+      expect(CategoryResolverHelper.resolveColor('đỏ', 'expense'), equals('#EF4444'));
+      expect(CategoryResolverHelper.resolveColor('xanh lá', 'expense'), equals('#10B981'));
+      expect(CategoryResolverHelper.resolveColor('tím', 'expense'), equals('#8B5CF6'));
+      expect(CategoryResolverHelper.resolveColor('#123456', 'expense'), equals('#123456'));
+      expect(CategoryResolverHelper.resolveColor(null, 'income'), equals('#10B981'));
+    });
+
+    test('resolves semantic keywords into valid icons', () {
+      expect(CategoryResolverHelper.resolveIcon(null, 'Quậy', 'expense'), equals('celebration'));
+      expect(CategoryResolverHelper.resolveIcon(null, 'Đi nhậu', 'expense'), equals('celebration'));
+      expect(CategoryResolverHelper.resolveIcon(null, 'Cà phê sáng', 'expense'), equals('coffee'));
+      expect(CategoryResolverHelper.resolveIcon(null, 'Đổ xăng xe', 'expense'), equals('local_gas_station'));
+      expect(CategoryResolverHelper.resolveIcon(null, 'Chơi game', 'expense'), equals('sports_esports'));
+      expect(CategoryResolverHelper.resolveIcon('local_bar', 'Hội họp', 'expense'), equals('local_bar'));
     });
   });
 

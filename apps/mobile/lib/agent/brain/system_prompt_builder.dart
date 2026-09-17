@@ -36,8 +36,9 @@ Nhiệm vụ của bạn:
 12. `goal_withdraw`: Rút tiền từ mục tiêu (`goalId`, `goalName`, `amount`, `walletId`, `note`, `date`).
 13. `recurring_create`: Tạo giao dịch định kỳ (`amount`, `type`, `categoryId`, `walletId`, `frequency` ['daily'|'weekly'|'monthly'|'yearly'], `dayOfMonth`, `note`).
 14. `navigate_screen`: Điều hướng màn hình (`destination`: 'dashboard'|'reports'|'wallets'|'budgets'|'loans'|'goals'|'export_backup'|'settings'|'categories').
-15. `category_create`: Tạo danh mục thu hoặc chi mới (`categoryName`, `type` ['expense'|'income'], `icon`, `color`).
-16. `category_delete`: Xóa danh mục thu hoặc chi (`categoryId`, `categoryName`).
+15. `category_create`: Tạo danh mục thu hoặc chi mới (`categoryName`, `type` ['expense'|'income'], `icon` [tên icon hoặc từ khóa: 'bia', 'tiệc', 'cà phê', 'xe', 'game', 'ăn uống'...], `color` [mã hex hoặc tên màu tiếng Việt: 'đỏ', 'cam', 'vàng', 'xanh lá', 'tím', 'hồng', 'xanh dương'...], `budgetLimit`).
+16. `category_update`: Cập nhật danh mục (`categoryName` hoặc `categoryId`, `newName`, `type`, `icon`, `color`, `budgetLimit`).
+17. `category_delete`: Xóa danh mục thu hoặc chi (`categoryId`, `categoryName`).
 
 ### B. Nhóm Read / View Queries (trong đối tượng `viewQuery`):
 1. `query_transactions`: Tra cứu danh sách giao dịch (`period`: 'today'|'yesterday'|'this_week'|'this_month'|'all', `type`: 'expense'|'income'|'all', `categoryId`, `walletId`, `minAmount`, `maxAmount`).
@@ -55,7 +56,7 @@ Nhiệm vụ của bạn:
 
 # 4. QUY TẮC THỜI GIAN & THỰC THỂ
 - Thời gian hiện tại: $now
-- Khớp categoryId, walletId, contactId, goalId từ Dữ liệu ngữ cảnh. Tuyệt đối không tự bịa ID lạ.
+- Khớp categoryId (hoặc truyền categoryName), walletId (hoặc truyền walletName), contactId, goalId từ Dữ liệu ngữ cảnh.
 
 # 5. CẤU TRÚC JSON ĐẦU RA (BẮT BUỘC)
 {
@@ -64,13 +65,17 @@ Nhiệm vụ của bạn:
   "thought": "Giải thích ngắn gọn dưới 15 từ",
   "actions": [
     {
-      "actionType": "transaction_create" | "transaction_delete" | "transaction_update" | "wallet_create" | "wallet_adjust_balance" | "transfer" | "budget_set" | "loan_create" | "loan_repay" | "goal_create" | "goal_deposit" | "goal_withdraw" | "recurring_create" | "category_create" | "category_delete" | "navigate_screen",
+      "actionType": "transaction_create" | "transaction_delete" | "transaction_update" | "wallet_create" | "wallet_adjust_balance" | "transfer" | "budget_set" | "loan_create" | "loan_repay" | "goal_create" | "goal_deposit" | "goal_withdraw" | "recurring_create" | "category_create" | "category_update" | "category_delete" | "navigate_screen",
       "amount": 50000,
       "date": "$now",
       "note": "ăn sáng phở",
       "type": "expense",
       "categoryId": "cat_id_or_null",
       "categoryName": null,
+      "newName": null,
+      "icon": null,
+      "color": null,
+      "budgetLimit": null,
       "walletId": "wallet_id_or_null",
       "sourceWalletId": null,
       "destinationWalletId": null,
