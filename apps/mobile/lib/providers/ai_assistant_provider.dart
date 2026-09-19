@@ -145,6 +145,12 @@ class AiAssistantNotifier extends StateNotifier<AiAssistantState> {
     final text = rawText.trim();
     if (text.isEmpty || state.isProcessing) return;
 
+    // Immediately cancel any speech recording/transcription and timers in flight
+    _countdownTimer?.cancel();
+    if (state.isListening) {
+      await _speechService.cancel();
+    }
+
     final userMessage = AiMessage.user(text);
     final thinkingMessage = AiMessage.assistantThinking();
 
@@ -154,6 +160,7 @@ class AiAssistantNotifier extends StateNotifier<AiAssistantState> {
     if (mounted) {
       state = state.copyWith(
         messages: updatedMessages,
+        isListening: false,
         isProcessing: true,
         errorMessage: null,
         recognizedSpeechText: '',
@@ -199,6 +206,7 @@ class AiAssistantNotifier extends StateNotifier<AiAssistantState> {
           final newHorizon = AgentMemoryContext.calculateHorizonIndex(newMessages);
           state = state.copyWith(
             messages: newMessages,
+            recognizedSpeechText: '',
             horizonIndex: newHorizon,
           );
         } else if (event is AgentErrorEvent) {
@@ -219,12 +227,16 @@ class AiAssistantNotifier extends StateNotifier<AiAssistantState> {
         final newHorizon = AgentMemoryContext.calculateHorizonIndex(newMessages);
         state = state.copyWith(
           messages: newMessages,
+          recognizedSpeechText: '',
           horizonIndex: newHorizon,
         );
       }
     } finally {
       if (mounted) {
-        state = state.copyWith(isProcessing: false);
+        state = state.copyWith(
+          isProcessing: false,
+          recognizedSpeechText: '',
+        );
       }
     }
   }
@@ -260,7 +272,7 @@ class AiAssistantNotifier extends StateNotifier<AiAssistantState> {
       _resetSilenceTimer();
       await _speechService.startListening(
         onResult: (text) {
-          if (mounted) {
+          if (mounted && state.isListening && !state.isProcessing) {
             state = state.copyWith(recognizedSpeechText: text);
             _resetSilenceTimer();
           }
@@ -284,8 +296,11 @@ class AiAssistantNotifier extends StateNotifier<AiAssistantState> {
   /// Clears active conversation history.
   void clearChat() {
     if (!mounted) return;
+    _countdownTimer?.cancel();
+    _speechService.cancel();
     state = state.copyWith(
       messages: [],
+      isListening: false,
       errorMessage: null,
       recognizedSpeechText: '',
       clearHorizon: true,

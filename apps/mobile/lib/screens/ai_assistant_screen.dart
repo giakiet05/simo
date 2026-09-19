@@ -307,12 +307,18 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
       if (previous?.messages.length != next.messages.length) {
         _scrollToBottom();
       }
-      if (next.recognizedSpeechText.isNotEmpty &&
+      // Update text controller only when new speech text arrives and not actively processing
+      if (!next.isProcessing &&
+          next.recognizedSpeechText.isNotEmpty &&
           next.recognizedSpeechText != previous?.recognizedSpeechText) {
         _textController.text = next.recognizedSpeechText;
         _textController.selection = TextSelection.fromPosition(
           TextPosition(offset: _textController.text.length),
         );
+      }
+      // Ensure input controller is cleared whenever message submission starts
+      if (previous?.isProcessing == false && next.isProcessing == true) {
+        _textController.clear();
       }
     });
 

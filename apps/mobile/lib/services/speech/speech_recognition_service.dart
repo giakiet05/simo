@@ -1,5 +1,3 @@
-import 'package:flutter/foundation.dart';
-
 abstract class SpeechRecognitionService {
   /// Khởi tạo service (ví dụ xin quyền)
   Future<bool> initialize({

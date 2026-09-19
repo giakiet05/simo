@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:convert';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
@@ -84,6 +85,7 @@ class WhisperSpeechService implements SpeechRecognitionService {
 
   @override
   Future<void> cancel() async {
+    _onResult = null;
     if (!_isRecording) return;
     
     try {
@@ -91,7 +93,7 @@ class WhisperSpeechService implements SpeechRecognitionService {
       _isRecording = false;
       _onStatus?.call('notListening');
     } catch (e) {
-      print('Lỗi hủy ghi âm: $e');
+      debugPrint('Lỗi hủy ghi âm Whisper: $e');
     }
   }
 
@@ -131,7 +133,9 @@ class WhisperSpeechService implements SpeechRecognitionService {
       if (response.statusCode == 200) {
         final data = jsonDecode(responseBody);
         final text = data['text'] ?? '';
-        _onResult?.call(text);
+        if (_onResult != null) {
+          _onResult?.call(text);
+        }
       } else {
         _onError?.call('Lỗi API Whisper: ${response.statusCode} - $responseBody');
       }
