@@ -17,7 +17,12 @@ import '../widgets/category_icon_widget.dart';
 import '../widgets/month_year_picker_modal.dart';
 
 class CategoryBudgetScreen extends ConsumerStatefulWidget {
-  const CategoryBudgetScreen({super.key});
+  final int initialTabIndex;
+
+  const CategoryBudgetScreen({
+    super.key,
+    this.initialTabIndex = 0,
+  });
 
   @override
   ConsumerState<CategoryBudgetScreen> createState() => _CategoryBudgetScreenState();
@@ -32,7 +37,11 @@ class _CategoryBudgetScreenState extends ConsumerState<CategoryBudgetScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(
+      length: 2,
+      vsync: this,
+      initialIndex: widget.initialTabIndex.clamp(0, 1),
+    );
   }
 
   @override

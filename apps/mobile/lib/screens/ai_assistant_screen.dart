@@ -17,7 +17,6 @@ import '../widgets/ai/ai_message_bubble.dart';
 import '../widgets/ai/ai_quick_prompts.dart';
 
 import 'category_budget_screen.dart';
-import 'category_screen.dart';
 import 'export_backup_screen.dart';
 import 'loan_screen.dart';
 import 'loan_detail_screen.dart';
@@ -94,7 +93,7 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
         targetScreen = const ExportBackupScreen();
         break;
       case 'categories':
-        targetScreen = const CategoryScreen();
+        targetScreen = const CategoryBudgetScreen();
         break;
       case 'settings':
         targetScreen = const SettingsScreen();
@@ -228,9 +227,11 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
         );
       }
     } else if (type.startsWith('category')) {
+      final categoryType = (raw['type'] as String?)?.toLowerCase();
+      final int initialTab = categoryType == 'income' ? 1 : 0;
       Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (_) => const CategoryScreen(),
+          builder: (_) => CategoryBudgetScreen(initialTabIndex: initialTab),
         ),
       );
     } else if (type.startsWith('wallet') || type == 'transfer') {
