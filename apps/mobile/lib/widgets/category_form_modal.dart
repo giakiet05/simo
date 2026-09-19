@@ -250,8 +250,28 @@ class _CategoryFormModalState extends ConsumerState<CategoryFormModal> {
     final name = _nameController.text.trim();
     if (name.isEmpty && !isSystem) return;
 
-    setState(() => _isSubmitting = true);
+    if (!isSystem && _formKey.currentState != null && !_formKey.currentState!.validate()) {
+      return;
+    }
+
     final l10n = ref.read(localizationProvider);
+    final allCategories = ref.read(categoryProvider).value ?? [];
+    final isDuplicate = !isSystem && allCategories.any((c) =>
+        c.id != widget.categoryToEdit?.id &&
+        c.type == _selectedType &&
+        c.name.trim().toLowerCase() == name.toLowerCase());
+
+    if (isDuplicate) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(l10n.categoryAlreadyExists),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
 
     try {
       final budgetStr = _budgetController.text.replaceAll(',', '').trim();
@@ -572,6 +592,17 @@ class _CategoryFormModalState extends ConsumerState<CategoryFormModal> {
                         validator: (val) {
                           if (!isSystem && (val == null || val.trim().isEmpty)) {
                             return l10n.locale == 'vi' ? 'Vui lòng nhập tên danh mục' : 'Please enter category name';
+                          }
+                          if (!isSystem && val != null) {
+                            final trimmed = val.trim().toLowerCase();
+                            final allCategories = ref.read(categoryProvider).value ?? [];
+                            final isDuplicate = allCategories.any((c) =>
+                                c.id != widget.categoryToEdit?.id &&
+                                c.type == _selectedType &&
+                                c.name.trim().toLowerCase() == trimmed);
+                            if (isDuplicate) {
+                              return l10n.categoryAlreadyExists;
+                            }
                           }
                           return null;
                         },

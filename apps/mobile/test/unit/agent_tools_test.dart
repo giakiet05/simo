@@ -148,6 +148,19 @@ void main() {
     });
   });
 
+  group('Category Tools Schema Tests', () {
+    test('CreateCategoryTool and UpdateCategoryTool schemas and names', () {
+      final createCatTool = CreateCategoryTool();
+      expect(createCatTool.name, equals('category_create'));
+      expect(createCatTool.parametersSchema['required'], contains('categoryName'));
+      expect(createCatTool.parametersSchema['properties'], contains('budgetLimit'));
+
+      final updateCatTool = UpdateCategoryTool();
+      expect(updateCatTool.name, equals('category_update'));
+      expect(updateCatTool.parametersSchema['properties'], contains('newName'));
+    });
+  });
+
   group('ToolRegistry Tests', () {
     test('registers and retrieves tool by name', () {
       final registry = ToolRegistry();

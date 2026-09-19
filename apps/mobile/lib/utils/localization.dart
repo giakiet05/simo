@@ -116,6 +116,7 @@ class AppLocalizations {
       'category_added': 'Category added',
       'category_updated': 'Category updated',
       'category_deleted': 'Category deleted',
+      'category_already_exists': 'Category already exists',
 
       // Recurring
       'recurring_transactions': 'Recurring Transactions',
@@ -576,6 +577,7 @@ class AppLocalizations {
       'category_added': '类别已添加',
       'category_updated': '类别已更新',
       'category_deleted': '类别已删除',
+      'category_already_exists': '类别已存在',
 
       // Recurring
       'recurring_transactions': '定期交易',
@@ -1016,6 +1018,7 @@ class AppLocalizations {
       'category_added': 'Đã thêm danh mục',
       'category_updated': 'Đã cập nhật danh mục',
       'category_deleted': 'Đã xóa danh mục',
+      'category_already_exists': 'Danh mục này đã tồn tại',
 
       // Recurring
       'recurring_transactions': 'Giao dịch định kỳ',
@@ -1429,6 +1432,7 @@ class AppLocalizations {
   String get categoryAdded => translate('category_added');
   String get categoryUpdated => translate('category_updated');
   String get categoryDeleted => translate('category_deleted');
+  String get categoryAlreadyExists => translate('category_already_exists');
 
   String get recurringTransactions => translate('recurring_transactions');
   String get noRecurring => translate('no_recurring');

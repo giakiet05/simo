@@ -52,11 +52,28 @@ class CategoryRepository {
 
   Future<Category> create(String name, String type, {String? icon, String? color, double? budgetLimit}) async {
     final db = await DatabaseHelper.instance.database;
+    final trimmedName = name.trim();
+    final lowerName = trimmedName.toLowerCase();
+
+    // Prevent duplicate category names within the same type (Unicode case-insensitive)
+    final existingMaps = await db.query(
+      'categories',
+      where: 'type = ?',
+      whereArgs: [type],
+    );
+    final isDuplicate = existingMaps.any((map) {
+      final existingName = (map['name'] as String?)?.trim().toLowerCase();
+      return existingName == lowerName;
+    });
+    if (isDuplicate) {
+      throw Exception('Category "$trimmedName" already exists for type "$type"');
+    }
+
     final now = DateTime.now();
 
     final category = Category(
       id: _uuid.v4(),
-      name: name,
+      name: trimmedName,
       type: type,
       icon: icon,
       color: color,
@@ -77,8 +94,25 @@ class CategoryRepository {
       throw Exception('Category not found');
     }
 
+    final trimmedName = name.trim();
+    final lowerName = trimmedName.toLowerCase();
+
+    // Prevent duplicate category names within the same type for other categories (Unicode case-insensitive)
+    final existingMaps = await db.query(
+      'categories',
+      where: 'type = ? AND id != ?',
+      whereArgs: [type, id],
+    );
+    final isDuplicate = existingMaps.any((map) {
+      final existingName = (map['name'] as String?)?.trim().toLowerCase();
+      return existingName == lowerName;
+    });
+    if (isDuplicate) {
+      throw Exception('Category "$trimmedName" already exists for type "$type"');
+    }
+
     final updated = category.copyWith(
-      name: name,
+      name: trimmedName,
       type: type,
       icon: icon,
       color: color,

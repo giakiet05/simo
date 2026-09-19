@@ -158,7 +158,7 @@ class CategoryResolverHelper {
 }
 
 /// Mutation tool to create a new transaction category.
-class CreateCategoryTool extends SimoAgentTool<Map<String, dynamic>, bool> {
+class CreateCategoryTool extends SimoAgentTool<Map<String, dynamic>, Map<String, dynamic>> {
   @override
   String get name => 'category_create';
 
@@ -179,26 +179,68 @@ class CreateCategoryTool extends SimoAgentTool<Map<String, dynamic>, bool> {
   };
 
   @override
-  Future<bool> execute(Map<String, dynamic> input, AgentExecutionContext context) async {
+  Future<Map<String, dynamic>> execute(Map<String, dynamic> input, AgentExecutionContext context) async {
     final name = input['categoryName'] as String? ?? input['name'] as String?;
-    if (name == null || name.trim().isEmpty) return false;
+    if (name == null || name.trim().isEmpty) {
+      return {'isSuccess': false, 'error': 'Tên danh mục không được để trống'};
+    }
 
     final type = input['type'] as String? ?? 'expense';
+    final trimmedName = name.trim();
+
+    // Check if category already exists in current snapshot
+    final categories = context.ref.read(categoryProvider).value ?? [];
+    final existing = categories.where((c) =>
+      c.type == type &&
+      c.name.trim().toLowerCase() == trimmedName.toLowerCase()
+    ).firstOrNull;
+
+    if (existing != null) {
+      return {
+        'isSuccess': false,
+        'error': 'Danh mục "$trimmedName" đã tồn tại sẵn trong hệ thống (ID: ${existing.id}, Loại: ${existing.type}). Không tạo trùng lặp.',
+        'categoryId': existing.id,
+        'categoryName': existing.name,
+        'type': existing.type,
+      };
+    }
+
     final rawIcon = input['icon'] as String?;
     final rawColor = input['color'] as String?;
     final budgetLimit = (input['budgetLimit'] as num?)?.toDouble();
 
-    final icon = CategoryResolverHelper.resolveIcon(rawIcon, name, type);
+    final icon = CategoryResolverHelper.resolveIcon(rawIcon, trimmedName, type);
     final color = CategoryResolverHelper.resolveColor(rawColor, type);
 
-    await context.ref.read(categoryProvider.notifier).createCategory(
-      name.trim(),
-      type,
-      icon: icon,
-      color: color,
-      budgetLimit: budgetLimit,
-    );
-    return true;
+    try {
+      await context.ref.read(categoryProvider.notifier).createCategory(
+        trimmedName,
+        type,
+        icon: icon,
+        color: color,
+        budgetLimit: budgetLimit,
+      );
+
+      final updatedCategories = context.ref.read(categoryProvider).value ?? [];
+      final createdCat = updatedCategories.where((c) =>
+        c.type == type && c.name.trim().toLowerCase() == trimmedName.toLowerCase()
+      ).firstOrNull;
+
+      return {
+        'isSuccess': true,
+        'categoryId': createdCat?.id,
+        'categoryName': trimmedName,
+        'type': type,
+        'icon': icon,
+        'color': color,
+        'budgetLimit': budgetLimit,
+      };
+    } catch (e) {
+      return {
+        'isSuccess': false,
+        'error': e.toString(),
+      };
+    }
   }
 }
 
@@ -246,6 +288,18 @@ class UpdateCategoryTool extends SimoAgentTool<Map<String, dynamic>, bool> {
 
     final updatedName = input['newName'] as String? ?? target.name;
     final updatedType = input['type'] as String? ?? target.type;
+
+    // Check duplicate if name or type is changing
+    if (updatedName.trim().toLowerCase() != target.name.trim().toLowerCase() || updatedType != target.type) {
+      final duplicate = categories.where((c) =>
+        c.id != target!.id &&
+        c.type == updatedType &&
+        c.name.trim().toLowerCase() == updatedName.trim().toLowerCase()
+      ).firstOrNull;
+      if (duplicate != null) {
+        return false;
+      }
+    }
     final rawColor = input['color'] as String?;
     final rawIcon = input['icon'] as String?;
     final budgetLimit = (input['budgetLimit'] as num?)?.toDouble() ?? target.budgetLimit;

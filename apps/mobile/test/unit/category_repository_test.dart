@@ -69,5 +69,41 @@ void main() {
       expect(txAfter2, isNotEmpty);
       expect(txAfter2.first['category_id'], isNull);
     });
+
+    test('creating duplicate category in the same type throws an exception', () async {
+      await repo.create('Ăn uống', 'expense', icon: 'restaurant', color: '#EF4444');
+
+      // Exact match
+      expect(
+        () => repo.create('Ăn uống', 'expense'),
+        throwsA(isA<Exception>()),
+      );
+
+      // Case-insensitive and trimmed match
+      expect(
+        () => repo.create('  ăn uống  ', 'expense'),
+        throwsA(isA<Exception>()),
+      );
+
+      // Allowed in different type (income vs expense)
+      final incomeCat = await repo.create('Ăn uống', 'income');
+      expect(incomeCat.name, equals('Ăn uống'));
+      expect(incomeCat.type, equals('income'));
+    });
+
+    test('updating category name to an existing duplicate category name in the same type throws an exception', () async {
+      await repo.create('Cà phê', 'expense');
+      final cat2 = await repo.create('Trà sữa', 'expense');
+
+      // Updating cat2 with its own name should succeed
+      final updatedSelf = await repo.update(cat2.id, '  Trà sữa  ', 'expense');
+      expect(updatedSelf.name, equals('Trà sữa'));
+
+      // Updating cat2 with cat1's name should throw
+      expect(
+        () => repo.update(cat2.id, 'Cà phê', 'expense'),
+        throwsA(isA<Exception>()),
+      );
+    });
   });
 }
