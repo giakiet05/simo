@@ -8,7 +8,7 @@ import '../../../providers/transaction_provider.dart';
 import '../../../providers/wallet_provider.dart';
 
 /// Mutation tool to create a new debt or lending record.
-class CreateLoanTool extends SimoAgentTool<Map<String, dynamic>, bool> {
+class CreateLoanTool extends SimoAgentTool<Map<String, dynamic>, Map<String, dynamic>> {
   @override
   String get name => 'loan_create';
 
@@ -33,14 +33,14 @@ class CreateLoanTool extends SimoAgentTool<Map<String, dynamic>, bool> {
   };
 
   @override
-  Future<bool> execute(Map<String, dynamic> input, AgentExecutionContext context) async {
+  Future<Map<String, dynamic>> execute(Map<String, dynamic> input, AgentExecutionContext context) async {
     final double amount = (input['amount'] as num?)?.toDouble() ?? 0.0;
-    if (amount <= 0) return false;
+    if (amount <= 0) return {'isSuccess': false, 'error': 'Số tiền không hợp lệ'};
 
     final contactName = (input['contactName'] as String?)?.trim();
     if (contactName == null || contactName.isEmpty) {
       // Must not use generic placeholder defaults
-      return false;
+      return {'isSuccess': false, 'error': 'Tên người liên hệ không được để trống'};
     }
 
     final loanType = input['loanType'] as String? ?? 'lent';
@@ -48,7 +48,10 @@ class CreateLoanTool extends SimoAgentTool<Map<String, dynamic>, bool> {
     final note = input['note'] as String? ?? '';
     final date = AgentDateHelper.parseDate(input['date'] as String?);
 
-    final loans = context.ref.read(loanProvider).value ?? [];
+    List<LoanContact> loans = context.ref.read(loanProvider).value ?? [];
+    if (loans.isEmpty) {
+      loans = await context.ref.read(loanRepositoryProvider).getLoans();
+    }
 
     LoanContact? existingContact;
     if (contactId != null) {
@@ -104,7 +107,10 @@ class CreateLoanTool extends SimoAgentTool<Map<String, dynamic>, bool> {
     context.ref.invalidate(loanTransactionsProvider(savedLoanId));
 
     // Resolve wallet
-    final wallets = context.ref.read(walletProvider).value ?? [];
+    List<Wallet> wallets = context.ref.read(walletProvider).value ?? [];
+    if (wallets.isEmpty) {
+      wallets = await context.ref.read(walletRepositoryProvider).getAllWallets();
+    }
     final rawWalletId = input['walletId'] as String?;
     final rawWalletName = (input['walletName'] as String?) ?? (input['wallet'] as String?);
 
@@ -144,12 +150,19 @@ class CreateLoanTool extends SimoAgentTool<Map<String, dynamic>, bool> {
       }
     ]);
 
-    return true;
+    return {
+      'isSuccess': true,
+      'loanId': savedLoanId,
+      'contactName': contactName,
+      'loanType': loanType,
+      'amount': amount,
+      'walletId': walletId,
+    };
   }
 }
 
 /// Mutation tool to update an existing loan contact, adjust amounts, or extend due dates.
-class UpdateLoanTool extends SimoAgentTool<Map<String, dynamic>, bool> {
+class UpdateLoanTool extends SimoAgentTool<Map<String, dynamic>, Map<String, dynamic>> {
   @override
   String get name => 'loan_update';
 
@@ -171,8 +184,11 @@ class UpdateLoanTool extends SimoAgentTool<Map<String, dynamic>, bool> {
   };
 
   @override
-  Future<bool> execute(Map<String, dynamic> input, AgentExecutionContext context) async {
-    final loans = context.ref.read(loanProvider).value ?? [];
+  Future<Map<String, dynamic>> execute(Map<String, dynamic> input, AgentExecutionContext context) async {
+    List<LoanContact> loans = context.ref.read(loanProvider).value ?? [];
+    if (loans.isEmpty) {
+      loans = await context.ref.read(loanRepositoryProvider).getLoans();
+    }
     final contactId = input['contactId'] as String?;
     final contactName = input['contactName'] as String?;
     final newName = input['newName'] as String?;
@@ -187,7 +203,7 @@ class UpdateLoanTool extends SimoAgentTool<Map<String, dynamic>, bool> {
       target = loans.where((l) => l.contactName.toLowerCase().contains(contactName.toLowerCase())).firstOrNull;
     }
 
-    if (target == null) return false;
+    if (target == null) return {'isSuccess': false, 'error': 'Không tìm thấy thông tin khoản nợ'};
 
     final updated = target.copyWith(
       contactName: newName ?? target.contactName,
@@ -196,7 +212,15 @@ class UpdateLoanTool extends SimoAgentTool<Map<String, dynamic>, bool> {
     );
 
     await context.ref.read(loanProvider.notifier).updateLoanContact(updated);
-    return true;
+    context.ref.invalidate(loanTransactionsProvider(target.id));
+
+    return {
+      'isSuccess': true,
+      'loanId': target.id,
+      'contactName': updated.contactName,
+      'remainingAmount': updated.remainingAmount,
+      'totalAmount': updated.totalAmount,
+    };
   }
 }
 
@@ -219,7 +243,10 @@ class DeleteLoanTool extends SimoAgentTool<Map<String, dynamic>, bool> {
 
   @override
   Future<bool> execute(Map<String, dynamic> input, AgentExecutionContext context) async {
-    final loans = context.ref.read(loanProvider).value ?? [];
+    List<LoanContact> loans = context.ref.read(loanProvider).value ?? [];
+    if (loans.isEmpty) {
+      loans = await context.ref.read(loanRepositoryProvider).getLoans();
+    }
     final contactId = input['contactId'] as String?;
     final contactName = input['contactName'] as String?;
 
@@ -239,7 +266,7 @@ class DeleteLoanTool extends SimoAgentTool<Map<String, dynamic>, bool> {
 }
 
 /// Mutation tool to repay or collect a debt.
-class RepayLoanTool extends SimoAgentTool<Map<String, dynamic>, bool> {
+class RepayLoanTool extends SimoAgentTool<Map<String, dynamic>, Map<String, dynamic>> {
   @override
   String get name => 'loan_repay';
 
@@ -263,16 +290,19 @@ class RepayLoanTool extends SimoAgentTool<Map<String, dynamic>, bool> {
   };
 
   @override
-  Future<bool> execute(Map<String, dynamic> input, AgentExecutionContext context) async {
+  Future<Map<String, dynamic>> execute(Map<String, dynamic> input, AgentExecutionContext context) async {
     final double amount = (input['amount'] as num?)?.toDouble() ?? 0.0;
-    if (amount <= 0) return false;
+    if (amount <= 0) return {'isSuccess': false, 'error': 'Số tiền không hợp lệ'};
 
     final contactName = (input['contactName'] as String?)?.trim();
     final contactId = input['contactId'] as String?;
     final note = input['note'] as String? ?? '';
     final date = AgentDateHelper.parseDate(input['date'] as String?);
 
-    final loans = context.ref.read(loanProvider).value ?? [];
+    List<LoanContact> loans = context.ref.read(loanProvider).value ?? [];
+    if (loans.isEmpty) {
+      loans = await context.ref.read(loanRepositoryProvider).getLoans();
+    }
 
     LoanContact? contact;
     if (contactId != null) {
@@ -309,7 +339,10 @@ class RepayLoanTool extends SimoAgentTool<Map<String, dynamic>, bool> {
       context.ref.invalidate(loanTransactionsProvider(contact.id));
 
       // Resolve wallet
-      final wallets = context.ref.read(walletProvider).value ?? [];
+      List<Wallet> wallets = context.ref.read(walletProvider).value ?? [];
+      if (wallets.isEmpty) {
+        wallets = await context.ref.read(walletRepositoryProvider).getAllWallets();
+      }
       final rawWalletId = input['walletId'] as String?;
       final rawWalletName = (input['walletName'] as String?) ?? (input['wallet'] as String?);
 
@@ -348,9 +381,17 @@ class RepayLoanTool extends SimoAgentTool<Map<String, dynamic>, bool> {
         }
       ]);
 
-      return true;
+      return {
+        'isSuccess': true,
+        'loanId': contact.id,
+        'contactName': contact.contactName,
+        'repayType': actualRepayType,
+        'amount': amount,
+        'remainingAmount': newRemaining,
+        'status': updated.status,
+      };
     }
 
-    return false;
+    return {'isSuccess': false, 'error': 'Không tìm thấy khoản nợ tương ứng'};
   }
 }

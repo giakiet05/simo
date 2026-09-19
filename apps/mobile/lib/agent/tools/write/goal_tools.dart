@@ -4,7 +4,7 @@ import '../../../models/saving_goal.dart';
 import '../../../providers/saving_goal_provider.dart';
 
 /// Mutation tool to create a new saving goal.
-class CreateGoalTool extends SimoAgentTool<Map<String, dynamic>, bool> {
+class CreateGoalTool extends SimoAgentTool<Map<String, dynamic>, Map<String, dynamic>> {
   @override
   String get name => 'goal_create';
 
@@ -23,18 +23,19 @@ class CreateGoalTool extends SimoAgentTool<Map<String, dynamic>, bool> {
   };
 
   @override
-  Future<bool> execute(Map<String, dynamic> input, AgentExecutionContext context) async {
+  Future<Map<String, dynamic>> execute(Map<String, dynamic> input, AgentExecutionContext context) async {
     final name = input['goalName'] as String? ?? 'Mục tiêu mới';
     final double targetAmount = (input['targetAmount'] as num?)?.toDouble() ??
         (input['amount'] as num?)?.toDouble() ??
         0.0;
-    if (targetAmount <= 0) return false;
+    if (targetAmount <= 0) return {'isSuccess': false, 'error': 'Số tiền mục tiêu không hợp lệ'};
 
     final dateStr = input['targetDate'] as String?;
     final targetDate = dateStr != null ? DateTime.tryParse(dateStr) : null;
+    final generatedId = const Uuid().v4();
 
     final goal = SavingGoal(
-      id: const Uuid().v4(),
+      id: generatedId,
       name: name,
       targetAmount: targetAmount,
       currentAmount: 0.0,
@@ -46,12 +47,18 @@ class CreateGoalTool extends SimoAgentTool<Map<String, dynamic>, bool> {
       updatedAt: DateTime.now(),
     );
 
-    return await context.ref.read(savingGoalProvider.notifier).createGoal(goal);
+    final success = await context.ref.read(savingGoalProvider.notifier).createGoal(goal);
+    return {
+      'isSuccess': success,
+      'goalId': generatedId,
+      'goalName': name,
+      'targetAmount': targetAmount,
+    };
   }
 }
 
 /// Mutation tool to update an existing saving goal (target amount, due date, status, name).
-class UpdateGoalTool extends SimoAgentTool<Map<String, dynamic>, bool> {
+class UpdateGoalTool extends SimoAgentTool<Map<String, dynamic>, Map<String, dynamic>> {
   @override
   String get name => 'goal_update';
 
@@ -72,8 +79,11 @@ class UpdateGoalTool extends SimoAgentTool<Map<String, dynamic>, bool> {
   };
 
   @override
-  Future<bool> execute(Map<String, dynamic> input, AgentExecutionContext context) async {
-    final goals = context.ref.read(savingGoalProvider).value ?? [];
+  Future<Map<String, dynamic>> execute(Map<String, dynamic> input, AgentExecutionContext context) async {
+    List<SavingGoal> goals = context.ref.read(savingGoalProvider).value ?? [];
+    if (goals.isEmpty) {
+      goals = await context.ref.read(savingGoalRepositoryProvider).getAll();
+    }
     final goalId = input['goalId'] as String?;
     final goalName = input['goalName'] as String?;
     final newName = input['newName'] as String?;
@@ -87,10 +97,12 @@ class UpdateGoalTool extends SimoAgentTool<Map<String, dynamic>, bool> {
       target = goals.where((g) => g.id == goalId).firstOrNull;
     }
     if (target == null && goalName != null && goalName.isNotEmpty) {
-      target = goals.where((g) => g.name.toLowerCase().contains(goalName.toLowerCase())).firstOrNull;
+      final q = goalName.trim().toLowerCase();
+      target = goals.where((g) => g.name.toLowerCase() == q).firstOrNull ??
+          goals.where((g) => g.name.toLowerCase().contains(q) || q.contains(g.name.toLowerCase())).firstOrNull;
     }
 
-    if (target == null) return false;
+    if (target == null) return {'isSuccess': false, 'error': 'Không tìm thấy mục tiêu'};
 
     final updated = target.copyWith(
       name: newName ?? target.name,
@@ -100,7 +112,13 @@ class UpdateGoalTool extends SimoAgentTool<Map<String, dynamic>, bool> {
       updatedAt: DateTime.now(),
     );
 
-    return await context.ref.read(savingGoalProvider.notifier).updateGoal(updated);
+    final success = await context.ref.read(savingGoalProvider.notifier).updateGoal(updated);
+    return {
+      'isSuccess': success,
+      'goalId': target.id,
+      'goalName': updated.name,
+      'targetAmount': updated.targetAmount,
+    };
   }
 }
 
@@ -123,7 +141,10 @@ class DeleteGoalTool extends SimoAgentTool<Map<String, dynamic>, bool> {
 
   @override
   Future<bool> execute(Map<String, dynamic> input, AgentExecutionContext context) async {
-    final goals = context.ref.read(savingGoalProvider).value ?? [];
+    List<SavingGoal> goals = context.ref.read(savingGoalProvider).value ?? [];
+    if (goals.isEmpty) {
+      goals = await context.ref.read(savingGoalRepositoryProvider).getAll();
+    }
     final goalId = input['goalId'] as String?;
     final goalName = input['goalName'] as String?;
 
@@ -132,7 +153,9 @@ class DeleteGoalTool extends SimoAgentTool<Map<String, dynamic>, bool> {
       target = goals.where((g) => g.id == goalId).firstOrNull;
     }
     if (target == null && goalName != null && goalName.isNotEmpty) {
-      target = goals.where((g) => g.name.toLowerCase().contains(goalName.toLowerCase())).firstOrNull;
+      final q = goalName.trim().toLowerCase();
+      target = goals.where((g) => g.name.toLowerCase() == q).firstOrNull ??
+          goals.where((g) => g.name.toLowerCase().contains(q) || q.contains(g.name.toLowerCase())).firstOrNull;
     }
 
     if (target == null) return false;
@@ -142,7 +165,7 @@ class DeleteGoalTool extends SimoAgentTool<Map<String, dynamic>, bool> {
 }
 
 /// Mutation tool to deposit funds into a saving goal.
-class GoalDepositTool extends SimoAgentTool<Map<String, dynamic>, bool> {
+class GoalDepositTool extends SimoAgentTool<Map<String, dynamic>, Map<String, dynamic>> {
   @override
   String get name => 'goal_deposit';
 
@@ -163,39 +186,56 @@ class GoalDepositTool extends SimoAgentTool<Map<String, dynamic>, bool> {
   };
 
   @override
-  Future<bool> execute(Map<String, dynamic> input, AgentExecutionContext context) async {
+  Future<Map<String, dynamic>> execute(Map<String, dynamic> input, AgentExecutionContext context) async {
     final double amount = (input['amount'] as num?)?.toDouble() ?? 0.0;
-    if (amount <= 0) return false;
+    if (amount <= 0) return {'isSuccess': false, 'error': 'Số tiền nạp không hợp lệ'};
 
-    final goals = context.ref.read(savingGoalProvider).value ?? [];
+    List<SavingGoal> goals = context.ref.read(savingGoalProvider).value ?? [];
+    if (goals.isEmpty) {
+      goals = await context.ref.read(savingGoalRepositoryProvider).getAll();
+    }
     final goalId = input['goalId'] as String?;
     final goalName = input['goalName'] as String?;
     final note = input['note'] as String? ?? 'Góp quỹ qua AI';
     final date = AgentDateHelper.parseDate(input['date'] as String?);
 
     SavingGoal? target;
-    if (goalId != null) {
+    if (goalId != null && goalId.isNotEmpty) {
       target = goals.where((g) => g.id == goalId).firstOrNull;
     }
-    if (target == null && goalName != null) {
-      target = goals.where((g) => g.name.toLowerCase().contains(goalName.toLowerCase())).firstOrNull;
+    if (target == null && goalName != null && goalName.isNotEmpty) {
+      final q = goalName.trim().toLowerCase();
+      target = goals.where((g) => g.name.toLowerCase() == q).firstOrNull ??
+          goals.where((g) => g.name.toLowerCase().contains(q) || q.contains(g.name.toLowerCase())).firstOrNull;
     }
     target ??= goals.firstOrNull;
 
-    if (target == null) return false;
+    if (target == null) {
+      return {'isSuccess': false, 'error': 'Không tìm thấy mục tiêu tích lũy tương ứng'};
+    }
 
-    return await context.ref.read(savingGoalProvider.notifier).addLog(
+    final success = await context.ref.read(savingGoalProvider.notifier).addLog(
       goalId: target.id,
       amount: amount,
       type: 'deposit',
       logDate: date,
       note: note,
     );
+
+    return {
+      'isSuccess': success,
+      'goalId': target.id,
+      'goalName': target.name,
+      'amount': amount,
+      'type': 'deposit',
+      'note': note,
+      'date': date.toIso8601String(),
+    };
   }
 }
 
 /// Mutation tool to withdraw funds from a saving goal.
-class GoalWithdrawTool extends SimoAgentTool<Map<String, dynamic>, bool> {
+class GoalWithdrawTool extends SimoAgentTool<Map<String, dynamic>, Map<String, dynamic>> {
   @override
   String get name => 'goal_withdraw';
 
@@ -216,33 +256,50 @@ class GoalWithdrawTool extends SimoAgentTool<Map<String, dynamic>, bool> {
   };
 
   @override
-  Future<bool> execute(Map<String, dynamic> input, AgentExecutionContext context) async {
+  Future<Map<String, dynamic>> execute(Map<String, dynamic> input, AgentExecutionContext context) async {
     final double amount = (input['amount'] as num?)?.toDouble() ?? 0.0;
-    if (amount <= 0) return false;
+    if (amount <= 0) return {'isSuccess': false, 'error': 'Số tiền rút không hợp lệ'};
 
-    final goals = context.ref.read(savingGoalProvider).value ?? [];
+    List<SavingGoal> goals = context.ref.read(savingGoalProvider).value ?? [];
+    if (goals.isEmpty) {
+      goals = await context.ref.read(savingGoalRepositoryProvider).getAll();
+    }
     final goalId = input['goalId'] as String?;
     final goalName = input['goalName'] as String?;
     final note = input['note'] as String? ?? 'Rút quỹ qua AI';
     final date = AgentDateHelper.parseDate(input['date'] as String?);
 
     SavingGoal? target;
-    if (goalId != null) {
+    if (goalId != null && goalId.isNotEmpty) {
       target = goals.where((g) => g.id == goalId).firstOrNull;
     }
-    if (target == null && goalName != null) {
-      target = goals.where((g) => g.name.toLowerCase().contains(goalName.toLowerCase())).firstOrNull;
+    if (target == null && goalName != null && goalName.isNotEmpty) {
+      final q = goalName.trim().toLowerCase();
+      target = goals.where((g) => g.name.toLowerCase() == q).firstOrNull ??
+          goals.where((g) => g.name.toLowerCase().contains(q) || q.contains(g.name.toLowerCase())).firstOrNull;
     }
     target ??= goals.firstOrNull;
 
-    if (target == null) return false;
+    if (target == null) {
+      return {'isSuccess': false, 'error': 'Không tìm thấy mục tiêu tích lũy tương ứng'};
+    }
 
-    return await context.ref.read(savingGoalProvider.notifier).addLog(
+    final success = await context.ref.read(savingGoalProvider.notifier).addLog(
       goalId: target.id,
       amount: amount,
       type: 'withdraw',
       logDate: date,
       note: note,
     );
+
+    return {
+      'isSuccess': success,
+      'goalId': target.id,
+      'goalName': target.name,
+      'amount': amount,
+      'type': 'withdraw',
+      'note': note,
+      'date': date.toIso8601String(),
+    };
   }
 }

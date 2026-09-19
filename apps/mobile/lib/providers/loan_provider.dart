@@ -9,13 +9,14 @@ final loanRepositoryProvider = Provider<LoanRepository>((ref) {
 
 final loanProvider = StateNotifierProvider<LoanNotifier, AsyncValue<List<LoanContact>>>((ref) {
   final repository = ref.watch(loanRepositoryProvider);
-  return LoanNotifier(repository);
+  return LoanNotifier(repository, ref);
 });
 
 class LoanNotifier extends StateNotifier<AsyncValue<List<LoanContact>>> {
   final LoanRepository _repository;
+  final Ref _ref;
 
-  LoanNotifier(this._repository) : super(const AsyncValue.loading()) {
+  LoanNotifier(this._repository, this._ref) : super(const AsyncValue.loading()) {
     loadLoans();
   }
 
@@ -33,6 +34,7 @@ class LoanNotifier extends StateNotifier<AsyncValue<List<LoanContact>>> {
     try {
       await _repository.insertLoanContact(loan);
       await loadLoans();
+      _ref.invalidate(loanTransactionsProvider(loan.id));
     } catch (e) {
       rethrow;
     }
@@ -42,6 +44,7 @@ class LoanNotifier extends StateNotifier<AsyncValue<List<LoanContact>>> {
     try {
       await _repository.updateLoanContact(loan);
       await loadLoans();
+      _ref.invalidate(loanTransactionsProvider(loan.id));
     } catch (e) {
       rethrow;
     }
@@ -51,6 +54,7 @@ class LoanNotifier extends StateNotifier<AsyncValue<List<LoanContact>>> {
     try {
       await _repository.deleteLoanContact(id);
       await loadLoans();
+      _ref.invalidate(loanTransactionsProvider(id));
     } catch (e) {
       rethrow;
     }

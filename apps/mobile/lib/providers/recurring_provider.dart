@@ -134,6 +134,10 @@ class RecurringNotifier extends StateNotifier<AsyncValue<List<RecurringConfig>>>
   }
 }
 
+final recurringRepositoryProvider = Provider<RecurringRepository>((ref) {
+  return RecurringRepository();
+});
+
 final recurringProvider = StateNotifierProvider<RecurringNotifier, AsyncValue<List<RecurringConfig>>>((ref) {
   return RecurringNotifier();
 });

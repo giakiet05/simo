@@ -4,7 +4,7 @@ import '../../../models/wallet.dart';
 import '../../../providers/wallet_provider.dart';
 
 /// Mutation tool to create a new wallet.
-class CreateWalletTool extends SimoAgentTool<Map<String, dynamic>, bool> {
+class CreateWalletTool extends SimoAgentTool<Map<String, dynamic>, Map<String, dynamic>> {
   @override
   String get name => 'wallet_create';
 
@@ -24,14 +24,15 @@ class CreateWalletTool extends SimoAgentTool<Map<String, dynamic>, bool> {
   };
 
   @override
-  Future<bool> execute(Map<String, dynamic> input, AgentExecutionContext context) async {
+  Future<Map<String, dynamic>> execute(Map<String, dynamic> input, AgentExecutionContext context) async {
     final name = input['walletName'] as String? ?? 'Ví mới';
     final type = input['walletType'] as String? ?? 'bank';
     final initialBalance = (input['amount'] as num?)?.toDouble() ?? 0.0;
     final isDefault = input['isDefault'] as bool? ?? false;
+    final generatedId = const Uuid().v4();
 
     final wallet = Wallet(
-      id: const Uuid().v4(),
+      id: generatedId,
       name: name,
       type: type,
       initialBalance: initialBalance,
@@ -45,7 +46,14 @@ class CreateWalletTool extends SimoAgentTool<Map<String, dynamic>, bool> {
     );
 
     await context.ref.read(walletProvider.notifier).createWallet(wallet);
-    return true;
+    return {
+      'isSuccess': true,
+      'walletId': generatedId,
+      'walletName': name,
+      'currentBalance': initialBalance,
+      'type': type,
+      'isDefault': isDefault,
+    };
   }
 
   String _getDefaultIcon(String type) {
@@ -84,7 +92,7 @@ class CreateWalletTool extends SimoAgentTool<Map<String, dynamic>, bool> {
 }
 
 /// Mutation tool to update an existing wallet's details (name, type, default status).
-class UpdateWalletTool extends SimoAgentTool<Map<String, dynamic>, bool> {
+class UpdateWalletTool extends SimoAgentTool<Map<String, dynamic>, Map<String, dynamic>> {
   @override
   String get name => 'wallet_update';
 
@@ -104,8 +112,11 @@ class UpdateWalletTool extends SimoAgentTool<Map<String, dynamic>, bool> {
   };
 
   @override
-  Future<bool> execute(Map<String, dynamic> input, AgentExecutionContext context) async {
-    final wallets = context.ref.read(walletProvider).value ?? [];
+  Future<Map<String, dynamic>> execute(Map<String, dynamic> input, AgentExecutionContext context) async {
+    List<Wallet> wallets = context.ref.read(walletProvider).value ?? [];
+    if (wallets.isEmpty) {
+      wallets = await context.ref.read(walletRepositoryProvider).getAllWallets();
+    }
     final walletId = input['walletId'] as String?;
     final walletName = input['walletName'] as String?;
     final newName = input['newName'] as String?;
@@ -120,7 +131,7 @@ class UpdateWalletTool extends SimoAgentTool<Map<String, dynamic>, bool> {
       target = wallets.where((w) => w.name.toLowerCase().contains(walletName.toLowerCase())).firstOrNull;
     }
 
-    if (target == null) return false;
+    if (target == null) return {'isSuccess': false, 'error': 'Không tìm thấy ví cần sửa'};
 
     if (isDefault == true) {
       await context.ref.read(walletProvider.notifier).setDefaultWallet(target.id);
@@ -134,7 +145,13 @@ class UpdateWalletTool extends SimoAgentTool<Map<String, dynamic>, bool> {
     );
 
     await context.ref.read(walletProvider.notifier).updateWallet(updated);
-    return true;
+    return {
+      'isSuccess': true,
+      'walletId': target.id,
+      'walletName': updated.name,
+      'type': updated.type,
+      'isDefault': updated.isDefault,
+    };
   }
 }
 
@@ -157,7 +174,10 @@ class DeleteWalletTool extends SimoAgentTool<Map<String, dynamic>, bool> {
 
   @override
   Future<bool> execute(Map<String, dynamic> input, AgentExecutionContext context) async {
-    final wallets = context.ref.read(walletProvider).value ?? [];
+    List<Wallet> wallets = context.ref.read(walletProvider).value ?? [];
+    if (wallets.isEmpty) {
+      wallets = await context.ref.read(walletRepositoryProvider).getAllWallets();
+    }
     final walletId = input['walletId'] as String?;
     final walletName = input['walletName'] as String?;
 
@@ -177,7 +197,7 @@ class DeleteWalletTool extends SimoAgentTool<Map<String, dynamic>, bool> {
 }
 
 /// Mutation tool to adjust an existing wallet's balance.
-class AdjustWalletBalanceTool extends SimoAgentTool<Map<String, dynamic>, bool> {
+class AdjustWalletBalanceTool extends SimoAgentTool<Map<String, dynamic>, Map<String, dynamic>> {
   @override
   String get name => 'wallet_adjust_balance';
 
@@ -197,12 +217,15 @@ class AdjustWalletBalanceTool extends SimoAgentTool<Map<String, dynamic>, bool> 
   };
 
   @override
-  Future<bool> execute(Map<String, dynamic> input, AgentExecutionContext context) async {
+  Future<Map<String, dynamic>> execute(Map<String, dynamic> input, AgentExecutionContext context) async {
     final double? newBalance = (input['newBalance'] as num?)?.toDouble() ??
         (input['amount'] as num?)?.toDouble();
-    if (newBalance == null) return false;
+    if (newBalance == null) return {'isSuccess': false, 'error': 'Số dư mới không hợp lệ'};
 
-    final wallets = context.ref.read(walletProvider).value ?? [];
+    List<Wallet> wallets = context.ref.read(walletProvider).value ?? [];
+    if (wallets.isEmpty) {
+      wallets = await context.ref.read(walletRepositoryProvider).getAllWallets();
+    }
     final walletId = input['walletId'] as String?;
     final walletName = input['walletName'] as String?;
 
@@ -215,7 +238,7 @@ class AdjustWalletBalanceTool extends SimoAgentTool<Map<String, dynamic>, bool> 
     }
     target ??= wallets.where((w) => w.isDefault).firstOrNull ?? (wallets.isNotEmpty ? wallets.first : null);
 
-    if (target == null) return false;
+    if (target == null) return {'isSuccess': false, 'error': 'Không tìm thấy ví cần điều chỉnh số dư'};
 
     final updated = target.copyWith(
       currentBalance: newBalance,
@@ -223,12 +246,17 @@ class AdjustWalletBalanceTool extends SimoAgentTool<Map<String, dynamic>, bool> 
     );
 
     await context.ref.read(walletProvider.notifier).updateWallet(updated);
-    return true;
+    return {
+      'isSuccess': true,
+      'walletId': target.id,
+      'walletName': target.name,
+      'newBalance': newBalance,
+    };
   }
 }
 
 /// Mutation tool to transfer funds between wallets.
-class TransferWalletTool extends SimoAgentTool<Map<String, dynamic>, bool> {
+class TransferWalletTool extends SimoAgentTool<Map<String, dynamic>, Map<String, dynamic>> {
   @override
   String get name => 'transfer';
 
@@ -250,16 +278,19 @@ class TransferWalletTool extends SimoAgentTool<Map<String, dynamic>, bool> {
   };
 
   @override
-  Future<bool> execute(Map<String, dynamic> input, AgentExecutionContext context) async {
+  Future<Map<String, dynamic>> execute(Map<String, dynamic> input, AgentExecutionContext context) async {
     final double amount = (input['amount'] as num?)?.toDouble() ?? 0.0;
-    if (amount <= 0) return false;
+    if (amount <= 0) return {'isSuccess': false, 'error': 'Số tiền chuyển không hợp lệ'};
 
     final double fee = (input['fee'] as num?)?.toDouble() ?? 0.0;
     final note = input['note'] as String? ?? 'Chuyển tiền qua AI';
     final date = AgentDateHelper.parseDate(input['date'] as String?);
 
-    final wallets = context.ref.read(walletProvider).value ?? [];
-    if (wallets.length < 2) return false;
+    List<Wallet> wallets = context.ref.read(walletProvider).value ?? [];
+    if (wallets.isEmpty) {
+      wallets = await context.ref.read(walletRepositoryProvider).getAllWallets();
+    }
+    if (wallets.length < 2) return {'isSuccess': false, 'error': 'Cần ít nhất 2 ví để thực hiện chuyển tiền'};
 
     String? srcId = input['sourceWalletId'] as String?;
     String? dstId = input['destinationWalletId'] as String?;
@@ -280,6 +311,12 @@ class TransferWalletTool extends SimoAgentTool<Map<String, dynamic>, bool> {
       note: note,
     );
 
-    return true;
+    return {
+      'isSuccess': true,
+      'sourceWalletId': srcId,
+      'destinationWalletId': dstId,
+      'amount': amount,
+      'fee': fee,
+    };
   }
 }

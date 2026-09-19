@@ -9,8 +9,9 @@ final savingGoalRepositoryProvider = Provider<SavingGoalRepository>((ref) {
 
 class SavingGoalNotifier extends StateNotifier<AsyncValue<List<SavingGoal>>> {
   final SavingGoalRepository _repository;
+  final Ref _ref;
 
-  SavingGoalNotifier(this._repository) : super(const AsyncValue.loading()) {
+  SavingGoalNotifier(this._repository, this._ref) : super(const AsyncValue.loading()) {
     loadGoals();
   }
 
@@ -38,6 +39,7 @@ class SavingGoalNotifier extends StateNotifier<AsyncValue<List<SavingGoal>>> {
     try {
       await _repository.update(goal);
       await loadGoals();
+      _ref.invalidate(savingGoalLogsProvider(goal.id));
       return true;
     } catch (e) {
       return false;
@@ -49,6 +51,7 @@ class SavingGoalNotifier extends StateNotifier<AsyncValue<List<SavingGoal>>> {
       final success = await _repository.delete(id);
       if (success) {
         await loadGoals();
+        _ref.invalidate(savingGoalLogsProvider(id));
       }
       return success;
     } catch (e) {
@@ -72,17 +75,23 @@ class SavingGoalNotifier extends StateNotifier<AsyncValue<List<SavingGoal>>> {
         note: note,
       );
       await loadGoals();
+      _ref.invalidate(savingGoalLogsProvider(goalId));
       return true;
     } catch (e) {
       return false;
     }
   }
 
-  Future<bool> deleteLog(String logId) async {
+  Future<bool> deleteLog(String logId, {String? goalId}) async {
     try {
       final success = await _repository.deleteLog(logId);
       if (success) {
         await loadGoals();
+        if (goalId != null) {
+          _ref.invalidate(savingGoalLogsProvider(goalId));
+        } else {
+          _ref.invalidate(savingGoalLogsProvider);
+        }
       }
       return success;
     } catch (e) {
@@ -98,7 +107,7 @@ class SavingGoalNotifier extends StateNotifier<AsyncValue<List<SavingGoal>>> {
 final savingGoalProvider =
     StateNotifierProvider<SavingGoalNotifier, AsyncValue<List<SavingGoal>>>((ref) {
   final repo = ref.watch(savingGoalRepositoryProvider);
-  return SavingGoalNotifier(repo);
+  return SavingGoalNotifier(repo, ref);
 });
 
 final savingGoalLogsProvider =

@@ -5,7 +5,7 @@ import '../../../providers/category_provider.dart';
 import '../../../providers/wallet_provider.dart';
 
 /// Mutation tool to schedule a recurring financial transaction (e.g. rent, bills, subscriptions).
-class CreateRecurringTool extends SimoAgentTool<Map<String, dynamic>, bool> {
+class CreateRecurringTool extends SimoAgentTool<Map<String, dynamic>, Map<String, dynamic>> {
   @override
   String get name => 'recurring_create';
 
@@ -28,17 +28,24 @@ class CreateRecurringTool extends SimoAgentTool<Map<String, dynamic>, bool> {
   };
 
   @override
-  Future<bool> execute(Map<String, dynamic> input, AgentExecutionContext context) async {
+  Future<Map<String, dynamic>> execute(Map<String, dynamic> input, AgentExecutionContext context) async {
     final double amount = (input['amount'] as num?)?.toDouble() ?? 0.0;
-    if (amount <= 0) return false;
+    if (amount <= 0) return {'isSuccess': false, 'error': 'Số tiền định kỳ không hợp lệ'};
 
     final note = input['note'] as String? ?? 'Giao dịch định kỳ';
     final type = input['type'] as String? ?? 'expense';
     final frequency = input['frequency'] as String? ?? 'monthly';
     final int? dayOfMonth = (input['dayOfMonth'] as num?)?.toInt();
 
-    final categories = context.ref.read(categoryProvider).value ?? [];
-    final wallets = context.ref.read(walletProvider).value ?? [];
+    var categories = context.ref.read(categoryProvider).value ?? [];
+    if (categories.isEmpty) {
+      categories = await context.ref.read(categoryRepositoryProvider).getAll();
+    }
+
+    var wallets = context.ref.read(walletProvider).value ?? [];
+    if (wallets.isEmpty) {
+      wallets = await context.ref.read(walletRepositoryProvider).getAllWallets();
+    }
 
     String? categoryId = input['categoryId'] as String?;
     if (categoryId == null || !categories.any((c) => c.id == categoryId)) {
@@ -73,12 +80,20 @@ class CreateRecurringTool extends SimoAgentTool<Map<String, dynamic>, bool> {
       nextRun: nextRun,
     );
 
-    return true;
+    return {
+      'isSuccess': true,
+      'name': note,
+      'amount': amount,
+      'type': type,
+      'frequency': frequency,
+      'dayOfMonth': dayOfMonth ?? now.day,
+      'nextRun': nextRun.toIso8601String(),
+    };
   }
 }
 
 /// Mutation tool to update an existing recurring transaction configuration.
-class UpdateRecurringTool extends SimoAgentTool<Map<String, dynamic>, bool> {
+class UpdateRecurringTool extends SimoAgentTool<Map<String, dynamic>, Map<String, dynamic>> {
   @override
   String get name => 'recurring_update';
 
@@ -100,8 +115,11 @@ class UpdateRecurringTool extends SimoAgentTool<Map<String, dynamic>, bool> {
   };
 
   @override
-  Future<bool> execute(Map<String, dynamic> input, AgentExecutionContext context) async {
-    final configs = context.ref.read(recurringProvider).value ?? [];
+  Future<Map<String, dynamic>> execute(Map<String, dynamic> input, AgentExecutionContext context) async {
+    var configs = context.ref.read(recurringProvider).value ?? [];
+    if (configs.isEmpty) {
+      configs = await context.ref.read(recurringRepositoryProvider).getAll();
+    }
     final recurringId = input['recurringId'] as String?;
     final note = input['note'] as String?;
     final amount = (input['amount'] as num?)?.toDouble();
@@ -118,7 +136,7 @@ class UpdateRecurringTool extends SimoAgentTool<Map<String, dynamic>, bool> {
       target = configs.where((r) => r.name.toLowerCase().contains(note.toLowerCase())).firstOrNull;
     }
 
-    if (target == null) return false;
+    if (target == null) return {'isSuccess': false, 'error': 'Không tìm thấy cấu hình định kỳ'};
 
     DateTime? nextRun;
     if (dayOfMonth != null && dayOfMonth > 0 && dayOfMonth <= 31) {
@@ -141,7 +159,13 @@ class UpdateRecurringTool extends SimoAgentTool<Map<String, dynamic>, bool> {
       nextRun: nextRun,
     );
 
-    return true;
+    return {
+      'isSuccess': true,
+      'recurringId': target.id,
+      'name': note ?? target.name,
+      'amount': amount ?? target.amount,
+      'isActive': isActive ?? target.isActive,
+    };
   }
 }
 
@@ -164,7 +188,10 @@ class DeleteRecurringTool extends SimoAgentTool<Map<String, dynamic>, bool> {
 
   @override
   Future<bool> execute(Map<String, dynamic> input, AgentExecutionContext context) async {
-    final configs = context.ref.read(recurringProvider).value ?? [];
+    var configs = context.ref.read(recurringProvider).value ?? [];
+    if (configs.isEmpty) {
+      configs = await context.ref.read(recurringRepositoryProvider).getAll();
+    }
     final recurringId = input['recurringId'] as String?;
     final note = input['note'] as String?;
 

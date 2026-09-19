@@ -38,9 +38,16 @@ class CreateTransactionTool extends SimoAgentTool<Map<String, dynamic>, Map<Stri
     final note = input['note'] as String? ?? '';
     final date = AgentDateHelper.parseDate(input['date'] as String?);
 
-    final allCategories = context.ref.read(categoryProvider).value ?? [];
+    var allCategories = context.ref.read(categoryProvider).value ?? [];
+    if (allCategories.isEmpty) {
+      allCategories = await context.ref.read(categoryRepositoryProvider).getAll();
+    }
     final userCategories = allCategories.where((c) => !c.id.startsWith('sys_')).toList();
-    final wallets = context.ref.read(walletProvider).value ?? [];
+
+    var wallets = context.ref.read(walletProvider).value ?? [];
+    if (wallets.isEmpty) {
+      wallets = await context.ref.read(walletRepositoryProvider).getAllWallets();
+    }
 
     final rawCatId = input['categoryId'] as String?;
     final rawCatName = (input['categoryName'] as String?) ?? (input['category'] as String?);
@@ -155,9 +162,16 @@ class UpdateTransactionTool extends SimoAgentTool<Map<String, dynamic>, bool> {
 
   @override
   Future<bool> execute(Map<String, dynamic> input, AgentExecutionContext context) async {
-    final allCategories = context.ref.read(categoryProvider).value ?? [];
+    var allCategories = context.ref.read(categoryProvider).value ?? [];
+    if (allCategories.isEmpty) {
+      allCategories = await context.ref.read(categoryRepositoryProvider).getAll();
+    }
     final userCategories = allCategories.where((c) => !c.id.startsWith('sys_')).toList();
-    final wallets = context.ref.read(walletProvider).value ?? [];
+
+    var wallets = context.ref.read(walletProvider).value ?? [];
+    if (wallets.isEmpty) {
+      wallets = await context.ref.read(walletRepositoryProvider).getAllWallets();
+    }
     final txs = context.ref.read(transactionProvider).value ?? [];
     if (txs.isEmpty) return false;
 

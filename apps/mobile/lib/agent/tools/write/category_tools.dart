@@ -189,7 +189,10 @@ class CreateCategoryTool extends SimoAgentTool<Map<String, dynamic>, Map<String,
     final trimmedName = name.trim();
 
     // Check if category already exists in current snapshot
-    final categories = context.ref.read(categoryProvider).value ?? [];
+    var categories = context.ref.read(categoryProvider).value ?? [];
+    if (categories.isEmpty) {
+      categories = await context.ref.read(categoryRepositoryProvider).getAll();
+    }
     final existing = categories.where((c) =>
       c.type == type &&
       c.name.trim().toLowerCase() == trimmedName.toLowerCase()
@@ -271,7 +274,10 @@ class UpdateCategoryTool extends SimoAgentTool<Map<String, dynamic>, bool> {
     final categoryId = input['categoryId'] as String?;
     final categoryName = input['categoryName'] as String?;
 
-    final categories = context.ref.read(categoryProvider).value ?? [];
+    var categories = context.ref.read(categoryProvider).value ?? [];
+    if (categories.isEmpty) {
+      categories = await context.ref.read(categoryRepositoryProvider).getAll();
+    }
     Category? target;
 
     if (categoryId != null && categoryId.isNotEmpty) {
@@ -345,7 +351,10 @@ class DeleteCategoryTool extends SimoAgentTool<Map<String, dynamic>, bool> {
     final categoryId = input['categoryId'] as String?;
     final categoryName = input['categoryName'] as String?;
 
-    final categories = context.ref.read(categoryProvider).value ?? [];
+    var categories = context.ref.read(categoryProvider).value ?? [];
+    if (categories.isEmpty) {
+      categories = await context.ref.read(categoryRepositoryProvider).getAll();
+    }
     Category? target;
 
     if (categoryId != null && categoryId.isNotEmpty) {

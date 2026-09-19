@@ -42,7 +42,10 @@ class SetBudgetTool extends SimoAgentTool<Map<String, dynamic>, bool> {
 
     final categoryId = input['categoryId'] as String?;
     final categoryName = input['categoryName'] as String?;
-    final categories = context.ref.read(categoryProvider).value ?? [];
+    var categories = context.ref.read(categoryProvider).value ?? [];
+    if (categories.isEmpty) {
+      categories = await context.ref.read(categoryRepositoryProvider).getAll();
+    }
 
     String? matchedCatId = categoryId;
     if (matchedCatId == null && categoryName != null && categoryName.isNotEmpty) {
@@ -100,7 +103,10 @@ class DeleteBudgetTool extends SimoAgentTool<Map<String, dynamic>, bool> {
 
     final categoryId = input['categoryId'] as String?;
     final categoryName = input['categoryName'] as String?;
-    final categories = context.ref.read(categoryProvider).value ?? [];
+    var categories = context.ref.read(categoryProvider).value ?? [];
+    if (categories.isEmpty) {
+      categories = await context.ref.read(categoryRepositoryProvider).getAll();
+    }
 
     String? matchedCatId = categoryId;
     if (matchedCatId == null && categoryName != null && categoryName.isNotEmpty) {
