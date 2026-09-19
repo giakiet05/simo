@@ -307,6 +307,13 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
       if (previous?.messages.length != next.messages.length) {
         _scrollToBottom();
       }
+      if (next.recognizedSpeechText.isNotEmpty &&
+          next.recognizedSpeechText != previous?.recognizedSpeechText) {
+        _textController.text = next.recognizedSpeechText;
+        _textController.selection = TextSelection.fromPosition(
+          TextPosition(offset: _textController.text.length),
+        );
+      }
     });
 
     return Scaffold(
@@ -318,76 +325,108 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
               'Trợ lý AI Simo',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
-            Text(
-              'Mô hình GPT-4o-mini',
-              style: TextStyle(
-                fontSize: 11,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
+            Row(
+              children: [
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: state.isProcessing ? Colors.orange : Colors.green,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  state.isProcessing
+                      ? 'Đang xử lý...'
+                      : (state.isListening ? 'Đang nghe giọng nói...' : 'Trực tuyến (ReAct Agent)'),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: theme.colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.normal,
+                  ),
+                ),
+              ],
             ),
           ],
         ),
         actions: [
-          if (state.messages.isNotEmpty)
-            IconButton(
-              icon: const Icon(Icons.delete_outline),
-              tooltip: 'Xóa lịch sử trò chuyện',
-              onPressed: () {
-                ref.read(aiAssistantProvider.notifier).clearChat();
-              },
-            ),
+          IconButton(
+            icon: const Icon(Icons.delete_sweep_outlined),
+            tooltip: 'Xóa lịch sử hội thoại',
+            onPressed: () {
+              ref.read(aiAssistantProvider.notifier).clearChat();
+            },
+          ),
         ],
       ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: state.messages.isEmpty
-                  ? _buildEmptyWelcomeState(theme)
-                  : ListView.builder(
-                      controller: _scrollController,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
+      body: Column(
+        children: [
+          if (state.errorMessage != null)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              color: theme.colorScheme.errorContainer,
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.error_outline,
+                    color: theme.colorScheme.error,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      state.errorMessage!,
+                      style: TextStyle(
+                        color: theme.colorScheme.onErrorContainer,
+                        fontSize: 13,
                       ),
-                      itemCount: state.messages.length,
-                      itemBuilder: (context, index) {
-                        final msg = state.messages[index];
-                        final showHorizon = state.horizonIndex != null && index == state.horizonIndex;
-
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            if (showHorizon) const MemoryHorizonDivider(),
-                            AiMessageBubble(
-                              message: msg,
-                              onTransactionTap: _handleTransactionTap,
-                              onWalletTap: _handleWalletTap,
-                              onLoanContactTap: _handleLoanContactTap,
-                              onSavingGoalTap: _handleSavingGoalTap,
-                              onBudgetTap: _handleBudgetTap,
-                              onActionTap: _handleActionCardTap,
-                            ),
-                          ],
-                        );
-                      },
                     ),
-            ),
-            if (state.messages.isNotEmpty && !state.isListening)
-              AiQuickPrompts(
-                onSelectPrompt: (prompt) {
-                  _textController.text = prompt;
-                  _handleSend();
-                },
+                  ),
+                ],
               ),
-            _buildInputArea(theme, state),
-          ],
-        ),
+            ),
+          Expanded(
+            child: state.messages.isEmpty
+                ? _buildEmptyState(theme)
+                : ListView.builder(
+                    controller: _scrollController,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 16,
+                    ),
+                    itemCount: state.messages.length,
+                    itemBuilder: (context, index) {
+                      final message = state.messages[index];
+                      final isHorizonBoundary = state.horizonIndex != null &&
+                          index == state.horizonIndex;
+
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          if (isHorizonBoundary)
+                            const MemoryHorizonDivider(),
+                          AiMessageBubble(
+                            message: message,
+                            onTransactionTap: _handleTransactionTap,
+                            onWalletTap: _handleWalletTap,
+                            onLoanContactTap: _handleLoanContactTap,
+                            onSavingGoalTap: _handleSavingGoalTap,
+                            onBudgetTap: _handleBudgetTap,
+                            onActionTap: _handleActionCardTap,
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+          ),
+          _buildInputArea(theme, state),
+        ],
       ),
     );
   }
 
-  Widget _buildEmptyWelcomeState(ThemeData theme) {
+  Widget _buildEmptyState(ThemeData theme) {
     return Center(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
@@ -395,14 +434,15 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              padding: const EdgeInsets.all(20),
+              width: 80,
+              height: 80,
               decoration: BoxDecoration(
                 color: theme.colorScheme.primaryContainer.withValues(alpha: 0.5),
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 Icons.auto_awesome,
-                size: 48,
+                size: 40,
                 color: theme.colorScheme.primary,
               ),
             ),
@@ -422,7 +462,7 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
               ),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 24),
             AiQuickPrompts(
               onSelectPrompt: (prompt) {
                 _textController.text = prompt;
@@ -436,69 +476,6 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
   }
 
   Widget _buildInputArea(ThemeData theme, AiAssistantState state) {
-    if (state.isListening) {
-      return Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surface,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 10,
-              offset: const Offset(0, -2),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              state.recognizedSpeechText.isEmpty
-                  ? 'Đang nghe... (Tự động dừng sau ${state.silenceCountdown}s)'
-                  : '"${state.recognizedSpeechText}"',
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-                color: theme.colorScheme.primary,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            GestureDetector(
-              onTap: () {
-                ref.read(aiAssistantProvider.notifier).stopListening(onNavigate: _handleNavigate);
-              },
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 250),
-                width: 72,
-                height: 72,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.red,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.red.withValues(alpha: 0.4),
-                      blurRadius: 16,
-                      spreadRadius: 4,
-                    ),
-                  ],
-                ),
-                child: const Icon(Icons.stop, color: Colors.white, size: 36),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Chạm vào nút để gửi ngay',
-              style: TextStyle(
-                fontSize: 12,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
@@ -513,14 +490,20 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
         children: [
           IconButton(
             icon: Icon(
-              Icons.mic,
-              color: theme.colorScheme.primary,
+              state.isListening ? Icons.mic : Icons.mic_none_rounded,
+              color: state.isListening ? Colors.red : theme.colorScheme.primary,
             ),
-            tooltip: 'Nói lệnh bằng giọng nói',
+            tooltip: state.isListening
+                ? 'Đang nghe... Chạm để dừng'
+                : 'Nói lệnh để nhập vào khung chat',
             onPressed: state.isProcessing
                 ? null
                 : () {
-                    ref.read(aiAssistantProvider.notifier).startListening(onNavigate: _handleNavigate);
+                    if (state.isListening) {
+                      ref.read(aiAssistantProvider.notifier).stopListening();
+                    } else {
+                      ref.read(aiAssistantProvider.notifier).startListening();
+                    }
                   },
           ),
           Expanded(
@@ -530,10 +513,12 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
               textCapitalization: TextCapitalization.sentences,
               enabled: !state.isProcessing,
               decoration: InputDecoration(
-                hintText: 'Nhập chi tiêu hoặc câu hỏi...',
+                hintText: state.isListening
+                    ? 'Đang nghe giọng nói của bạn...'
+                    : 'Nhập chi tiêu hoặc câu hỏi...',
                 hintStyle: TextStyle(
                   fontSize: 14,
-                  color: theme.hintColor,
+                  color: state.isListening ? Colors.red.shade700 : theme.hintColor,
                 ),
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: 14,
@@ -546,7 +531,9 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
                   ),
                 ),
                 filled: true,
-                fillColor: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+                fillColor: state.isListening
+                    ? Colors.red.withValues(alpha: 0.05)
+                    : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
               ),
               onSubmitted: (_) => _handleSend(),
             ),

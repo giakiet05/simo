@@ -229,10 +229,8 @@ class AiAssistantNotifier extends StateNotifier<AiAssistantState> {
     }
   }
 
-  /// Begins speech recording and live transcription.
-  Future<void> startListening({
-    Future<void> Function(String route, {Map<String, dynamic>? arguments})? onNavigate,
-  }) async {
+  /// Begins speech recording and live transcription into chat text.
+  Future<void> startListening() async {
     if (state.isListening || state.isProcessing) return;
 
     final available = await _speechService.initialize(
@@ -243,9 +241,6 @@ class AiAssistantNotifier extends StateNotifier<AiAssistantState> {
         } else if (status == 'done' || status == 'notListening') {
           _countdownTimer?.cancel();
           state = state.copyWith(isListening: false);
-          if (state.recognizedSpeechText.isNotEmpty) {
-            sendMessage(state.recognizedSpeechText, onNavigate: onNavigate);
-          }
         }
       },
       onError: (error) {
@@ -262,12 +257,12 @@ class AiAssistantNotifier extends StateNotifier<AiAssistantState> {
         recognizedSpeechText: '',
         silenceCountdown: 5,
       );
-      _resetSilenceTimer(onNavigate: onNavigate);
+      _resetSilenceTimer();
       await _speechService.startListening(
         onResult: (text) {
           if (mounted) {
             state = state.copyWith(recognizedSpeechText: text);
-            _resetSilenceTimer(onNavigate: onNavigate);
+            _resetSilenceTimer();
           }
         },
         listenFor: const Duration(seconds: 30),
@@ -275,10 +270,8 @@ class AiAssistantNotifier extends StateNotifier<AiAssistantState> {
     }
   }
 
-  /// Stops ongoing speech recording and dispatches any captured speech text.
-  Future<void> stopListening({
-    Future<void> Function(String route, {Map<String, dynamic>? arguments})? onNavigate,
-  }) async {
+  /// Stops ongoing speech recording without auto-sending.
+  Future<void> stopListening() async {
     _countdownTimer?.cancel();
     if (!state.isListening) return;
 
@@ -286,9 +279,6 @@ class AiAssistantNotifier extends StateNotifier<AiAssistantState> {
       state = state.copyWith(isListening: false);
     }
     await _speechService.stop();
-    if (state.recognizedSpeechText.isNotEmpty) {
-      sendMessage(state.recognizedSpeechText, onNavigate: onNavigate);
-    }
   }
 
   /// Clears active conversation history.
@@ -303,9 +293,7 @@ class AiAssistantNotifier extends StateNotifier<AiAssistantState> {
     );
   }
 
-  void _resetSilenceTimer({
-    Future<void> Function(String route, {Map<String, dynamic>? arguments})? onNavigate,
-  }) {
+  void _resetSilenceTimer() {
     _countdownTimer?.cancel();
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted || !state.isListening) {
@@ -316,7 +304,7 @@ class AiAssistantNotifier extends StateNotifier<AiAssistantState> {
         state = state.copyWith(silenceCountdown: state.silenceCountdown - 1);
       } else {
         timer.cancel();
-        stopListening(onNavigate: onNavigate);
+        stopListening();
       }
     });
   }

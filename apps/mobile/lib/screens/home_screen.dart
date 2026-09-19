@@ -10,7 +10,6 @@ import 'dashboard_screen.dart';
 import 'transaction_screen.dart';
 import 'features_screen.dart';
 import 'settings_screen.dart';
-import 'transaction_form_screen.dart';
 
 import 'ai_assistant_screen.dart';
 
@@ -121,7 +120,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   child: CircleAvatar(
                     radius: 20,
                     backgroundColor: Theme.of(context).colorScheme.primary,
-                    child: const Icon(Icons.mic, color: Colors.white, size: 22),
+                    child: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 22),
                   ),
                 ),
               ),
