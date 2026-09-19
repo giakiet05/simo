@@ -28,6 +28,7 @@ class CreateLoanTool extends SimoAgentTool<Map<String, dynamic>, bool> {
       'walletName': {'type': ['string', 'null']},
       'note': {'type': ['string', 'null']},
       'date': {'type': ['string', 'null']},
+      'dueDate': {'type': ['string', 'null']},
     },
   };
 
@@ -36,8 +37,13 @@ class CreateLoanTool extends SimoAgentTool<Map<String, dynamic>, bool> {
     final double amount = (input['amount'] as num?)?.toDouble() ?? 0.0;
     if (amount <= 0) return false;
 
+    final contactName = (input['contactName'] as String?)?.trim();
+    if (contactName == null || contactName.isEmpty) {
+      // Must not use generic placeholder defaults
+      return false;
+    }
+
     final loanType = input['loanType'] as String? ?? 'lent';
-    final contactName = (input['contactName'] as String?)?.trim() ?? 'Người quen';
     final contactId = input['contactId'] as String?;
     final note = input['note'] as String? ?? '';
     final dateStr = input['date'] as String?;
@@ -139,6 +145,96 @@ class CreateLoanTool extends SimoAgentTool<Map<String, dynamic>, bool> {
       }
     ]);
 
+    return true;
+  }
+}
+
+/// Mutation tool to update an existing loan contact, adjust amounts, or extend due dates.
+class UpdateLoanTool extends SimoAgentTool<Map<String, dynamic>, bool> {
+  @override
+  String get name => 'loan_update';
+
+  @override
+  String get description => 'Sửa thông tin khoản nợ, dời ngày hẹn trả, hoặc điều chỉnh dư nợ';
+
+  @override
+  Map<String, dynamic> get parametersSchema => {
+    'type': 'object',
+    'properties': {
+      'contactId': {'type': ['string', 'null']},
+      'contactName': {'type': ['string', 'null']},
+      'newName': {'type': ['string', 'null']},
+      'totalAmount': {'type': ['number', 'null']},
+      'remainingAmount': {'type': ['number', 'null']},
+      'dueDate': {'type': ['string', 'null']},
+      'note': {'type': ['string', 'null']},
+    },
+  };
+
+  @override
+  Future<bool> execute(Map<String, dynamic> input, AgentExecutionContext context) async {
+    final loans = context.ref.read(loanProvider).value ?? [];
+    final contactId = input['contactId'] as String?;
+    final contactName = input['contactName'] as String?;
+    final newName = input['newName'] as String?;
+    final totalAmount = (input['totalAmount'] as num?)?.toDouble();
+    final remainingAmount = (input['remainingAmount'] as num?)?.toDouble();
+
+    LoanContact? target;
+    if (contactId != null && contactId.isNotEmpty) {
+      target = loans.where((l) => l.id == contactId).firstOrNull;
+    }
+    if (target == null && contactName != null && contactName.isNotEmpty) {
+      target = loans.where((l) => l.contactName.toLowerCase().contains(contactName.toLowerCase())).firstOrNull;
+    }
+
+    if (target == null) return false;
+
+    final updated = target.copyWith(
+      contactName: newName ?? target.contactName,
+      totalAmount: totalAmount ?? target.totalAmount,
+      remainingAmount: remainingAmount ?? target.remainingAmount,
+    );
+
+    await context.ref.read(loanProvider.notifier).updateLoanContact(updated);
+    return true;
+  }
+}
+
+/// Mutation tool to delete an existing loan contact.
+class DeleteLoanTool extends SimoAgentTool<Map<String, dynamic>, bool> {
+  @override
+  String get name => 'loan_delete';
+
+  @override
+  String get description => 'Xóa khoản nợ hoặc người liên hệ nợ';
+
+  @override
+  Map<String, dynamic> get parametersSchema => {
+    'type': 'object',
+    'properties': {
+      'contactId': {'type': ['string', 'null']},
+      'contactName': {'type': ['string', 'null']},
+    },
+  };
+
+  @override
+  Future<bool> execute(Map<String, dynamic> input, AgentExecutionContext context) async {
+    final loans = context.ref.read(loanProvider).value ?? [];
+    final contactId = input['contactId'] as String?;
+    final contactName = input['contactName'] as String?;
+
+    LoanContact? target;
+    if (contactId != null && contactId.isNotEmpty) {
+      target = loans.where((l) => l.id == contactId).firstOrNull;
+    }
+    if (target == null && contactName != null && contactName.isNotEmpty) {
+      target = loans.where((l) => l.contactName.toLowerCase().contains(contactName.toLowerCase())).firstOrNull;
+    }
+
+    if (target == null) return false;
+
+    await context.ref.read(loanProvider.notifier).deleteLoanContact(target.id);
     return true;
   }
 }

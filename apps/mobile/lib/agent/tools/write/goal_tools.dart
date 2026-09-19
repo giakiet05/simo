@@ -50,6 +50,97 @@ class CreateGoalTool extends SimoAgentTool<Map<String, dynamic>, bool> {
   }
 }
 
+/// Mutation tool to update an existing saving goal (target amount, due date, status, name).
+class UpdateGoalTool extends SimoAgentTool<Map<String, dynamic>, bool> {
+  @override
+  String get name => 'goal_update';
+
+  @override
+  String get description => 'Sửa tên mục tiêu, số tiền cần đạt, ngày đến hạn hoặc trạng thái';
+
+  @override
+  Map<String, dynamic> get parametersSchema => {
+    'type': 'object',
+    'properties': {
+      'goalId': {'type': ['string', 'null']},
+      'goalName': {'type': ['string', 'null']},
+      'newName': {'type': ['string', 'null']},
+      'targetAmount': {'type': ['number', 'null']},
+      'targetDate': {'type': ['string', 'null']},
+      'status': {'type': ['string', 'null'], 'enum': ['active', 'completed', 'paused']},
+    },
+  };
+
+  @override
+  Future<bool> execute(Map<String, dynamic> input, AgentExecutionContext context) async {
+    final goals = context.ref.read(savingGoalProvider).value ?? [];
+    final goalId = input['goalId'] as String?;
+    final goalName = input['goalName'] as String?;
+    final newName = input['newName'] as String?;
+    final targetAmount = (input['targetAmount'] as num?)?.toDouble();
+    final dateStr = input['targetDate'] as String?;
+    final targetDate = dateStr != null ? DateTime.tryParse(dateStr) : null;
+    final status = input['status'] as String?;
+
+    SavingGoal? target;
+    if (goalId != null && goalId.isNotEmpty) {
+      target = goals.where((g) => g.id == goalId).firstOrNull;
+    }
+    if (target == null && goalName != null && goalName.isNotEmpty) {
+      target = goals.where((g) => g.name.toLowerCase().contains(goalName.toLowerCase())).firstOrNull;
+    }
+
+    if (target == null) return false;
+
+    final updated = target.copyWith(
+      name: newName ?? target.name,
+      targetAmount: targetAmount ?? target.targetAmount,
+      targetDate: targetDate ?? target.targetDate,
+      status: status ?? target.status,
+      updatedAt: DateTime.now(),
+    );
+
+    return await context.ref.read(savingGoalProvider.notifier).updateGoal(updated);
+  }
+}
+
+/// Mutation tool to delete an existing saving goal.
+class DeleteGoalTool extends SimoAgentTool<Map<String, dynamic>, bool> {
+  @override
+  String get name => 'goal_delete';
+
+  @override
+  String get description => 'Xóa mục tiêu tiết kiệm';
+
+  @override
+  Map<String, dynamic> get parametersSchema => {
+    'type': 'object',
+    'properties': {
+      'goalId': {'type': ['string', 'null']},
+      'goalName': {'type': ['string', 'null']},
+    },
+  };
+
+  @override
+  Future<bool> execute(Map<String, dynamic> input, AgentExecutionContext context) async {
+    final goals = context.ref.read(savingGoalProvider).value ?? [];
+    final goalId = input['goalId'] as String?;
+    final goalName = input['goalName'] as String?;
+
+    SavingGoal? target;
+    if (goalId != null && goalId.isNotEmpty) {
+      target = goals.where((g) => g.id == goalId).firstOrNull;
+    }
+    if (target == null && goalName != null && goalName.isNotEmpty) {
+      target = goals.where((g) => g.name.toLowerCase().contains(goalName.toLowerCase())).firstOrNull;
+    }
+
+    if (target == null) return false;
+
+    return await context.ref.read(savingGoalProvider.notifier).deleteGoal(target.id);
+  }
+}
+
 /// Mutation tool to deposit funds into a saving goal.
 class GoalDepositTool extends SimoAgentTool<Map<String, dynamic>, bool> {
   @override

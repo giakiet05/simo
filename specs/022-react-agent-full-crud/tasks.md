@@ -8,8 +8,8 @@
 
 **Purpose**: Project initialization and basic structure for the ReAct engine
 
-- [ ] T001 Create `apps/mobile/lib/agent/engine/` directory for ReAct orchestrator and event streams
-- [ ] T002 [P] Create and verify test harness directory in `apps/mobile/test/unit/agent/`
+- [x] T001 Create `apps/mobile/lib/agent/engine/` directory for ReAct orchestrator and event streams
+- [x] T002 [P] Create and verify test harness directory in `apps/mobile/test/unit/agent/`
 
 ---
 
@@ -19,11 +19,11 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T003 [P] Define `AgentEvent` hierarchy (`RoundStarted`, `ModelCall`, `ToolExecution`, `FinalAnswer`, `AgentError`) in `apps/mobile/lib/agent/engine/agent_event.dart`
-- [ ] T004 [P] Define `PendingIntent` and `PendingIntentState` data models in `apps/mobile/lib/agent/memory/pending_intent_state.dart`
-- [ ] T005 [P] Implement `OpenAiToolSpecs` converting tool definitions to OpenAI JSON schemas in `apps/mobile/lib/agent/brain/tool_specs.dart`
-- [ ] T006 [P] Enhance `AgentMemoryContext` in `apps/mobile/lib/agent/memory/agent_memory_context.dart` to support role `'tool'`, `toolCallId`, and bounded sliding history preservation
-- [ ] T007 [P] Refactor `SystemPromptBuilder` in `apps/mobile/lib/agent/brain/system_prompt_builder.dart` to produce 3-Tier Prefix-Cached Prompts (`StaticPart` > 1024 tokens, `DynamicPart`, `UncachedPart`)
+- [x] T003 [P] Define `AgentEvent` hierarchy (`RoundStarted`, `ModelCall`, `ToolExecution`, `FinalAnswer`, `AgentError`) in `apps/mobile/lib/agent/engine/agent_event.dart`
+- [x] T004 [P] Define `PendingIntent` and `PendingIntentState` data models in `apps/mobile/lib/agent/memory/pending_intent_state.dart`
+- [x] T005 [P] Implement `OpenAiToolSpecs` converting tool definitions to OpenAI JSON schemas in `apps/mobile/lib/agent/brain/tool_specs.dart`
+- [x] T006 [P] Enhance `AgentMemoryContext` in `apps/mobile/lib/agent/memory/agent_memory_context.dart` to support role `'tool'`, `toolCallId`, and bounded sliding history preservation
+- [x] T007 [P] Refactor `SystemPromptBuilder` in `apps/mobile/lib/agent/brain/system_prompt_builder.dart` to produce 3-Tier Prefix-Cached Prompts (`StaticPart` > 1024 tokens, `DynamicPart`, `UncachedPart`)
 
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel
 
@@ -36,12 +36,12 @@
 **Independent Test**: Say "Cho bạn mượn 200k" $\to$ Verify Agent does NOT create any loan and responds "Bạn cho ai mượn 200k vậy?" $\to$ Reply "Thằng Nam" $\to$ Verify Agent creates a loan contact for "Nam" with 200.000 VND and deducts the amount from the default wallet.
 
 ### Tests for User Story 1
-- [ ] T008 [P] [US1] Unit tests for ambiguity detection and slot-filling in `apps/mobile/test/unit/agent/pending_intent_test.dart`
+- [x] T008 [P] [US1] Unit tests for ambiguity detection and slot-filling in `apps/mobile/test/unit/agent/pending_intent_test.dart`
 
 ### Implementation for User Story 1
-- [ ] T009 [US1] Implement ambiguity prevention rules & prompt instructions in `apps/mobile/lib/agent/brain/system_prompt_builder.dart`
-- [ ] T010 [US1] Implement slot-filling extraction and pending intent resolution in `apps/mobile/lib/agent/memory/pending_intent_state.dart`
-- [ ] T011 [US1] Integrate `PendingIntent` lifecycle (ask clarification, store partial slots, merge responses) inside `AiAssistantNotifier` in `apps/mobile/lib/providers/ai_assistant_provider.dart`
+- [x] T009 [US1] Implement ambiguity prevention rules & prompt instructions in `apps/mobile/lib/agent/brain/system_prompt_builder.dart`
+- [x] T010 [US1] Implement slot-filling extraction and pending intent resolution in `apps/mobile/lib/agent/memory/pending_intent_state.dart`
+- [x] T011 [US1] Integrate `PendingIntent` lifecycle (ask clarification, store partial slots, merge responses) inside `AiAssistantNotifier` in `apps/mobile/lib/providers/ai_assistant_provider.dart`
 
 **Checkpoint**: At this point, User Story 1 (Clarification & Slot-filling) is fully functional and testable independently.
 
@@ -54,15 +54,15 @@
 **Independent Test**: Execute natural language update/delete commands for Wallets, Budgets, Loans, Goals, and Recurring rules, verifying database state updates accurately.
 
 ### Tests for User Story 2
-- [ ] T012 [P] [US2] Unit tests for new and updated CRUD tools in `apps/mobile/test/unit/agent/full_crud_tools_test.dart`
+- [x] T012 [P] [US2] Unit tests for new and updated CRUD tools in `apps/mobile/test/unit/agent/full_crud_tools_test.dart`
 
 ### Implementation for User Story 2
-- [ ] T013 [P] [US2] Implement `wallet_update` and `wallet_delete` tools in `apps/mobile/lib/agent/tools/write/wallet_tools.dart`
-- [ ] T014 [P] [US2] Implement `loan_update` and `loan_delete` tools with dual sync in `apps/mobile/lib/agent/tools/write/loan_tools.dart`
-- [ ] T015 [P] [US2] Implement `goal_update` and `goal_delete` tools in `apps/mobile/lib/agent/tools/write/goal_tools.dart`
-- [ ] T016 [P] [US2] Implement `recurring_update` and `recurring_delete` tools in `apps/mobile/lib/agent/tools/write/recurring_tools.dart`
-- [ ] T017 [P] [US2] Implement `budget_delete` tool in `apps/mobile/lib/agent/tools/write/budget_tools.dart`
-- [ ] T018 [US2] Register all new CRUD tools in `ToolRegistry` in `apps/mobile/lib/agent/tools/tool_registry.dart` and `tool_specs.dart`
+- [x] T013 [P] [US2] Implement `wallet_update` and `wallet_delete` tools in `apps/mobile/lib/agent/tools/write/wallet_tools.dart`
+- [x] T014 [P] [US2] Implement `loan_update` and `loan_delete` tools with dual sync in `apps/mobile/lib/agent/tools/write/loan_tools.dart`
+- [x] T015 [P] [US2] Implement `goal_update` and `goal_delete` tools in `apps/mobile/lib/agent/tools/write/goal_tools.dart`
+- [x] T016 [P] [US2] Implement `recurring_update` and `recurring_delete` tools in `apps/mobile/lib/agent/tools/write/recurring_tools.dart`
+- [x] T017 [P] [US2] Implement `budget_delete` tool in `apps/mobile/lib/agent/tools/write/budget_tools.dart`
+- [x] T018 [US2] Register all new CRUD tools in `ToolRegistry` in `apps/mobile/lib/agent/tools/tool_registry.dart` and `tool_specs.dart`
 
 **Checkpoint**: At this point, User Stories 1 AND 2 are fully functional and testable.
 
@@ -75,12 +75,12 @@
 **Independent Test**: Have a Cash wallet with 300.000 VND $\to$ Say "Chuyển 1 củ từ Tiền mặt sang MoMo" $\to$ Verify the agent detects insufficient funds and responds with a friendly explanation of the 300.000 VND balance.
 
 ### Tests for User Story 3
-- [ ] T019 [P] [US3] Unit tests for ReAct reason-act-observe loop and error feedback in `apps/mobile/test/unit/agent/react_agent_test.dart`
+- [x] T019 [P] [US3] Unit tests for ReAct reason-act-observe loop and error feedback in `apps/mobile/test/unit/agent/react_agent_test.dart`
 
 ### Implementation for User Story 3
-- [ ] T020 [US3] Implement `ReActAgent` engine with multi-round execution (`maxRounds = 4`) and safe error observation capture in `apps/mobile/lib/agent/engine/react_agent.dart`
-- [ ] T021 [US3] Implement financial pre-condition checks (insufficient balance, debt over-repayment) with diagnostic observation feedback in `apps/mobile/lib/agent/tools/write/`
-- [ ] T022 [US3] Integrate `ReActAgent` stream with `AiAssistantNotifier` in `apps/mobile/lib/providers/ai_assistant_provider.dart`
+- [x] T020 [US3] Implement `ReActAgent` engine with multi-round execution (`maxRounds = 4`) and safe error observation capture in `apps/mobile/lib/agent/engine/react_agent.dart`
+- [x] T021 [US3] Implement financial pre-condition checks (insufficient balance, debt over-repayment) with diagnostic observation feedback in `apps/mobile/lib/agent/tools/write/`
+- [x] T022 [US3] Integrate `ReActAgent` stream with `AiAssistantNotifier` in `apps/mobile/lib/providers/ai_assistant_provider.dart`
 
 **Checkpoint**: ReAct loop with observation feedback is fully operational.
 
@@ -93,11 +93,11 @@
 **Independent Test**: Say "Tạo danh mục Nuôi mèo màu cam rồi ghi khoản mua hạt mèo 250k vào đó" $\to$ Verify category is created in Round 1 and transaction is linked to newly created category in Round 2.
 
 ### Tests for User Story 4
-- [ ] T023 [P] [US4] Integration test for chained actions (create category $\to$ record transaction) in `apps/mobile/test/unit/agent/chained_actions_test.dart`
+- [x] T023 [P] [US4] Integration test for chained actions (create category $\to$ record transaction) in `apps/mobile/test/unit/agent/chained_actions_test.dart`
 
 ### Implementation for User Story 4
-- [ ] T024 [US4] Update `ReActAgent` to support sequential round progression for dependent tool outputs in `apps/mobile/lib/agent/engine/react_agent.dart`
-- [ ] T025 [US4] Update `FinancialSnapshotBuilder` in `apps/mobile/lib/agent/memory/financial_snapshot_builder.dart` to refresh dynamic snapshot state between ReAct rounds
+- [x] T024 [US4] Update `ReActAgent` to support sequential round progression for dependent tool outputs in `apps/mobile/lib/agent/engine/react_agent.dart`
+- [x] T025 [US4] Update `FinancialSnapshotBuilder` in `apps/mobile/lib/agent/memory/financial_snapshot_builder.dart` to refresh dynamic snapshot state between ReAct rounds
 
 **Checkpoint**: Compound dependent tasks execute seamlessly across ReAct rounds.
 
@@ -110,11 +110,11 @@
 **Independent Test**: Ask "Hôm nay tao tiêu những gì?" $\to$ Verify instant generation of Transaction List Card without state mutation.
 
 ### Tests for User Story 5
-- [ ] T026 [P] [US5] Unit test for fast-path query and navigation tool dispatch in `apps/mobile/test/unit/agent/fast_path_test.dart`
+- [x] T026 [P] [US5] Unit test for fast-path query and navigation tool dispatch in `apps/mobile/test/unit/agent/fast_path_test.dart`
 
 ### Implementation for User Story 5
-- [ ] T027 [US5] Ensure read query tools (`query_transactions`, `view_wallets`, `view_debts`, `view_goals`, `view_budgets`) attach `AiViewPayload` in `apps/mobile/lib/agent/tools/read/`
-- [ ] T028 [US5] Verify screen navigation dispatch and direct callback trigger in `apps/mobile/lib/agent/tools/navigation/navigate_screen_tool.dart`
+- [x] T027 [US5] Ensure read query tools (`query_transactions`, `view_wallets`, `view_debts`, `view_goals`, `view_budgets`) attach `AiViewPayload` in `apps/mobile/lib/agent/tools/read/`
+- [x] T028 [US5] Verify screen navigation dispatch and direct callback trigger in `apps/mobile/lib/agent/tools/navigation/navigate_screen_tool.dart`
 
 **Checkpoint**: Visual cards and screen navigation respond with sub-second latency.
 
@@ -124,11 +124,11 @@
 
 **Purpose**: Quality assurance, static analysis, performance verification, and documentation synchronization
 
-- [ ] T029 [P] Validate prefix prompt token count (>1024 tokens) and format in `apps/mobile/test/unit/agent/system_prompt_builder_test.dart`
-- [ ] T030 Run Flutter analyzer `flutter analyze lib/agent/` and resolve any lints
-- [ ] T031 Run full agent unit test suite `flutter test test/unit/agent/` to verify 100% pass rate
-- [ ] T032 [P] Synchronize execution scenario documentation in `docs/03_core_features/agent_execution_scenarios.md`
-- [ ] T033 Run `specs/022-react-agent-full-crud/quickstart.md` verification checklist
+- [x] T029 [P] Validate prefix prompt token count (>1024 tokens) and format in `apps/mobile/test/unit/agent/system_prompt_builder_test.dart`
+- [x] T030 Run Flutter analyzer `flutter analyze lib/agent/` and resolve any lints
+- [x] T031 Run full agent unit test suite `flutter test test/unit/agent/` to verify 100% pass rate
+- [x] T032 [P] Synchronize execution scenario documentation in `docs/03_core_features/agent_execution_scenarios.md`
+- [x] T033 Run `specs/022-react-agent-full-crud/quickstart.md` verification checklist
 
 ---
 

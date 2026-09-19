@@ -1,3 +1,4 @@
+import 'package:dart_openai/dart_openai.dart';
 import '../../models/ai_message.dart';
 
 /// Manages conversational memory bounds, sliding window FIFO context, and memory horizon indexing.
@@ -23,6 +24,33 @@ class AgentMemoryContext {
       return turns.sublist(turns.length - maxWorkingTurns);
     }
     return turns;
+  }
+
+  /// Extracts dialogue turns as [OpenAIChatCompletionChoiceMessageModel] for direct OpenAI Chat API invocation.
+  static List<OpenAIChatCompletionChoiceMessageModel> extractOpenAiWorkingMessages(
+    List<AiMessage> messages,
+  ) {
+    final result = <OpenAIChatCompletionChoiceMessageModel>[];
+    final workingTurns = extractWorkingTurns(messages);
+
+    for (final turn in workingTurns) {
+      final role = turn['role'] == 'user'
+          ? OpenAIChatMessageRole.user
+          : OpenAIChatMessageRole.assistant;
+      final content = turn['content'] ?? '';
+      if (content.isNotEmpty) {
+        result.add(
+          OpenAIChatCompletionChoiceMessageModel(
+            role: role,
+            content: [
+              OpenAIChatCompletionChoiceMessageContentItemModel.text(content),
+            ],
+          ),
+        );
+      }
+    }
+
+    return result;
   }
 
   /// Calculates the 0-based index in the full message list where the active 10-turn memory horizon begins.

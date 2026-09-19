@@ -1,4 +1,5 @@
 import '../agent_tool.dart';
+import '../../../models/recurring_config.dart';
 import '../../../providers/recurring_provider.dart';
 import '../../../providers/category_provider.dart';
 import '../../../providers/wallet_provider.dart';
@@ -72,6 +73,112 @@ class CreateRecurringTool extends SimoAgentTool<Map<String, dynamic>, bool> {
       nextRun: nextRun,
     );
 
+    return true;
+  }
+}
+
+/// Mutation tool to update an existing recurring transaction configuration.
+class UpdateRecurringTool extends SimoAgentTool<Map<String, dynamic>, bool> {
+  @override
+  String get name => 'recurring_update';
+
+  @override
+  String get description => 'Chỉnh sửa số tiền, ngày chạy, danh mục hoặc trạng thái của giao dịch định kỳ';
+
+  @override
+  Map<String, dynamic> get parametersSchema => {
+    'type': 'object',
+    'properties': {
+      'recurringId': {'type': ['string', 'null']},
+      'note': {'type': ['string', 'null']},
+      'amount': {'type': ['number', 'null']},
+      'dayOfMonth': {'type': ['integer', 'null']},
+      'categoryId': {'type': ['string', 'null']},
+      'walletId': {'type': ['string', 'null']},
+      'isActive': {'type': ['boolean', 'null']},
+    },
+  };
+
+  @override
+  Future<bool> execute(Map<String, dynamic> input, AgentExecutionContext context) async {
+    final configs = context.ref.read(recurringProvider).value ?? [];
+    final recurringId = input['recurringId'] as String?;
+    final note = input['note'] as String?;
+    final amount = (input['amount'] as num?)?.toDouble();
+    final dayOfMonth = (input['dayOfMonth'] as num?)?.toInt();
+    final categoryId = input['categoryId'] as String?;
+    final walletId = input['walletId'] as String?;
+    final isActive = input['isActive'] as bool?;
+
+    RecurringConfig? target;
+    if (recurringId != null && recurringId.isNotEmpty) {
+      target = configs.where((r) => r.id == recurringId).firstOrNull;
+    }
+    if (target == null && note != null && note.isNotEmpty) {
+      target = configs.where((r) => r.name.toLowerCase().contains(note.toLowerCase())).firstOrNull;
+    }
+
+    if (target == null) return false;
+
+    DateTime? nextRun;
+    if (dayOfMonth != null && dayOfMonth > 0 && dayOfMonth <= 31) {
+      final now = DateTime.now();
+      if (now.day > dayOfMonth) {
+        nextRun = DateTime(now.year, now.month + 1, dayOfMonth);
+      } else {
+        nextRun = DateTime(now.year, now.month, dayOfMonth);
+      }
+    }
+
+    await context.ref.read(recurringProvider.notifier).updateRecurringConfig(
+      target.id,
+      name: note,
+      amount: amount,
+      dayOfMonth: dayOfMonth,
+      categoryId: categoryId,
+      walletId: walletId,
+      isActive: isActive,
+      nextRun: nextRun,
+    );
+
+    return true;
+  }
+}
+
+/// Mutation tool to delete an existing recurring configuration.
+class DeleteRecurringTool extends SimoAgentTool<Map<String, dynamic>, bool> {
+  @override
+  String get name => 'recurring_delete';
+
+  @override
+  String get description => 'Xóa hoặc hủy bỏ lịch giao dịch định kỳ';
+
+  @override
+  Map<String, dynamic> get parametersSchema => {
+    'type': 'object',
+    'properties': {
+      'recurringId': {'type': ['string', 'null']},
+      'note': {'type': ['string', 'null']},
+    },
+  };
+
+  @override
+  Future<bool> execute(Map<String, dynamic> input, AgentExecutionContext context) async {
+    final configs = context.ref.read(recurringProvider).value ?? [];
+    final recurringId = input['recurringId'] as String?;
+    final note = input['note'] as String?;
+
+    RecurringConfig? target;
+    if (recurringId != null && recurringId.isNotEmpty) {
+      target = configs.where((r) => r.id == recurringId).firstOrNull;
+    }
+    if (target == null && note != null && note.isNotEmpty) {
+      target = configs.where((r) => r.name.toLowerCase().contains(note.toLowerCase())).firstOrNull;
+    }
+
+    if (target == null) return false;
+
+    await context.ref.read(recurringProvider.notifier).deleteRecurringConfig(target.id);
     return true;
   }
 }

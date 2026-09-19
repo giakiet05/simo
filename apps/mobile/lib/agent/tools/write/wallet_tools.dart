@@ -17,8 +17,9 @@ class CreateWalletTool extends SimoAgentTool<Map<String, dynamic>, bool> {
     'required': ['walletName'],
     'properties': {
       'walletName': {'type': 'string'},
-      'walletType': {'type': 'string', 'enum': ['cash', 'bank', 'e_wallet', 'credit']},
+      'walletType': {'type': 'string', 'enum': ['cash', 'bank', 'e_wallet', 'credit', 'savings', 'other']},
       'amount': {'type': 'number'},
+      'isDefault': {'type': 'boolean'},
     },
   };
 
@@ -27,6 +28,7 @@ class CreateWalletTool extends SimoAgentTool<Map<String, dynamic>, bool> {
     final name = input['walletName'] as String? ?? 'Ví mới';
     final type = input['walletType'] as String? ?? 'bank';
     final initialBalance = (input['amount'] as num?)?.toDouble() ?? 0.0;
+    final isDefault = input['isDefault'] as bool? ?? false;
 
     final wallet = Wallet(
       id: const Uuid().v4(),
@@ -37,7 +39,7 @@ class CreateWalletTool extends SimoAgentTool<Map<String, dynamic>, bool> {
       currency: 'VND',
       icon: _getDefaultIcon(type),
       color: _getDefaultColor(type),
-      isDefault: false,
+      isDefault: isDefault,
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
     );
@@ -56,6 +58,8 @@ class CreateWalletTool extends SimoAgentTool<Map<String, dynamic>, bool> {
         return 'smartphone';
       case 'credit':
         return 'credit_card';
+      case 'savings':
+        return 'savings';
       default:
         return 'account_balance_wallet';
     }
@@ -71,9 +75,104 @@ class CreateWalletTool extends SimoAgentTool<Map<String, dynamic>, bool> {
         return '#E91E63';
       case 'credit':
         return '#9C27B0';
+      case 'savings':
+        return '#FF9800';
       default:
         return '#607D8B';
     }
+  }
+}
+
+/// Mutation tool to update an existing wallet's details (name, type, default status).
+class UpdateWalletTool extends SimoAgentTool<Map<String, dynamic>, bool> {
+  @override
+  String get name => 'wallet_update';
+
+  @override
+  String get description => 'Đổi tên ví, loại ví, hoặc đặt làm ví mặc định';
+
+  @override
+  Map<String, dynamic> get parametersSchema => {
+    'type': 'object',
+    'properties': {
+      'walletId': {'type': ['string', 'null']},
+      'walletName': {'type': ['string', 'null']},
+      'newName': {'type': ['string', 'null']},
+      'walletType': {'type': ['string', 'null'], 'enum': ['cash', 'bank', 'e_wallet', 'credit', 'savings', 'other']},
+      'isDefault': {'type': ['boolean', 'null']},
+    },
+  };
+
+  @override
+  Future<bool> execute(Map<String, dynamic> input, AgentExecutionContext context) async {
+    final wallets = context.ref.read(walletProvider).value ?? [];
+    final walletId = input['walletId'] as String?;
+    final walletName = input['walletName'] as String?;
+    final newName = input['newName'] as String?;
+    final walletType = input['walletType'] as String?;
+    final isDefault = input['isDefault'] as bool?;
+
+    Wallet? target;
+    if (walletId != null && walletId.isNotEmpty) {
+      target = wallets.where((w) => w.id == walletId).firstOrNull;
+    }
+    if (target == null && walletName != null && walletName.isNotEmpty) {
+      target = wallets.where((w) => w.name.toLowerCase().contains(walletName.toLowerCase())).firstOrNull;
+    }
+
+    if (target == null) return false;
+
+    if (isDefault == true) {
+      await context.ref.read(walletProvider.notifier).setDefaultWallet(target.id);
+    }
+
+    final updated = target.copyWith(
+      name: newName ?? target.name,
+      type: walletType ?? target.type,
+      isDefault: isDefault ?? target.isDefault,
+      updatedAt: DateTime.now(),
+    );
+
+    await context.ref.read(walletProvider.notifier).updateWallet(updated);
+    return true;
+  }
+}
+
+/// Mutation tool to delete an existing wallet.
+class DeleteWalletTool extends SimoAgentTool<Map<String, dynamic>, bool> {
+  @override
+  String get name => 'wallet_delete';
+
+  @override
+  String get description => 'Xóa ví hoặc tài khoản ngân hàng';
+
+  @override
+  Map<String, dynamic> get parametersSchema => {
+    'type': 'object',
+    'properties': {
+      'walletId': {'type': ['string', 'null']},
+      'walletName': {'type': ['string', 'null']},
+    },
+  };
+
+  @override
+  Future<bool> execute(Map<String, dynamic> input, AgentExecutionContext context) async {
+    final wallets = context.ref.read(walletProvider).value ?? [];
+    final walletId = input['walletId'] as String?;
+    final walletName = input['walletName'] as String?;
+
+    Wallet? target;
+    if (walletId != null && walletId.isNotEmpty) {
+      target = wallets.where((w) => w.id == walletId).firstOrNull;
+    }
+    if (target == null && walletName != null && walletName.isNotEmpty) {
+      target = wallets.where((w) => w.name.toLowerCase().contains(walletName.toLowerCase())).firstOrNull;
+    }
+
+    if (target == null) return false;
+
+    await context.ref.read(walletProvider.notifier).deleteWallet(target.id);
+    return true;
   }
 }
 
