@@ -22,7 +22,7 @@ class FinancialSnapshotBuilder {
 
     final walletStr = wallets.isEmpty
         ? 'Chưa có ví cụ thể'
-        : wallets.map((w) => 'ID: ${w.id}, Tên: ${w.name}, Loại: ${w.type}, Số dư: ${w.currentBalance.toInt()} VND').join('\n');
+        : wallets.map((w) => 'ID: ${w.id}, Tên: ${w.name}, Loại: ${w.type}, Số dư: ${w.currentBalance.toInt()} VND${w.isDefault ? " [VÍ MẶC ĐỊNH]" : ""}').join('\n');
 
     final loanStr = loans.isEmpty
         ? 'Chưa có liên hệ nợ'

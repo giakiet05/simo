@@ -46,8 +46,7 @@ class CreateLoanTool extends SimoAgentTool<Map<String, dynamic>, bool> {
     final loanType = input['loanType'] as String? ?? 'lent';
     final contactId = input['contactId'] as String?;
     final note = input['note'] as String? ?? '';
-    final dateStr = input['date'] as String?;
-    final date = dateStr != null ? (DateTime.tryParse(dateStr) ?? DateTime.now()) : DateTime.now();
+    final date = AgentDateHelper.parseDate(input['date'] as String?);
 
     final loans = context.ref.read(loanProvider).value ?? [];
 
@@ -271,8 +270,7 @@ class RepayLoanTool extends SimoAgentTool<Map<String, dynamic>, bool> {
     final contactName = (input['contactName'] as String?)?.trim();
     final contactId = input['contactId'] as String?;
     final note = input['note'] as String? ?? '';
-    final dateStr = input['date'] as String?;
-    final date = dateStr != null ? (DateTime.tryParse(dateStr) ?? DateTime.now()) : DateTime.now();
+    final date = AgentDateHelper.parseDate(input['date'] as String?);
 
     final loans = context.ref.read(loanProvider).value ?? [];
 

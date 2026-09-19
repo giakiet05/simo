@@ -36,8 +36,7 @@ class CreateTransactionTool extends SimoAgentTool<Map<String, dynamic>, bool> {
 
     final type = input['type'] as String? ?? 'expense';
     final note = input['note'] as String? ?? '';
-    final dateStr = input['date'] as String?;
-    final date = dateStr != null ? (DateTime.tryParse(dateStr) ?? DateTime.now()) : DateTime.now();
+    final date = AgentDateHelper.parseDate(input['date'] as String?);
 
     final allCategories = context.ref.read(categoryProvider).value ?? [];
     final userCategories = allCategories.where((c) => !c.id.startsWith('sys_')).toList();

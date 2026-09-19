@@ -19,7 +19,28 @@ class WalletRepository {
       'wallets',
       orderBy: 'priority DESC, is_default DESC, created_at ASC',
     );
-    return results.map((map) => Wallet.fromMap(map)).toList();
+    final wallets = results.map((map) => Wallet.fromMap(map)).toList();
+
+    // Self-healing: Enforce exactly ONE default wallet if wallets exist
+    if (wallets.isNotEmpty) {
+      final defaultWallets = wallets.where((w) => w.isDefault).toList();
+      if (defaultWallets.length != 1) {
+        final targetDefaultId = (defaultWallets.isNotEmpty ? defaultWallets.first : wallets.first).id;
+        final nowIso = DateTime.now().toUtc().toIso8601String();
+        await db.transaction((txn) async {
+          await txn.update('wallets', {'is_default': 0, 'synced': 0, 'updated_at': nowIso});
+          await txn.update(
+            'wallets',
+            {'is_default': 1, 'synced': 0, 'updated_at': nowIso},
+            where: 'id = ?',
+            whereArgs: [targetDefaultId],
+          );
+        });
+        return wallets.map((w) => w.copyWith(isDefault: w.id == targetDefaultId)).toList();
+      }
+    }
+
+    return wallets;
   }
 
   Future<Wallet?> getWalletById(String id) async {
@@ -51,12 +72,18 @@ class WalletRepository {
 
   Future<void> createWallet(Wallet wallet) async {
     final db = await _db;
+    final nowIso = DateTime.now().toUtc().toIso8601String();
     await db.transaction((txn) async {
-      if (wallet.isDefault) {
-        await txn.update('wallets', {'is_default': 0});
+      final existing = await txn.query('wallets');
+      final isFirstWallet = existing.isEmpty;
+      final shouldBeDefault = wallet.isDefault || isFirstWallet;
+
+      if (shouldBeDefault) {
+        await txn.update('wallets', {'is_default': 0, 'synced': 0, 'updated_at': nowIso});
       }
 
       final walletToInsert = wallet.copyWith(
+        isDefault: shouldBeDefault,
         currentBalance: wallet.initialBalance,
       );
 
@@ -70,24 +97,58 @@ class WalletRepository {
 
   Future<void> updateWallet(Wallet wallet) async {
     final db = await _db;
+    final nowIso = DateTime.now().toUtc().toIso8601String();
     await db.transaction((txn) async {
+      Wallet effectiveWallet = wallet;
       if (wallet.isDefault) {
-        await txn.update('wallets', {'is_default': 0, 'synced': 0, 'updated_at': DateTime.now().toUtc().toIso8601String()});
+        // Transfer default status: clear all other wallets
+        await txn.update(
+          'wallets',
+          {'is_default': 0, 'synced': 0, 'updated_at': nowIso},
+          where: 'id != ?',
+          whereArgs: [wallet.id],
+        );
+      } else {
+        // If unsetting default, ensure another wallet becomes default if any exist
+        final otherDefaults = await txn.query(
+          'wallets',
+          where: 'id != ? AND is_default = 1',
+          whereArgs: [wallet.id],
+        );
+        if (otherDefaults.isEmpty) {
+          final otherWallets = await txn.query(
+            'wallets',
+            where: 'id != ?',
+            whereArgs: [wallet.id],
+            limit: 1,
+          );
+          if (otherWallets.isNotEmpty) {
+            await txn.update(
+              'wallets',
+              {'is_default': 1, 'synced': 0, 'updated_at': nowIso},
+              where: 'id = ?',
+              whereArgs: [otherWallets.first['id']],
+            );
+          } else {
+            // Sole wallet must remain default
+            effectiveWallet = wallet.copyWith(isDefault: true);
+          }
+        }
       }
 
-      final map = wallet.toMap();
+      final map = effectiveWallet.toMap();
       map['synced'] = 0;
-      map['updated_at'] = DateTime.now().toUtc().toIso8601String();
+      map['updated_at'] = nowIso;
 
       await txn.update(
         'wallets',
         map,
         where: 'id = ?',
-        whereArgs: [wallet.id],
+        whereArgs: [effectiveWallet.id],
       );
 
       // Recalculate balance to reflect initial balance update accurately
-      await _recalculateWalletBalanceWithTxn(txn, wallet.id);
+      await _recalculateWalletBalanceWithTxn(txn, effectiveWallet.id);
     });
   }
 

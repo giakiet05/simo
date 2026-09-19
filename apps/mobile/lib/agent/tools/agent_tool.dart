@@ -32,3 +32,35 @@ abstract class SimoAgentTool<TInput, TOutput> {
   /// Executes the tool logic with the given input and execution context.
   Future<TOutput> execute(TInput input, AgentExecutionContext context);
 }
+
+/// Utility for parsing dates from AI agent inputs.
+/// Attaches current time components if the LLM supplies a date-only string or midnight timestamp (00:00:00).
+class AgentDateHelper {
+  /// Parses an ISO date string or date-only string into a DateTime.
+  ///
+  /// @param dateStr Raw input string from AI or user.
+  /// @param referenceNow Optional reference time (defaults to DateTime.now()).
+  /// @returns DateTime with realistic hour, minute, and second.
+  static DateTime parseDate(String? dateStr, [DateTime? referenceNow]) {
+    final now = referenceNow ?? DateTime.now();
+    if (dateStr == null || dateStr.trim().isEmpty) {
+      return now;
+    }
+    final parsed = DateTime.tryParse(dateStr.trim());
+    if (parsed == null) {
+      return now;
+    }
+    // If the parsed date has no explicit time component (00:00:00.000), preserve current time of day
+    if (parsed.hour == 0 && parsed.minute == 0 && parsed.second == 0 && parsed.millisecond == 0) {
+      return DateTime(
+        parsed.year,
+        parsed.month,
+        parsed.day,
+        now.hour,
+        now.minute,
+        now.second,
+      );
+    }
+    return parsed;
+  }
+}

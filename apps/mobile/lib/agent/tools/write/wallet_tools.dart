@@ -256,8 +256,7 @@ class TransferWalletTool extends SimoAgentTool<Map<String, dynamic>, bool> {
 
     final double fee = (input['fee'] as num?)?.toDouble() ?? 0.0;
     final note = input['note'] as String? ?? 'Chuyển tiền qua AI';
-    final dateStr = input['date'] as String?;
-    final date = dateStr != null ? (DateTime.tryParse(dateStr) ?? DateTime.now()) : DateTime.now();
+    final date = AgentDateHelper.parseDate(input['date'] as String?);
 
     final wallets = context.ref.read(walletProvider).value ?? [];
     if (wallets.length < 2) return false;

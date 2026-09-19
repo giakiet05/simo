@@ -171,8 +171,7 @@ class GoalDepositTool extends SimoAgentTool<Map<String, dynamic>, bool> {
     final goalId = input['goalId'] as String?;
     final goalName = input['goalName'] as String?;
     final note = input['note'] as String? ?? 'Góp quỹ qua AI';
-    final dateStr = input['date'] as String?;
-    final date = dateStr != null ? (DateTime.tryParse(dateStr) ?? DateTime.now()) : DateTime.now();
+    final date = AgentDateHelper.parseDate(input['date'] as String?);
 
     SavingGoal? target;
     if (goalId != null) {
@@ -225,8 +224,7 @@ class GoalWithdrawTool extends SimoAgentTool<Map<String, dynamic>, bool> {
     final goalId = input['goalId'] as String?;
     final goalName = input['goalName'] as String?;
     final note = input['note'] as String? ?? 'Rút quỹ qua AI';
-    final dateStr = input['date'] as String?;
-    final date = dateStr != null ? (DateTime.tryParse(dateStr) ?? DateTime.now()) : DateTime.now();
+    final date = AgentDateHelper.parseDate(input['date'] as String?);
 
     SavingGoal? target;
     if (goalId != null) {

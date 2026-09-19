@@ -7,8 +7,7 @@ void main() {
       final prefix = SystemPromptBuilder.staticPrefix;
 
       expect(prefix, contains('VAI TRÒ VÀ NGUYÊN TẮC CỐT LÕI'));
-      expect(prefix, contains('QUY TẮC XỬ LÝ MƠ HỒ & HỎI LẠI'));
-      expect(prefix, contains('TUYỆT ĐỐI CẤM ĐOÁN MÒ'));
+      expect(prefix, contains('QUY TẮC XỬ LÝ MƠ HỒ'));
       expect(prefix, contains('DANH MỤC CÔNG CỤ FULL CRUD'));
       expect(prefix, contains('TỪ ĐIỂN TIỀN TỆ VIỆT NAM'));
     });

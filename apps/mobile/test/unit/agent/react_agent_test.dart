@@ -125,5 +125,40 @@ void main() {
       );
       expect(forcedParams?['reasoning_effort'], equals('none'));
     });
+
+    test('AgentDateHelper.parseDate attaches current time to date-only strings and preserves explicit time', () {
+      final reference = DateTime(2026, 9, 19, 14, 35, 20);
+
+      // 1. null or empty input returns reference now
+      final nullDate = AgentDateHelper.parseDate(null, reference);
+      expect(nullDate, equals(reference));
+
+      final emptyDate = AgentDateHelper.parseDate('   ', reference);
+      expect(emptyDate, equals(reference));
+
+      // 2. date-only string (midnight 00:00:00) inherits reference hour/minute/second
+      final dateOnly = AgentDateHelper.parseDate('2026-09-19', reference);
+      expect(dateOnly.year, equals(2026));
+      expect(dateOnly.month, equals(9));
+      expect(dateOnly.day, equals(19));
+      expect(dateOnly.hour, equals(14));
+      expect(dateOnly.minute, equals(35));
+      expect(dateOnly.second, equals(20));
+
+      // 3. Past date only string (e.g. yesterday) also inherits reference hour/minute/second
+      final yesterday = AgentDateHelper.parseDate('2026-09-18T00:00:00', reference);
+      expect(yesterday.year, equals(2026));
+      expect(yesterday.month, equals(9));
+      expect(yesterday.day, equals(18));
+      expect(yesterday.hour, equals(14));
+      expect(yesterday.minute, equals(35));
+      expect(yesterday.second, equals(20));
+
+      // 4. Explicit non-midnight time is preserved as-is
+      final explicitTime = AgentDateHelper.parseDate('2026-09-19T08:15:00', reference);
+      expect(explicitTime.hour, equals(8));
+      expect(explicitTime.minute, equals(15));
+      expect(explicitTime.second, equals(0));
+    });
   });
 }

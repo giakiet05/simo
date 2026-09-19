@@ -216,5 +216,54 @@ void main() {
       expect(wallets[0].id, equals('w_high'));
       expect(wallets[1].id, equals('w_mid'));
     });
+
+    test('enforces strictly one default wallet and automatically transfers default on toggle', () async {
+      await DatabaseHelper.instance.clearAllData();
+
+      final wallet1 = Wallet(
+        id: 'w1',
+        name: 'Wallet 1',
+        type: 'cash',
+        initialBalance: 1000.0,
+        color: '#10B981',
+        icon: 'wallet',
+        isDefault: true,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+      final wallet2 = Wallet(
+        id: 'w2',
+        name: 'Wallet 2',
+        type: 'bank',
+        initialBalance: 2000.0,
+        color: '#3B82F6',
+        icon: 'account_balance',
+        isDefault: false,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+
+      await repo.createWallet(wallet1);
+      await repo.createWallet(wallet2);
+
+      var list = await repo.getAllWallets();
+      expect(list.where((w) => w.isDefault).length, equals(1));
+      expect(list.firstWhere((w) => w.isDefault).id, equals('w1'));
+
+      // Transfer default to wallet2
+      await repo.setDefaultWallet('w2');
+      list = await repo.getAllWallets();
+      expect(list.where((w) => w.isDefault).length, equals(1));
+      expect(list.firstWhere((w) => w.isDefault).id, equals('w2'));
+      expect(list.firstWhere((w) => w.id == 'w1').isDefault, isFalse);
+
+      // Updating wallet1 to default via updateWallet transfers default
+      final updatedW1 = list.firstWhere((w) => w.id == 'w1').copyWith(isDefault: true);
+      await repo.updateWallet(updatedW1);
+      list = await repo.getAllWallets();
+      expect(list.where((w) => w.isDefault).length, equals(1));
+      expect(list.firstWhere((w) => w.isDefault).id, equals('w1'));
+      expect(list.firstWhere((w) => w.id == 'w2').isDefault, isFalse);
+    });
   });
 }
