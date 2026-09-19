@@ -126,7 +126,17 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
     if (tx != null) {
       Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (_) => TransactionFormScreen(editTransactionId: tx.id),
+          builder: (_) => TransactionFormScreen(
+            editTransactionId: tx.id,
+            editType: tx.type,
+            editAmount: tx.amount.toString(),
+            editFormula: tx.formula,
+            editCategoryId: tx.categoryId,
+            editWalletId: tx.walletId,
+            editNote: tx.note,
+            editTransactionDate: tx.transactionDate,
+            editCreatedAt: tx.createdAt,
+          ),
         ),
       );
     }
@@ -197,7 +207,17 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
       if (targetTx != null) {
         Navigator.of(context).push(
           MaterialPageRoute(
-            builder: (_) => TransactionFormScreen(editTransactionId: targetTx!.id),
+            builder: (_) => TransactionFormScreen(
+              editTransactionId: targetTx!.id,
+              editType: targetTx.type,
+              editAmount: targetTx.amount.toString(),
+              editFormula: targetTx.formula,
+              editCategoryId: targetTx.categoryId,
+              editWalletId: targetTx.walletId,
+              editNote: targetTx.note,
+              editTransactionDate: targetTx.transactionDate,
+              editCreatedAt: targetTx.createdAt,
+            ),
           ),
         );
       } else {

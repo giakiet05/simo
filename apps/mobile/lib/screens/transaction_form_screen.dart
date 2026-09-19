@@ -67,26 +67,38 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   void initState() {
     super.initState();
     _isEditMode = widget.editTransactionId != null;
-    _type = widget.editType ?? 'expense';
 
     if (_isEditMode) {
-      _originalDate = widget.editTransactionDate ?? widget.editCreatedAt;
-      _selectedDate = _originalDate ?? DateTime.now();
-      _selectedCategoryId = widget.editCategoryId;
-      _selectedWalletId = widget.editWalletId;
-      _noteController = TextEditingController(text: widget.editNote ?? '');
+      final txs = ref.read(transactionProvider).value ?? [];
+      final tx = txs.where((t) => t.id == widget.editTransactionId).firstOrNull;
 
-      String amountText = widget.editFormula ?? widget.editAmount ?? '';
-      if (amountText.isNotEmpty && widget.editFormula == null) {
+      _type = widget.editType ?? tx?.type ?? 'expense';
+      _originalDate = widget.editTransactionDate ?? widget.editCreatedAt ?? tx?.transactionDate ?? tx?.createdAt;
+      _selectedDate = _originalDate ?? DateTime.now();
+      _selectedCategoryId = widget.editCategoryId ?? tx?.categoryId;
+      _selectedWalletId = widget.editWalletId ?? tx?.walletId;
+      _noteController = TextEditingController(text: widget.editNote ?? tx?.note ?? '');
+
+      String amountText = widget.editFormula ??
+          widget.editAmount ??
+          tx?.formula ??
+          (tx != null
+              ? (tx.amount == tx.amount.toInt()
+                  ? tx.amount.toInt().toString()
+                  : tx.amount.toString())
+              : '');
+      if (amountText.isNotEmpty && (widget.editFormula == null && tx?.formula == null)) {
         final amount = double.tryParse(amountText);
         if (amount != null) {
           amountText = _formatAmountForDisplay(amount);
         }
-      } else if (amountText.isNotEmpty && widget.editFormula != null) {
-        amountText = _formatFormulaForDisplay(widget.editFormula!);
+      } else if (amountText.isNotEmpty && (widget.editFormula != null || tx?.formula != null)) {
+        final formula = widget.editFormula ?? tx!.formula!;
+        amountText = _formatFormulaForDisplay(formula);
       }
       _amountController = TextEditingController(text: amountText);
     } else {
+      _type = widget.editType ?? 'expense';
       _selectedDate = DateTime.now();
       _selectedCategoryId = widget.editCategoryId;
       _selectedWalletId = widget.editWalletId;

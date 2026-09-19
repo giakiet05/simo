@@ -8,7 +8,7 @@ import '../../../providers/category_provider.dart';
 import '../../../providers/wallet_provider.dart';
 
 /// Mutation tool to create a new income or expense transaction.
-class CreateTransactionTool extends SimoAgentTool<Map<String, dynamic>, bool> {
+class CreateTransactionTool extends SimoAgentTool<Map<String, dynamic>, Map<String, dynamic>> {
   @override
   String get name => 'transaction_create';
 
@@ -30,9 +30,9 @@ class CreateTransactionTool extends SimoAgentTool<Map<String, dynamic>, bool> {
   };
 
   @override
-  Future<bool> execute(Map<String, dynamic> input, AgentExecutionContext context) async {
+  Future<Map<String, dynamic>> execute(Map<String, dynamic> input, AgentExecutionContext context) async {
     final double amount = (input['amount'] as num?)?.toDouble() ?? 0.0;
-    if (amount <= 0) return false;
+    if (amount <= 0) return {'isSuccess': false};
 
     final type = input['type'] as String? ?? 'expense';
     final note = input['note'] as String? ?? '';
@@ -102,9 +102,11 @@ class CreateTransactionTool extends SimoAgentTool<Map<String, dynamic>, bool> {
 
     final String? walletId = matchedWallet?.id;
 
+    final String generatedId = const Uuid().v4();
+
     await context.ref.read(transactionProvider.notifier).createTransactions([
       {
-        'id': const Uuid().v4(),
+        'id': generatedId,
         'categoryId': categoryId,
         'walletId': walletId,
         'amount': amount,
@@ -114,7 +116,16 @@ class CreateTransactionTool extends SimoAgentTool<Map<String, dynamic>, bool> {
       }
     ]);
 
-    return true;
+    return {
+      'transactionId': generatedId,
+      'id': generatedId,
+      'amount': amount,
+      'type': type,
+      'note': note,
+      'categoryId': categoryId,
+      'walletId': walletId,
+      'date': date.toIso8601String(),
+    };
   }
 }
 

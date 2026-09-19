@@ -230,6 +230,12 @@ class ReActAgent {
             toolResult = rawResult
                 ? AgentToolResult.success(parsedArgs)
                 : AgentToolResult.error('Thao tác không thành công', parsedArgs);
+          } else if (rawResult is Map<String, dynamic>) {
+            final merged = Map<String, dynamic>.from(parsedArgs)..addAll(rawResult);
+            final bool isSuccess = rawResult['isSuccess'] as bool? ?? true;
+            toolResult = isSuccess
+                ? AgentToolResult.success(merged)
+                : AgentToolResult.error(rawResult['error'] as String? ?? 'Thao tác không thành công', merged);
           } else if (rawResult is AiViewPayload) {
             toolResult = AgentToolResult.success(parsedArgs, rawResult);
           } else {
@@ -248,6 +254,8 @@ class ReActAgent {
                 parsedArgs['contactName'] as String? ??
                 parsedArgs['categoryName'] as String? ??
                 '';
+            final Map<String, dynamic> mergedRaw = Map<String, dynamic>.from(parsedArgs);
+            mergedRaw.addAll(toolResult.data);
             collectedActions.add(
               AiExecutedAction(
                 actionType: toolName,
@@ -256,7 +264,7 @@ class ReActAgent {
                 subtitle: subtitle,
                 date: DateTime.now(),
                 isSuccess: true,
-                rawAction: parsedArgs,
+                rawAction: mergedRaw,
               ),
             );
           }
