@@ -1,0 +1,430 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SimoAgentTools",
+  "description": "OpenAI Function Calling Tool Definitions for Simo ReAct Agent",
+  "tools": [
+    {
+      "name": "transaction_create",
+      "description": "Tạo giao dịch thu nhập hoặc chi tiêu mới",
+      "parameters": {
+        "type": "object",
+        "required": ["amount"],
+        "properties": {
+          "amount": {"type": "number", "description": "Số tiền giao dịch (VND)"},
+          "type": {"type": "string", "enum": ["expense", "income"], "default": "expense"},
+          "note": {"type": "string", "description": "Ghi chú giao dịch"},
+          "categoryId": {"type": "string", "description": "ID danh mục"},
+          "categoryName": {"type": "string", "description": "Tên danh mục"},
+          "walletId": {"type": "string", "description": "ID ví thanh toán"},
+          "walletName": {"type": "string", "description": "Tên ví thanh toán"},
+          "date": {"type": "string", "description": "Ngày giao dịch định dạng ISO 8601"}
+        }
+      }
+    },
+    {
+      "name": "transaction_update",
+      "description": "Cập nhật thông tin giao dịch hiện có",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "transactionId": {"type": "string", "description": "ID giao dịch cần sửa"},
+          "note": {"type": "string", "description": "Từ khóa tìm kiếm giao dịch gần nhất nếu không có ID"},
+          "amount": {"type": "number", "description": "Số tiền mới"},
+          "categoryId": {"type": "string", "description": "ID danh mục mới"},
+          "categoryName": {"type": "string", "description": "Tên danh mục mới"},
+          "walletId": {"type": "string", "description": "ID ví mới"},
+          "walletName": {"type": "string", "description": "Tên ví mới"},
+          "date": {"type": "string", "description": "Ngày giao dịch mới"}
+        }
+      }
+    },
+    {
+      "name": "transaction_delete",
+      "description": "Xóa giao dịch khỏi sổ cái",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "transactionId": {"type": "string"},
+          "note": {"type": "string"}
+        }
+      }
+    },
+    {
+      "name": "wallet_create",
+      "description": "Tạo ví tiền mới",
+      "parameters": {
+        "type": "object",
+        "required": ["walletName"],
+        "properties": {
+          "walletName": {"type": "string"},
+          "walletType": {"type": "string", "enum": ["cash", "bank", "credit", "e_wallet", "savings", "other"]},
+          "amount": {"type": "number"}
+        }
+      }
+    },
+    {
+      "name": "wallet_update",
+      "description": "Cập nhật thông tin ví hoặc đặt làm mặc định",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "walletId": {"type": "string"},
+          "walletName": {"type": "string"},
+          "newName": {"type": "string"},
+          "walletType": {"type": "string"},
+          "isDefault": {"type": "boolean"},
+          "color": {"type": "string"},
+          "icon": {"type": "string"}
+        }
+      }
+    },
+    {
+      "name": "wallet_adjust_balance",
+      "description": "Điều chỉnh số dư thực tế của ví",
+      "parameters": {
+        "type": "object",
+        "required": ["newBalance"],
+        "properties": {
+          "walletId": {"type": "string"},
+          "walletName": {"type": "string"},
+          "newBalance": {"type": "number"}
+        }
+      }
+    },
+    {
+      "name": "wallet_delete",
+      "description": "Xóa ví tiền",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "walletId": {"type": "string"},
+          "walletName": {"type": "string"}
+        }
+      }
+    },
+    {
+      "name": "transfer",
+      "description": "Chuyển tiền giữa 2 ví",
+      "parameters": {
+        "type": "object",
+        "required": ["amount"],
+        "properties": {
+          "amount": {"type": "number"},
+          "sourceWalletId": {"type": "string"},
+          "sourceWalletName": {"type": "string"},
+          "destinationWalletId": {"type": "string"},
+          "destinationWalletName": {"type": "string"},
+          "fee": {"type": "number"},
+          "note": {"type": "string"},
+          "date": {"type": "string"}
+        }
+      }
+    },
+    {
+      "name": "category_create",
+      "description": "Tạo danh mục mới",
+      "parameters": {
+        "type": "object",
+        "required": ["categoryName"],
+        "properties": {
+          "categoryName": {"type": "string"},
+          "type": {"type": "string", "enum": ["expense", "income"]},
+          "color": {"type": "string"},
+          "icon": {"type": "string"},
+          "budgetLimit": {"type": "number"}
+        }
+      }
+    },
+    {
+      "name": "category_update",
+      "description": "Sửa thông tin danh mục",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "categoryId": {"type": "string"},
+          "categoryName": {"type": "string"},
+          "newName": {"type": "string"},
+          "color": {"type": "string"},
+          "icon": {"type": "string"},
+          "budgetLimit": {"type": "number"}
+        }
+      }
+    },
+    {
+      "name": "category_delete",
+      "description": "Xóa danh mục",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "categoryId": {"type": "string"},
+          "categoryName": {"type": "string"}
+        }
+      }
+    },
+    {
+      "name": "budget_set",
+      "description": "Thiết lập hoặc cập nhật hạn mức chi tiêu tháng",
+      "parameters": {
+        "type": "object",
+        "required": ["amount"],
+        "properties": {
+          "amount": {"type": "number"},
+          "categoryId": {"type": "string"},
+          "categoryName": {"type": "string"},
+          "month": {"type": "string", "description": "YYYY-MM"}
+        }
+      }
+    },
+    {
+      "name": "budget_delete",
+      "description": "Xóa hạn mức chi tiêu tháng",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "categoryId": {"type": "string"},
+          "categoryName": {"type": "string"},
+          "month": {"type": "string"}
+        }
+      }
+    },
+    {
+      "name": "loan_create",
+      "description": "Tạo khoản cho vay hoặc đi vay mới",
+      "parameters": {
+        "type": "object",
+        "required": ["amount", "contactName"],
+        "properties": {
+          "amount": {"type": "number"},
+          "contactName": {"type": "string"},
+          "contactId": {"type": "string"},
+          "loanType": {"type": "string", "enum": ["lent", "borrowed"]},
+          "walletId": {"type": "string"},
+          "walletName": {"type": "string"},
+          "note": {"type": "string"},
+          "dueDate": {"type": "string"},
+          "date": {"type": "string"}
+        }
+      }
+    },
+    {
+      "name": "loan_update",
+      "description": "Chỉnh sửa thông tin khoản nợ",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "contactId": {"type": "string"},
+          "contactName": {"type": "string"},
+          "newName": {"type": "string"},
+          "newAmount": {"type": "number"},
+          "dueDate": {"type": "string"},
+          "note": {"type": "string"}
+        }
+      }
+    },
+    {
+      "name": "loan_delete",
+      "description": "Xóa khoản nợ",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "contactId": {"type": "string"},
+          "contactName": {"type": "string"}
+        }
+      }
+    },
+    {
+      "name": "loan_repay",
+      "description": "Ghi nhận trả nợ hoặc thu hồi nợ",
+      "parameters": {
+        "type": "object",
+        "required": ["amount"],
+        "properties": {
+          "amount": {"type": "number"},
+          "contactId": {"type": "string"},
+          "contactName": {"type": "string"},
+          "repayType": {"type": "string", "enum": ["collect", "repay"]},
+          "walletId": {"type": "string"},
+          "walletName": {"type": "string"},
+          "note": {"type": "string"},
+          "date": {"type": "string"}
+        }
+      }
+    },
+    {
+      "name": "goal_create",
+      "description": "Tạo mục tiêu tiết kiệm mới",
+      "parameters": {
+        "type": "object",
+        "required": ["goalName", "targetAmount"],
+        "properties": {
+          "goalName": {"type": "string"},
+          "targetAmount": {"type": "number"},
+          "targetDate": {"type": "string"}
+        }
+      }
+    },
+    {
+      "name": "goal_update",
+      "description": "Chỉnh sửa mục tiêu tiết kiệm",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "goalId": {"type": "string"},
+          "goalName": {"type": "string"},
+          "newName": {"type": "string"},
+          "targetAmount": {"type": "number"},
+          "targetDate": {"type": "string"},
+          "status": {"type": "string"}
+        }
+      }
+    },
+    {
+      "name": "goal_delete",
+      "description": "Xóa mục tiêu tiết kiệm",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "goalId": {"type": "string"},
+          "goalName": {"type": "string"}
+        }
+      }
+    },
+    {
+      "name": "goal_deposit",
+      "description": "Nạp tiền vào mục tiêu tiết kiệm",
+      "parameters": {
+        "type": "object",
+        "required": ["amount"],
+        "properties": {
+          "amount": {"type": "number"},
+          "goalId": {"type": "string"},
+          "goalName": {"type": "string"},
+          "walletId": {"type": "string"},
+          "note": {"type": "string"}
+        }
+      }
+    },
+    {
+      "name": "goal_withdraw",
+      "description": "Rút tiền từ mục tiêu tiết kiệm",
+      "parameters": {
+        "type": "object",
+        "required": ["amount"],
+        "properties": {
+          "amount": {"type": "number"},
+          "goalId": {"type": "string"},
+          "goalName": {"type": "string"},
+          "walletId": {"type": "string"},
+          "note": {"type": "string"}
+        }
+      }
+    },
+    {
+      "name": "recurring_create",
+      "description": "Tạo giao dịch định kỳ lặp lại",
+      "parameters": {
+        "type": "object",
+        "required": ["amount", "note"],
+        "properties": {
+          "amount": {"type": "number"},
+          "note": {"type": "string"},
+          "type": {"type": "string", "enum": ["expense", "income"]},
+          "frequency": {"type": "string", "enum": ["daily", "weekly", "monthly", "yearly"]},
+          "dayOfMonth": {"type": "integer"},
+          "categoryId": {"type": "string"},
+          "walletId": {"type": "string"}
+        }
+      }
+    },
+    {
+      "name": "recurring_update",
+      "description": "Chỉnh sửa cấu hình giao dịch định kỳ",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "recurringId": {"type": "string"},
+          "note": {"type": "string"},
+          "amount": {"type": "number"},
+          "dayOfMonth": {"type": "integer"},
+          "frequency": {"type": "string"},
+          "isActive": {"type": "boolean"}
+        }
+      }
+    },
+    {
+      "name": "recurring_delete",
+      "description": "Hủy lịch lặp giao dịch định kỳ",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "recurringId": {"type": "string"},
+          "note": {"type": "string"}
+        }
+      }
+    },
+    {
+      "name": "query_transactions",
+      "description": "Tra cứu danh sách giao dịch hiển thị Generative UI",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "period": {"type": "string", "enum": ["today", "yesterday", "this_week", "this_month", "all"]},
+          "type": {"type": "string", "enum": ["expense", "income", "all"]},
+          "categoryId": {"type": "string"},
+          "walletId": {"type": "string"}
+        }
+      }
+    },
+    {
+      "name": "view_wallets",
+      "description": "Xem tổng quan tài sản và các ví",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "walletId": {"type": "string"}
+        }
+      }
+    },
+    {
+      "name": "view_budgets",
+      "description": "Xem ngân sách chi tiêu tháng",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "month": {"type": "string"}
+        }
+      }
+    },
+    {
+      "name": "view_debts",
+      "description": "Xem sổ nợ và danh sách con nợ",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "type": {"type": "string", "enum": ["lent", "borrowed", "all"]}
+        }
+      }
+    },
+    {
+      "name": "view_goals",
+      "description": "Xem danh sách mục tiêu tích lũy",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "goalId": {"type": "string"}
+        }
+      }
+    },
+    {
+      "name": "navigate_screen",
+      "description": "Điều hướng đến màn hình ứng dụng",
+      "parameters": {
+        "type": "object",
+        "required": ["destination"],
+        "properties": {
+          "destination": {"type": "string", "enum": ["dashboard", "reports", "wallets", "budgets", "loans", "goals", "categories", "export_backup", "settings"]}
+        }
+      }
+    }
+  ]
+}
