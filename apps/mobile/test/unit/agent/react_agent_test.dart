@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:simo/agent/engine/agent_event.dart';
+import 'package:simo/agent/engine/react_agent.dart';
 import 'package:simo/agent/tools/agent_tool.dart';
 import 'package:simo/agent/tools/tool_registry.dart';
 import 'package:simo/models/ai_message.dart';
@@ -91,6 +92,38 @@ void main() {
       registry.register(tool);
 
       expect(registry.hasTool('echo_tool'), isTrue);
+    });
+
+    test('ReActAgent.buildExtraParams resolves reasoning_effort appropriately', () {
+      // 1. gpt-5.6-luna defaults to reasoning_effort = 'none' for tool compatibility
+      final lunaParams = ReActAgent.buildExtraParams('gpt-5.6-luna');
+      expect(lunaParams, isNotNull);
+      expect(lunaParams?['reasoning_effort'], equals('none'));
+
+      // 2. o-series reasoning models default to reasoning_effort = 'none'
+      final o1Params = ReActAgent.buildExtraParams('o1-preview');
+      expect(o1Params?['reasoning_effort'], equals('none'));
+
+      final o3Params = ReActAgent.buildExtraParams('o3-mini');
+      expect(o3Params?['reasoning_effort'], equals('none'));
+
+      // 3. gpt-4o-mini should not include reasoning_effort by default
+      final gpt4Params = ReActAgent.buildExtraParams('gpt-4o-mini');
+      expect(gpt4Params, isNull);
+
+      // 4. Configured override takes precedence
+      final customParams = ReActAgent.buildExtraParams(
+        'gpt-5.6-luna',
+        configuredEffort: 'low',
+      );
+      expect(customParams?['reasoning_effort'], equals('low'));
+
+      // 5. Force none overrides any model default
+      final forcedParams = ReActAgent.buildExtraParams(
+        'gpt-4o',
+        forceNoneReasoning: true,
+      );
+      expect(forcedParams?['reasoning_effort'], equals('none'));
     });
   });
 }

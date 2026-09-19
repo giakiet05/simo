@@ -21,6 +21,43 @@ class ReActAgent {
     required this.executionContext,
   });
 
+  /// Resolves extra parameters for OpenAI chat completions, such as reasoning_effort for reasoning/luna models.
+  ///
+  /// @param modelId The OpenAI model identifier.
+  /// @param configuredEffort Optional override from environment config.
+  /// @param forceNoneReasoning If true, explicitly enforces reasoning_effort='none'.
+  /// @returns Map containing extra parameters or null if none required.
+  @visibleForTesting
+  static Map<String, dynamic>? buildExtraParams(
+    String modelId, {
+    String? configuredEffort,
+    bool forceNoneReasoning = false,
+  }) {
+    if (forceNoneReasoning) {
+      return {'reasoning_effort': 'none'};
+    }
+
+    String? envEffort;
+    if (dotenv.isInitialized) {
+      envEffort = dotenv.env['AI_REASONING_EFFORT'];
+    }
+    final effort = configuredEffort ?? envEffort;
+    if (effort != null && effort.trim().isNotEmpty) {
+      return {'reasoning_effort': effort.trim()};
+    }
+
+    final lowerModel = modelId.toLowerCase();
+    if (lowerModel.contains('luna') ||
+        lowerModel.contains('gpt-5') ||
+        lowerModel.startsWith('o1') ||
+        lowerModel.startsWith('o3') ||
+        lowerModel.startsWith('o4')) {
+      return {'reasoning_effort': 'none'};
+    }
+
+    return null;
+  }
+
   void _ensureConfigured() {
     String baseUrl = dotenv.env['AI_BASE_URL'] ??
         dotenv.env['OPENAI_BASE_URL'] ??
@@ -99,21 +136,45 @@ class ReActAgent {
       yield AgentModelCallEvent(round: round, modelId: modelId);
 
       OpenAIChatCompletionModel chatCompletion;
+      final extraParams = buildExtraParams(modelId);
       try {
         chatCompletion = await OpenAI.instance.chat.create(
           model: modelId,
           messages: messagesList,
           tools: openAiTools.isNotEmpty ? openAiTools : null,
+          extraParams: extraParams,
         );
       } catch (e, stack) {
-        debugPrint('ReActAgent: Network or API error during chat.create: $e\n$stack');
-        yield AgentErrorEvent(errorMessage: 'Lỗi kết nối AI: $e');
-        yield AgentFinalAnswerEvent(
-          content: 'Xin lỗi bạn, đã có lỗi kết nối khi xử lý yêu cầu. Bạn hãy thử lại nhé!',
-          actions: collectedActions,
-          viewPayload: collectedViewPayload,
-        );
-        return;
+        final errStr = e.toString().toLowerCase();
+        if (errStr.contains('reasoning_effort') || errStr.contains('reasoning effort')) {
+          debugPrint('ReActAgent: Gateway required reasoning_effort=none. Retrying once: $e');
+          try {
+            chatCompletion = await OpenAI.instance.chat.create(
+              model: modelId,
+              messages: messagesList,
+              tools: openAiTools.isNotEmpty ? openAiTools : null,
+              extraParams: buildExtraParams(modelId, forceNoneReasoning: true),
+            );
+          } catch (retryError, retryStack) {
+            debugPrint('ReActAgent: Retry failed: $retryError\n$retryStack');
+            yield AgentErrorEvent(errorMessage: 'Lỗi kết nối AI: $retryError');
+            yield AgentFinalAnswerEvent(
+              content: 'Xin lỗi bạn, đã có lỗi kết nối khi xử lý yêu cầu. Bạn hãy thử lại nhé!',
+              actions: collectedActions,
+              viewPayload: collectedViewPayload,
+            );
+            return;
+          }
+        } else {
+          debugPrint('ReActAgent: Network or API error during chat.create: $e\n$stack');
+          yield AgentErrorEvent(errorMessage: 'Lỗi kết nối AI: $e');
+          yield AgentFinalAnswerEvent(
+            content: 'Xin lỗi bạn, đã có lỗi kết nối khi xử lý yêu cầu. Bạn hãy thử lại nhé!',
+            actions: collectedActions,
+            viewPayload: collectedViewPayload,
+          );
+          return;
+        }
       }
 
       final choice = chatCompletion.choices.first;
