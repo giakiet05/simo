@@ -265,5 +265,52 @@ void main() {
       expect(list.firstWhere((w) => w.isDefault).id, equals('w1'));
       expect(list.firstWhere((w) => w.id == 'w2').isDefault, isFalse);
     });
+
+    test('adjustWalletBalance updates balance and preserves consistency across recalculations', () async {
+      await DatabaseHelper.instance.clearAllData();
+
+      final wallet = Wallet(
+        id: 'w_adjust',
+        name: 'Ví Lỏ',
+        type: 'cash',
+        initialBalance: 0.0,
+        color: '#10B981',
+        icon: 'wallet',
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+      await repo.createWallet(wallet);
+
+      // 1. Adjust balance when no transactions exist
+      await repo.adjustWalletBalance('w_adjust', 800000.0);
+      var fetched = await repo.getWalletById('w_adjust');
+      expect(fetched!.currentBalance, equals(800000.0));
+      expect(fetched.initialBalance, equals(800000.0));
+
+      // 2. Add an expense transaction 200,000
+      final db = await DatabaseHelper.instance.database;
+      await db.insert('transactions', {
+        'id': 'tx_adjust_1',
+        'wallet_id': 'w_adjust',
+        'amount': 200000.0,
+        'type': 'expense',
+        'transaction_date': DateTime.now().toIso8601String(),
+        'created_at': DateTime.now().toIso8601String(),
+        'updated_at': DateTime.now().toIso8601String(),
+      });
+      await repo.recalculateWalletBalance('w_adjust');
+      fetched = await repo.getWalletById('w_adjust');
+      expect(fetched!.currentBalance, equals(600000.0));
+
+      // 3. Adjust balance to 1,500,000 with existing transactions
+      await repo.adjustWalletBalance('w_adjust', 1500000.0);
+      fetched = await repo.getWalletById('w_adjust');
+      expect(fetched!.currentBalance, equals(1500000.0));
+
+      // Verify recalculation preserves 1,500,000
+      await repo.recalculateWalletBalance('w_adjust');
+      fetched = await repo.getWalletById('w_adjust');
+      expect(fetched!.currentBalance, equals(1500000.0));
+    });
   });
 }

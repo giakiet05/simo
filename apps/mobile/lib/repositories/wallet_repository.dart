@@ -152,6 +152,51 @@ class WalletRepository {
     });
   }
 
+  Future<void> adjustWalletBalance(String walletId, double targetBalance) async {
+    final db = await _db;
+    final nowIso = DateTime.now().toUtc().toIso8601String();
+    await db.transaction((txn) async {
+      final txResult = await txn.rawQuery('''
+        SELECT 
+          COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE -amount END), 0.0) as balance
+        FROM transactions 
+        WHERE wallet_id = ?
+      ''', [walletId]);
+      final txNet = (txResult.first['balance'] as num?)?.toDouble() ?? 0.0;
+
+      final inTransferResult = await txn.rawQuery('''
+        SELECT COALESCE(SUM(amount), 0.0) as total_in
+        FROM wallet_transfers
+        WHERE destination_wallet_id = ?
+      ''', [walletId]);
+      final transferIn =
+          (inTransferResult.first['total_in'] as num?)?.toDouble() ?? 0.0;
+
+      final outTransferResult = await txn.rawQuery('''
+        SELECT COALESCE(SUM(amount + fee), 0.0) as total_out
+        FROM wallet_transfers
+        WHERE source_wallet_id = ?
+      ''', [walletId]);
+      final transferOut =
+          (outTransferResult.first['total_out'] as num?)?.toDouble() ?? 0.0;
+
+      final netActivity = txNet + transferIn - transferOut;
+      final requiredInitialBalance = targetBalance - netActivity;
+
+      await txn.update(
+        'wallets',
+        {
+          'initial_balance': requiredInitialBalance,
+          'current_balance': targetBalance,
+          'synced': 0,
+          'updated_at': nowIso,
+        },
+        where: 'id = ?',
+        whereArgs: [walletId],
+      );
+    });
+  }
+
   Future<void> deleteWallet(String id) async {
     final db = await _db;
     final nowIso = DateTime.now().toUtc().toIso8601String();

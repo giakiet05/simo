@@ -234,18 +234,16 @@ class AdjustWalletBalanceTool extends SimoAgentTool<Map<String, dynamic>, Map<St
       target = wallets.where((w) => w.id == walletId).firstOrNull;
     }
     if (target == null && walletName != null && walletName.isNotEmpty) {
-      target = wallets.where((w) => w.name.toLowerCase().contains(walletName.toLowerCase())).firstOrNull;
+      final query = walletName.trim().toLowerCase();
+      target = wallets.where((w) => w.name.toLowerCase() == query).firstOrNull ??
+          wallets.where((w) => w.name.toLowerCase().contains(query)).firstOrNull;
     }
     target ??= wallets.where((w) => w.isDefault).firstOrNull ?? (wallets.isNotEmpty ? wallets.first : null);
 
     if (target == null) return {'isSuccess': false, 'error': 'Không tìm thấy ví cần điều chỉnh số dư'};
 
-    final updated = target.copyWith(
-      currentBalance: newBalance,
-      updatedAt: DateTime.now(),
-    );
+    await context.ref.read(walletProvider.notifier).adjustWalletBalance(target.id, newBalance);
 
-    await context.ref.read(walletProvider.notifier).updateWallet(updated);
     return {
       'isSuccess': true,
       'walletId': target.id,

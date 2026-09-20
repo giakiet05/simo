@@ -39,6 +39,12 @@ class WalletNotifier extends StateNotifier<AsyncValue<List<Wallet>>> {
     _ref?.read(syncProvider.notifier).triggerDebouncedSync();
   }
 
+  Future<void> adjustWalletBalance(String walletId, double newBalance) async {
+    await _repo.adjustWalletBalance(walletId, newBalance);
+    await loadWallets();
+    _ref?.read(syncProvider.notifier).triggerDebouncedSync();
+  }
+
   Future<void> deleteWallet(String id) async {
     await _repo.deleteWallet(id);
     await loadWallets();
