@@ -47,6 +47,9 @@ class _FakeWalletNotifier extends StateNotifier<AsyncValue<List<Wallet>>>
   Future<void> updateWallet(Wallet wallet) async {}
 
   @override
+  Future<void> adjustWalletBalance(String walletId, double newBalance) async {}
+
+  @override
   Future<void> deleteWallet(String id) async {}
 
   @override

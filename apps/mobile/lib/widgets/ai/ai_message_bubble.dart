@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 import '../../models/ai_message.dart';
 import 'ai_action_card.dart';
 import '../../agent/ui/cards/ai_transaction_list_card.dart';
@@ -186,6 +187,10 @@ class AiMessageBubble extends StatelessWidget {
       );
     }
 
+    final textColor = isUser
+        ? theme.colorScheme.onPrimary
+        : (theme.textTheme.bodyMedium?.color ?? theme.colorScheme.onSurface);
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
@@ -199,14 +204,51 @@ class AiMessageBubble extends StatelessWidget {
           bottomRight: Radius.circular(isUser ? 4 : 16),
         ),
       ),
-      child: Text(
-        message.content,
-        style: TextStyle(
-          fontSize: 14,
-          color: isUser ? theme.colorScheme.onPrimary : theme.textTheme.bodyMedium?.color,
-          height: 1.4,
-        ),
-      ),
+      child: isUser
+          ? Text(
+              message.content,
+              style: TextStyle(
+                fontSize: 14,
+                color: textColor,
+                height: 1.4,
+              ),
+            )
+          : MarkdownBody(
+              data: message.content,
+              selectable: false,
+              styleSheet: MarkdownStyleSheet.fromTheme(theme).copyWith(
+                p: TextStyle(
+                  fontSize: 14,
+                  color: textColor,
+                  height: 1.4,
+                ),
+                strong: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: textColor,
+                  height: 1.4,
+                ),
+                em: TextStyle(
+                  fontSize: 14,
+                  fontStyle: FontStyle.italic,
+                  color: textColor,
+                  height: 1.4,
+                ),
+                code: TextStyle(
+                  fontSize: 13,
+                  fontFamily: 'monospace',
+                  color: theme.colorScheme.primary,
+                  backgroundColor:
+                      theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                ),
+                listBullet: TextStyle(
+                  fontSize: 14,
+                  color: textColor,
+                ),
+                blockSpacing: 6.0,
+                listIndent: 20.0,
+              ),
+            ),
     );
   }
 }
