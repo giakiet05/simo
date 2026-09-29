@@ -22,7 +22,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 18,
+      version: 19,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -227,6 +227,23 @@ class DatabaseHelper {
         FOREIGN KEY (destination_wallet_id) REFERENCES wallets (id) ON DELETE CASCADE
       )
     ''');
+
+    // Create ai_messages table for conversational chat persistence
+    await db.execute('''
+      CREATE TABLE ai_messages (
+        id $idType,
+        turn_id $textType,
+        role $textType,
+        content $textType,
+        timestamp $textType,
+        status $textType,
+        error_message TEXT,
+        actions_json TEXT,
+        view_payload_json TEXT
+      )
+    ''');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_ai_messages_timestamp ON ai_messages(timestamp)');
+    await db.execute('CREATE INDEX IF NOT EXISTS idx_ai_messages_turn_id ON ai_messages(turn_id)');
 
     // Insert default Cash Wallet
     final now = DateTime.now().toIso8601String();
@@ -670,11 +687,33 @@ class DatabaseHelper {
         }
       }
     }
+
+    if (oldVersion < 19) {
+      const idType = 'TEXT PRIMARY KEY';
+      const textType = 'TEXT NOT NULL';
+
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS ai_messages (
+          id $idType,
+          turn_id $textType,
+          role $textType,
+          content $textType,
+          timestamp $textType,
+          status $textType,
+          error_message TEXT,
+          actions_json TEXT,
+          view_payload_json TEXT
+        )
+      ''');
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_ai_messages_timestamp ON ai_messages(timestamp)');
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_ai_messages_turn_id ON ai_messages(turn_id)');
+    }
   }
 
   Future<void> clearAllData() async {
     final db = await instance.database;
     await db.transaction((txn) async {
+      await txn.delete('ai_messages');
       await txn.delete('wallet_transfers');
       await txn.delete('wallets');
       await txn.delete('saving_goal_logs');

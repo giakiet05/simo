@@ -5,7 +5,9 @@ import 'whisper_speech_service.dart';
 
 class SpeechServiceFactory {
   static SpeechRecognitionService create() {
-    final useWhisper = dotenv.env['USE_WHISPER']?.toLowerCase() == 'true';
+    final useWhisper = dotenv.isInitialized
+        ? (dotenv.env['USE_WHISPER']?.toLowerCase() == 'true')
+        : false;
     if (useWhisper) {
       return WhisperSpeechService();
     } else {

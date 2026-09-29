@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
 
 import '../models/ai_message.dart';
+import '../repositories/ai_message_repository.dart';
 
 import '../agent/engine/react_agent.dart';
 import '../agent/engine/agent_event.dart';
@@ -77,16 +79,44 @@ class AiAssistantState {
   }
 }
 
+/// Provider for the AI message repository.
+final aiMessageRepositoryProvider = Provider<AiMessageRepository>((ref) {
+  return AiMessageRepository();
+});
+
 /// State notifier managing dialogue turns, multimodal input, decoupled brain orchestration, and tool execution.
 class AiAssistantNotifier extends StateNotifier<AiAssistantState> {
   final Ref _ref;
+  final AiMessageRepository _aiMessageRepository;
   final ToolRegistry _toolRegistry = ToolRegistry();
   late final SpeechRecognitionService _speechService;
   Timer? _countdownTimer;
 
-  AiAssistantNotifier(this._ref) : super(const AiAssistantState()) {
+  AiAssistantNotifier(
+    this._ref, {
+    AiMessageRepository? aiMessageRepository,
+  })  : _aiMessageRepository = aiMessageRepository ?? AiMessageRepository(),
+        super(const AiAssistantState()) {
     _speechService = SpeechServiceFactory.create();
     _registerDefaultTools();
+    _loadPersistedMessages();
+  }
+
+  /// Loads recent conversational turns from SQLite upon initialization.
+  Future<void> _loadPersistedMessages() async {
+    try {
+      final recent = await _aiMessageRepository.getRecentMessages(maxTurns: 50);
+      if (!mounted) return;
+      if (recent.isNotEmpty) {
+        final horizon = AgentMemoryContext.calculateHorizonIndex(recent);
+        state = state.copyWith(
+          messages: recent,
+          horizonIndex: horizon,
+        );
+      }
+    } catch (e) {
+      debugPrint('AiAssistantNotifier: Failed to load persisted chat messages: $e');
+    }
   }
 
   void _registerDefaultTools() {
@@ -151,8 +181,15 @@ class AiAssistantNotifier extends StateNotifier<AiAssistantState> {
       await _speechService.cancel();
     }
 
-    final userMessage = AiMessage.user(text);
-    final thinkingMessage = AiMessage.assistantThinking();
+    // Allocate a unique turnId for this dialogue turn
+    final turnId = const Uuid().v4();
+    final userMessage = AiMessage.user(text, turnId: turnId);
+    final thinkingMessage = AiMessage.assistantThinking(turnId: turnId);
+
+    // Persist user prompt immediately to SQLite
+    unawaited(_aiMessageRepository.insertMessage(userMessage).catchError((e) {
+      debugPrint('AiAssistantNotifier: Failed to persist user message: $e');
+    }));
 
     final updatedMessages = [...state.messages, userMessage, thinkingMessage];
     final horizon = AgentMemoryContext.calculateHorizonIndex(updatedMessages);
@@ -194,18 +231,30 @@ class AiAssistantNotifier extends StateNotifier<AiAssistantState> {
         if (!mounted) return;
 
         if (event is AgentFinalAnswerEvent) {
-          final newMessages = _replaceThinkingMessage(
-            thinkingMessage.id,
-            AiMessage.assistant(
-              content: event.content,
-              actions: event.actions,
-              viewPayload: event.viewPayload,
-            ),
+          final assistantMessage = AiMessage.assistant(
+            content: event.content,
+            turnId: turnId,
+            actions: event.actions,
+            viewPayload: event.viewPayload,
           );
 
-          final newHorizon = AgentMemoryContext.calculateHorizonIndex(newMessages);
+          // Persist assistant message and prune old turns
+          try {
+            await _aiMessageRepository.insertMessage(assistantMessage);
+            await _aiMessageRepository.pruneOldTurns(maxTurns: 50);
+          } catch (e) {
+            debugPrint('AiAssistantNotifier: Failed to persist assistant message: $e');
+          }
+
+          final newMessages = _replaceThinkingMessage(
+            thinkingMessage.id,
+            assistantMessage,
+          );
+          final prunedMessages = _pruneInMemoryMessages(newMessages, maxTurns: 50);
+
+          final newHorizon = AgentMemoryContext.calculateHorizonIndex(prunedMessages);
           state = state.copyWith(
-            messages: newMessages,
+            messages: prunedMessages,
             recognizedSpeechText: '',
             horizonIndex: newHorizon,
           );
@@ -220,13 +269,28 @@ class AiAssistantNotifier extends StateNotifier<AiAssistantState> {
         errorText = errorText.substring(11);
       }
       if (mounted) {
+        final errorMessage = AiMessage.error(
+          errorMessage: errorText,
+          turnId: turnId,
+        );
+
+        // Persist error message and prune old turns
+        try {
+          await _aiMessageRepository.insertMessage(errorMessage);
+          await _aiMessageRepository.pruneOldTurns(maxTurns: 50);
+        } catch (err) {
+          debugPrint('AiAssistantNotifier: Failed to persist error message: $err');
+        }
+
         final newMessages = _replaceThinkingMessage(
           thinkingMessage.id,
-          AiMessage.error(errorMessage: errorText),
+          errorMessage,
         );
-        final newHorizon = AgentMemoryContext.calculateHorizonIndex(newMessages);
+        final prunedMessages = _pruneInMemoryMessages(newMessages, maxTurns: 50);
+
+        final newHorizon = AgentMemoryContext.calculateHorizonIndex(prunedMessages);
         state = state.copyWith(
-          messages: newMessages,
+          messages: prunedMessages,
           recognizedSpeechText: '',
           horizonIndex: newHorizon,
         );
@@ -293,8 +357,8 @@ class AiAssistantNotifier extends StateNotifier<AiAssistantState> {
     await _speechService.stop();
   }
 
-  /// Clears active conversation history.
-  void clearChat() {
+  /// Clears active conversation history and deletes all persisted messages from SQLite.
+  Future<void> clearChat() async {
     if (!mounted) return;
     _countdownTimer?.cancel();
     _speechService.cancel();
@@ -306,6 +370,11 @@ class AiAssistantNotifier extends StateNotifier<AiAssistantState> {
       clearHorizon: true,
       clearPendingIntent: true,
     );
+    try {
+      await _aiMessageRepository.clearAll();
+    } catch (e) {
+      debugPrint('AiAssistantNotifier: Failed to clear persisted chat messages: $e');
+    }
   }
 
   void _resetSilenceTimer() {
@@ -330,6 +399,17 @@ class AiAssistantNotifier extends StateNotifier<AiAssistantState> {
     }).toList();
   }
 
+  /// Prunes in-memory messages to retain only the latest [maxTurns] conversational turns.
+  List<AiMessage> _pruneInMemoryMessages(List<AiMessage> messages, {int maxTurns = 50}) {
+    if (messages.isEmpty) return messages;
+    final turnIds = <String>{};
+    for (int i = messages.length - 1; i >= 0; i--) {
+      turnIds.add(messages[i].turnId);
+      if (turnIds.length >= maxTurns) break;
+    }
+    return messages.where((m) => turnIds.contains(m.turnId)).toList();
+  }
+
   @override
   void dispose() {
     _countdownTimer?.cancel();
@@ -341,5 +421,6 @@ class AiAssistantNotifier extends StateNotifier<AiAssistantState> {
 /// Global provider for the conversational AI Assistant.
 final aiAssistantProvider =
     StateNotifierProvider<AiAssistantNotifier, AiAssistantState>((ref) {
-  return AiAssistantNotifier(ref);
+  final repo = ref.watch(aiMessageRepositoryProvider);
+  return AiAssistantNotifier(ref, aiMessageRepository: repo);
 });
