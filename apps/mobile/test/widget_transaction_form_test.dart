@@ -316,6 +316,48 @@ void main() {
       expect(fakeTx.updatedPayload!['note'], equals('Ăn tối với bạn bè'));
     });
 
+    testWidgets('Edit Mode clears an existing note when saved empty',
+        (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1080, 2400);
+      tester.view.devicePixelRatio = 2.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      final fakeTx = _FakeTransactionNotifier();
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            categoryProvider.overrideWith(
+                (ref) => _FakeCategoryNotifier(testCategories)),
+            walletProvider.overrideWith(
+                (ref) => _FakeWalletNotifier(testWallets)),
+            defaultWalletProvider.overrideWithValue(testWallets.first),
+            transactionProvider.overrideWith((ref) => fakeTx),
+          ],
+          child: MaterialApp(
+            home: TransactionFormScreen(
+              editTransactionId: 'tx-edit-clear-note',
+              editType: 'expense',
+              editAmount: '150000',
+              editNote: 'Ăn tối với bạn bè',
+              editTransactionDate: DateTime(2026, 8, 20, 10),
+            ),
+          ),
+        ),
+      );
+
+      await tester.pump();
+      await tester.enterText(find.byType(TextField), '');
+      await tester.tap(find.text('Lưu thay đổi'));
+      await tester.pump();
+
+      expect(fakeTx.updatedPayload, isNotNull);
+      expect(fakeTx.updatedPayload!['note'], equals(''));
+    });
+
     testWidgets(
         'US3 (T013): Continuous entry via Save & Add Another resets amount and keeps wallet',
         (WidgetTester tester) async {

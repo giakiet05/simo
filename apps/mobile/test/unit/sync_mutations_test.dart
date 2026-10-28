@@ -46,6 +46,26 @@ void main() {
       expect(check.first['amount'], 65000.0);
     });
 
+    test('Updating a transaction can clear an existing note', () async {
+      final walletRepo = WalletRepository();
+      final txRepo = TransactionRepository(walletRepo: walletRepo);
+
+      final created = await txRepo.createMultiple([
+        {
+          'amount': 50000.0,
+          'type': 'expense',
+          'note': 'Initial Note',
+        }
+      ]);
+
+      final updated = await txRepo.update(created.first.id, note: '');
+      final persisted = await txRepo.getById(created.first.id);
+
+      expect(updated.note, isEmpty);
+      expect(persisted, isNotNull);
+      expect(persisted!.note, isEmpty);
+    });
+
     test('Deleting transactions inserts tombstone records into pending_deletions', () async {
       final walletRepo = WalletRepository();
       final txRepo = TransactionRepository(walletRepo: walletRepo);

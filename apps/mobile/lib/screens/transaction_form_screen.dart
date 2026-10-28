@@ -266,9 +266,8 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
 
     final effectiveWalletId =
         _selectedWalletId ?? ref.read(defaultWalletProvider)?.id;
-    final note = _noteController.text.trim().isEmpty
-        ? null
-        : _noteController.text.trim();
+    final noteText = _noteController.text.trim();
+    final String? note = _isEditMode || noteText.isNotEmpty ? noteText : null;
 
     setState(() {
       _isSaving = true;
@@ -874,4 +873,3 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     );
   }
 }
-
