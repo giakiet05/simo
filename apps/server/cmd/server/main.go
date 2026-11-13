@@ -21,46 +21,51 @@ import (
 // main bootstraps the Simo backend API server with graceful shutdown handling.
 func main() {
 	cfg := config.Load()
-	log.Printf("Starting Simo Server on port %s...", cfg.Port)
+	if err := cfg.Validate(); err != nil {
+		log.Fatalf("Refusing to start with unsafe configuration:\n%v", err)
+	}
+	if cfg.HasWeakJWTSecret() {
+		log.Printf("SECURITY WARNING: JWT_SECRET is short or publicly known; anyone can forge session tokens. Set a private random JWT_SECRET (openssl rand -base64 48) and redeploy.")
+	}
+	log.Printf("Starting Simo Server on port %s (env=%q)...", cfg.Port, cfg.AppEnv)
+
+	// Cancelled on SIGINT/SIGTERM so that a shutdown during the DB wait exits promptly.
+	signalCtx, stopSignals := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stopSignals()
 
 	// In-memory SSE Hub for live multi-device event streaming
 	sseHub := sse.NewHub()
 	sseHandler := handler.NewSSEHandler(sseHub)
 
-	// Initialize Database Pool
-	var authHandler *handler.AuthHandler
-	var syncHandler *handler.SyncHandler
-	var dashHandler *handler.DashboardHandler
-	var txHandler *handler.TransactionHandler
-	var walletHandler *handler.WalletHandler
-
-	dbPool, err := repository.InitDB(cfg.DatabaseURL)
+	// The API is useless without the database: previously a failed startup ping left the server
+	// running with no API routes registered (every call 404) until someone restarted it by hand.
+	// Exit instead, so the container restart policy brings it back once the database is up.
+	dbPool, err := repository.InitDBWithRetry(signalCtx, cfg.DatabaseURL, 60*time.Second)
 	if err != nil {
-		log.Printf("Warning: Database connection failed on startup: %v. Running in offline/disconnected mode.", err)
-	} else {
-		defer dbPool.Close()
-		log.Println("PostgreSQL connection pool initialized successfully.")
-
-		// Auth domain
-		userRepo := repository.NewUserRepository(dbPool)
-		authService := service.NewAuthService(cfg, userRepo)
-		authHandler = handler.NewAuthHandler(authService)
-
-		// Sync domain with SSE broadcast
-		syncRepo := repository.NewSyncRepository(dbPool)
-		syncService := service.NewSyncService(syncRepo, sseHub)
-		syncHandler = handler.NewSyncHandler(syncService)
-
-		// Web Dashboard & CRUD domain
-		dashService := service.NewDashboardService(dbPool)
-		dashHandler = handler.NewDashboardHandler(dashService)
-
-		txRepo := repository.NewTransactionRepository(dbPool)
-		txHandler = handler.NewTransactionHandler(txRepo)
-
-		walletRepo := repository.NewWalletRepository(dbPool)
-		walletHandler = handler.NewWalletHandler(walletRepo)
+		log.Fatalf("Database connection failed on startup: %v", err)
 	}
+	defer dbPool.Close()
+	log.Println("PostgreSQL connection pool initialized successfully.")
+
+	// Auth domain
+	userRepo := repository.NewUserRepository(dbPool)
+	authService := service.NewAuthService(cfg, userRepo)
+	authHandler := handler.NewAuthHandler(authService)
+
+	// Sync domain with SSE broadcast
+	syncRepo := repository.NewSyncRepository(dbPool)
+	syncService := service.NewSyncService(syncRepo, sseHub)
+	syncHandler := handler.NewSyncHandler(syncService)
+
+	// Web Dashboard & CRUD domain
+	dashService := service.NewDashboardService(dbPool)
+	dashHandler := handler.NewDashboardHandler(dashService)
+
+	txRepo := repository.NewTransactionRepository(dbPool)
+	txHandler := handler.NewTransactionHandler(txRepo)
+
+	walletRepo := repository.NewWalletRepository(dbPool)
+	walletHandler := handler.NewWalletHandler(walletRepo)
 
 	appRouter := router.SetupRouter(cfg, &router.Handlers{
 		AuthHandler:        authHandler,
@@ -78,9 +83,6 @@ func main() {
 		IdleTimeout:       60 * time.Second,
 	}
 
-	shutdownChan := make(chan os.Signal, 1)
-	signal.Notify(shutdownChan, os.Interrupt, syscall.SIGTERM)
-
 	go func() {
 		log.Printf("Simo API Server is listening on http://localhost:%s", cfg.Port)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -88,7 +90,7 @@ func main() {
 		}
 	}()
 
-	<-shutdownChan
+	<-signalCtx.Done()
 	log.Println("Shutting down Simo API Server gracefully...")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

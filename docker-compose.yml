@@ -9,12 +9,20 @@ services:
     environment:
       - PORT=8080
       - DATABASE_URL=${DATABASE_URL:-postgres://postgres:postgres@postgres-o0no0vysbjfx3sx5e1rple6m:5432/simo?sslmode=disable}
-      - JWT_SECRET=${JWT_SECRET:-simo_jwt_secret_key_production_2026}
-      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      # No default: the server refuses to start in production without a private secret.
+      - JWT_SECRET=${JWT_SECRET}
+      # Public OAuth client ID (also shipped in the mobile/web apps); used to verify token audience.
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-249729017539-b22m2t1b958l3d24olhp249h3r26bn6a.apps.googleusercontent.com}
       - APP_ENV=${APP_ENV:-production}
       - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-https://simo.giakiet.io.vn,http://localhost:3000}
     expose:
       - "8080"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 70s
 
   web:
     build:
@@ -22,7 +30,7 @@ services:
       dockerfile: Dockerfile
       args:
         VITE_API_BASE_URL: ${VITE_API_BASE_URL:-https://simo-api.giakiet.io.vn/api/v1}
-        VITE_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+        VITE_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-249729017539-b22m2t1b958l3d24olhp249h3r26bn6a.apps.googleusercontent.com}
     restart: unless-stopped
     expose:
       - "80"
