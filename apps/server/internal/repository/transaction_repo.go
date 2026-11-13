@@ -36,6 +36,26 @@ type TransactionFilter struct {
 	Keyword    *string
 }
 
+// Default and maximum page sizes for transaction listing.
+const (
+	defaultTransactionPageSize = 20
+	maxTransactionPageSize     = 200
+)
+
+// Normalize clamps pagination fields into their valid ranges in place.
+// The page size is capped so a single request cannot ask the database for an unbounded result set.
+func (f *TransactionFilter) Normalize() {
+	if f.Limit <= 0 {
+		f.Limit = defaultTransactionPageSize
+	}
+	if f.Limit > maxTransactionPageSize {
+		f.Limit = maxTransactionPageSize
+	}
+	if f.Page <= 0 {
+		f.Page = 1
+	}
+}
+
 // ListTransactions queries paginated transactions matching filter criteria.
 //
 // @param ctx context.Context
@@ -43,12 +63,7 @@ type TransactionFilter struct {
 // @param filter TransactionFilter
 // @returns []model.TransactionSync, totalCount int, error
 func (r *TransactionRepository) ListTransactions(ctx context.Context, userID uuid.UUID, filter TransactionFilter) ([]model.TransactionSync, int, error) {
-	if filter.Limit <= 0 {
-		filter.Limit = 20
-	}
-	if filter.Page <= 0 {
-		filter.Page = 1
-	}
+	filter.Normalize()
 	offset := (filter.Page - 1) * filter.Limit
 
 	query := `
@@ -116,6 +131,9 @@ func (r *TransactionRepository) ListTransactions(ctx context.Context, userID uui
 		}
 		t.TransactionDate = tDate.Format("2006-01-02")
 		list = append(list, t)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, err
 	}
 
 	return list, total, nil

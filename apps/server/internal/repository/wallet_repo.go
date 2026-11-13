@@ -39,10 +39,10 @@ func (r *WalletRepository) ListWalletsWithBalance(ctx context.Context, userID uu
 			w.id, w.name, w.type, w.initial_balance, w.color, w.icon, w.currency,
 			w.is_default, w.exclude_from_total, w.priority, w.client_created_at, w.client_updated_at,
 			w.initial_balance 
-				+ COALESCE((SELECT SUM(amount) FROM transactions WHERE wallet_id = w.id AND type = 'income' AND deleted_at IS NULL), 0)
-				- COALESCE((SELECT SUM(amount) FROM transactions WHERE wallet_id = w.id AND type = 'expense' AND deleted_at IS NULL), 0)
-				+ COALESCE((SELECT SUM(amount) FROM wallet_transfers WHERE destination_wallet_id = w.id AND deleted_at IS NULL), 0)
-				- COALESCE((SELECT SUM(amount + fee) FROM wallet_transfers WHERE source_wallet_id = w.id AND deleted_at IS NULL), 0) as current_balance
+				+ COALESCE((SELECT SUM(amount) FROM transactions WHERE user_id = w.user_id AND wallet_id = w.id AND type = 'income' AND deleted_at IS NULL), 0)
+				- COALESCE((SELECT SUM(amount) FROM transactions WHERE user_id = w.user_id AND wallet_id = w.id AND type = 'expense' AND deleted_at IS NULL), 0)
+				+ COALESCE((SELECT SUM(amount) FROM wallet_transfers WHERE user_id = w.user_id AND destination_wallet_id = w.id AND deleted_at IS NULL), 0)
+				- COALESCE((SELECT SUM(amount + fee) FROM wallet_transfers WHERE user_id = w.user_id AND source_wallet_id = w.id AND deleted_at IS NULL), 0) as current_balance
 		FROM wallets w
 		WHERE w.user_id = $1 AND w.deleted_at IS NULL
 		ORDER BY w.priority DESC, w.client_created_at ASC;
@@ -64,6 +64,9 @@ func (r *WalletRepository) ListWalletsWithBalance(ctx context.Context, userID uu
 			return nil, err
 		}
 		list = append(list, wb)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 
 	return list, nil

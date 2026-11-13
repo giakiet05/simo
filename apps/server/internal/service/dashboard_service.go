@@ -2,10 +2,12 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -71,10 +73,10 @@ func (s *DashboardService) GetSummary(ctx context.Context, userID uuid.UUID, yea
 	err := s.pool.QueryRow(ctx, `
 		SELECT COALESCE(SUM(
 			w.initial_balance 
-				+ COALESCE((SELECT SUM(amount) FROM transactions WHERE wallet_id = w.id AND type = 'income' AND deleted_at IS NULL), 0)
-				- COALESCE((SELECT SUM(amount) FROM transactions WHERE wallet_id = w.id AND type = 'expense' AND deleted_at IS NULL), 0)
-				+ COALESCE((SELECT SUM(amount) FROM wallet_transfers WHERE destination_wallet_id = w.id AND deleted_at IS NULL), 0)
-				- COALESCE((SELECT SUM(amount + fee) FROM wallet_transfers WHERE source_wallet_id = w.id AND deleted_at IS NULL), 0)
+				+ COALESCE((SELECT SUM(amount) FROM transactions WHERE user_id = w.user_id AND wallet_id = w.id AND type = 'income' AND deleted_at IS NULL), 0)
+				- COALESCE((SELECT SUM(amount) FROM transactions WHERE user_id = w.user_id AND wallet_id = w.id AND type = 'expense' AND deleted_at IS NULL), 0)
+				+ COALESCE((SELECT SUM(amount) FROM wallet_transfers WHERE user_id = w.user_id AND destination_wallet_id = w.id AND deleted_at IS NULL), 0)
+				- COALESCE((SELECT SUM(amount + fee) FROM wallet_transfers WHERE user_id = w.user_id AND source_wallet_id = w.id AND deleted_at IS NULL), 0)
 		), 0)
 		FROM wallets w
 		WHERE w.user_id = $1 AND w.exclude_from_total = false AND w.deleted_at IS NULL;
@@ -98,10 +100,14 @@ func (s *DashboardService) GetSummary(ctx context.Context, userID uuid.UUID, yea
 
 	// 3. Monthly Budget
 	var monthBudget float64
-	_ = s.pool.QueryRow(ctx, `
+	err = s.pool.QueryRow(ctx, `
 		SELECT amount FROM monthly_budgets
 		WHERE user_id = $1 AND year = $2 AND month = $3 AND deleted_at IS NULL;
 	`, userID, year, month).Scan(&monthBudget)
+	// No budget set for the month is a normal state and means a budget of 0.
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return nil, fmt.Errorf("failed to query monthly budget: %w", err)
+	}
 
 	// 4. Category Expense Breakdown
 	rows, err := s.pool.Query(ctx, `
@@ -131,6 +137,9 @@ func (s *DashboardService) GetSummary(ctx context.Context, userID uuid.UUID, yea
 			cat.Percentage = (cat.TotalAmount / monthExpense) * 100
 		}
 		shares = append(shares, cat)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 
 	return &DashboardSummary{

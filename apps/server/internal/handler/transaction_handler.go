@@ -58,6 +58,8 @@ func (h *TransactionHandler) ListTransactions(w http.ResponseWriter, r *http.Req
 		Keyword:    &keyword,
 	}
 
+	filter.Normalize()
+
 	items, total, err := h.txRepo.ListTransactions(r.Context(), userID, filter)
 	if err != nil {
 		response.Error(w, http.StatusInternalServerError, "Failed to query transactions: "+err.Error(), "SERVER_ERROR")
@@ -67,7 +69,7 @@ func (h *TransactionHandler) ListTransactions(w http.ResponseWriter, r *http.Req
 	response.JSON(w, http.StatusOK, "Transactions retrieved successfully", map[string]any{
 		"items": items,
 		"total": total,
-		"page":  page,
-		"limit": limit,
+		"page":  filter.Page,
+		"limit": filter.Limit,
 	})
 }
