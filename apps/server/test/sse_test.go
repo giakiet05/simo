@@ -22,6 +22,8 @@ import (
 // TestSSE_StreamAndBroadcast verifies the SSE streaming connection and event dispatching.
 func TestSSE_StreamAndBroadcast(t *testing.T) {
 	cfg := config.Load()
+	// These tests authenticate with the shared "dev_token", which only works with the bypass on.
+	cfg.DevAuthBypass = true
 	sseHub := sse.NewHub()
 	sseHandler := handler.NewSSEHandler(sseHub)
 

@@ -32,7 +32,7 @@ func TestMultiTenantJWT_IsolationAndRejection(t *testing.T) {
 		t.Fatalf("failed to issue token for User B: %v", err)
 	}
 
-	authMiddleware := middleware.Auth(cfg.JWTSecret)
+	authMiddleware := middleware.Auth(cfg.JWTSecret, cfg.DevAuthBypass)
 
 	// Handler that extracts user_id and verifies tenant
 	var capturedUserID uuid.UUID

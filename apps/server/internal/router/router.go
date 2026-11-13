@@ -39,7 +39,7 @@ func SetupRouter(cfg *config.Config, h *Handlers) http.Handler {
 		mux.HandleFunc("POST /api/v1/auth/google", h.AuthHandler.GoogleAuth)
 	}
 
-	authMiddleware := middleware.Auth(cfg.JWTSecret)
+	authMiddleware := middleware.Auth(cfg.JWTSecret, cfg.DevAuthBypass)
 
 	// Protected Endpoints
 	if h.AuthHandler != nil {

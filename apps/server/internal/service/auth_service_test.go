@@ -245,3 +245,49 @@ func TestGetUserProfile(t *testing.T) {
 		t.Errorf("expected user not found error, got: %v", err)
 	}
 }
+
+// tokenInfoBody builds a Google tokeninfo JSON payload with the given audience, issuer and email_verified.
+func tokenInfoBody(aud, iss, emailVerified string) string {
+	return `{"sub":"10987654321","email":"kiet@example.com","email_verified":"` + emailVerified +
+		`","name":"Kiet","aud":"` + aud + `","iss":"` + iss + `"}`
+}
+
+func TestVerifyGoogleToken_RejectsUntrustedClaims(t *testing.T) {
+	cfg := &config.Config{JWTSecret: "test_secret", GoogleClientID: "web-id,android-id"}
+	tests := []struct {
+		name    string
+		body    string
+		wantErr bool
+	}{
+		{name: "accepted web audience", body: tokenInfoBody("web-id", "https://accounts.google.com", "true")},
+		{name: "accepted second audience, bare issuer", body: tokenInfoBody("android-id", "accounts.google.com", "true")},
+		{name: "foreign app audience", body: tokenInfoBody("someone-elses-app", "https://accounts.google.com", "true"), wantErr: true},
+		{name: "unexpected issuer", body: tokenInfoBody("web-id", "https://evil.example.com", "true"), wantErr: true},
+		{name: "unverified email", body: tokenInfoBody("web-id", "https://accounts.google.com", "false"), wantErr: true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			svc := NewAuthService(cfg, NewMockUserRepository())
+			svc.SetHTTPClient(&MockHTTPClient{statusCode: http.StatusOK, body: tc.body})
+			_, err := svc.VerifyGoogleToken(context.Background(), "some_token")
+			if tc.wantErr && err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !tc.wantErr && err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestVerifyGoogleToken_MockTokenRequiresBypass(t *testing.T) {
+	cfg := &config.Config{JWTSecret: "test_secret", GoogleClientID: "web-id", DevAuthBypass: false}
+	svc := NewAuthService(cfg, NewMockUserRepository())
+	// Google rejects the fake token; the request must reach Google rather than being short-circuited.
+	mockHTTP := &MockHTTPClient{statusCode: http.StatusBadRequest, body: `{"error":"invalid_token"}`}
+	svc.SetHTTPClient(mockHTTP)
+
+	if _, err := svc.VerifyGoogleToken(context.Background(), "mock_user_alice_token"); err == nil {
+		t.Fatal("mock token must be rejected when DevAuthBypass is disabled")
+	}
+}

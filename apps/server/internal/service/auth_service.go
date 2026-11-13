@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"time"
 
@@ -75,8 +76,9 @@ func (s *AuthService) VerifyGoogleToken(ctx context.Context, idToken string) (*G
 		return nil, errors.New("google id_token cannot be empty")
 	}
 
-	// Support development / mock bypass if enabled or if token has mock prefix
-	if s.cfg.DevAuthBypass || strings.HasPrefix(idToken, "mock_") {
+	// Mock tokens are only honored when the dev bypass is explicitly enabled; otherwise anyone
+	// could mint accounts without Google.
+	if s.cfg.DevAuthBypass {
 		email := "dev.user@simo.app"
 		name := "Dev User"
 		sub := "mock_google_sub_12345"
@@ -127,6 +129,18 @@ func (s *AuthService) VerifyGoogleToken(ctx context.Context, idToken string) (*G
 
 	if claims.Sub == "" || claims.Email == "" {
 		return nil, errors.New("google token is missing required sub or email claims")
+	}
+
+	// tokeninfo only proves Google issued the token; the audience check proves it was issued
+	// for Simo. Without it, an ID token minted for any third-party app would be accepted.
+	if !slices.Contains(s.cfg.GoogleAudiences(), claims.Aud) {
+		return nil, fmt.Errorf("google token audience %q is not an accepted client id", claims.Aud)
+	}
+	if claims.Iss != "accounts.google.com" && claims.Iss != "https://accounts.google.com" {
+		return nil, fmt.Errorf("google token has unexpected issuer %q", claims.Iss)
+	}
+	if claims.EmailVerified != "true" {
+		return nil, errors.New("google account email is not verified")
 	}
 
 	return &claims, nil

@@ -29,8 +29,10 @@ type Claims struct {
 // Auth returns a middleware that validates JWT Bearer tokens and attaches the user ID to context.
 //
 // @param jwtSecret The secret key used to verify HMAC-signed tokens
+// @param devBypass When true, the literal "dev_token" authenticates as a fixed development user.
+// Must never be enabled in production: every caller would share one account.
 // @returns http.Handler middleware
-func Auth(jwtSecret string) func(http.Handler) http.Handler {
+func Auth(jwtSecret string, devBypass bool) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			authHeader := r.Header.Get("Authorization")
@@ -51,7 +53,7 @@ func Auth(jwtSecret string) func(http.Handler) http.Handler {
 			}
 
 			// Development bypass: allow dev token
-			if tokenString == "dev_token" {
+			if devBypass && tokenString == "dev_token" {
 				// Default dev user UUID
 				devUserID := "00000000-0000-0000-0000-000000000001"
 				ctx := context.WithValue(r.Context(), UserIDKey, devUserID)

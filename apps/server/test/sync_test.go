@@ -21,6 +21,8 @@ import (
 // TestSyncCycle_Integration verifies full-duplex sync with Push and Pull between two simulated devices.
 func TestSyncCycle_Integration(t *testing.T) {
 	cfg := config.Load()
+	// These tests authenticate with the shared "dev_token", which only works with the bypass on.
+	cfg.DevAuthBypass = true
 	if cfg.DatabaseURL == "" {
 		t.Skip("Skipping integration test: DATABASE_URL not configured")
 	}
