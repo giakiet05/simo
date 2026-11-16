@@ -270,3 +270,100 @@ func TestDB_RetryGivesUpOnUnreachableDatabase(t *testing.T) {
 		t.Fatalf("retry exceeded its budget: %s", elapsed)
 	}
 }
+
+// TestSync_ReportsRecordsOwnedByAnotherUser verifies that pushes and tombstones targeting IDs owned by
+// another user are listed in the response instead of being silently dropped, while the caller's own
+// records in the same push are still applied.
+func TestSync_ReportsRecordsOwnedByAnotherUser(t *testing.T) {
+	env := newSyncEnv(t)
+	owner, other := env.newUserToken(t), env.newUserToken(t)
+	walletID := uuid.New()
+	now := time.Now().UTC()
+	tx := expense(walletID, 50_000, now)
+
+	first := env.doSync(t, owner, model.SyncRequest{Mutations: model.SyncMutations{
+		Wallets:      []model.WalletSync{wallet(walletID, "Owner cash", 1_000_000, now)},
+		Transactions: []model.TransactionSync{tx},
+	}})
+	if len(first.Rejected) != 0 {
+		t.Fatalf("owner's own push must not be rejected, got %+v", first.Rejected)
+	}
+
+	later := now.Add(time.Hour)
+	tx.ClientUpdatedAt = model.NewFlexibleTime(later)
+	ownWalletID := uuid.New()
+	res := env.doSync(t, other, model.SyncRequest{Mutations: model.SyncMutations{
+		Wallets: []model.WalletSync{
+			wallet(walletID, "Hijack", 0, later),
+			wallet(ownWalletID, "Other cash", 10, later),
+		},
+		Transactions: []model.TransactionSync{tx},
+		Deletions: []model.TombstoneDeletion{
+			{TableName: "transactions", ID: tx.ID.String(), DeletedAt: model.NewFlexibleTime(later)},
+		},
+	}})
+
+	want := map[model.RejectedRecord]bool{
+		{Table: "wallets", ID: walletID.String(), Reason: model.RejectReasonOwnedByAnotherUser}:   true,
+		{Table: "transactions", ID: tx.ID.String(), Reason: model.RejectReasonOwnedByAnotherUser}: true,
+	}
+	if len(res.Rejected) != 3 {
+		t.Fatalf("expected 3 rejections (wallet, transaction, transaction tombstone), got %+v", res.Rejected)
+	}
+	for _, r := range res.Rejected {
+		if !want[r] {
+			t.Fatalf("unexpected rejection %+v", r)
+		}
+	}
+
+	otherWallets := env.listWallets(t, other)
+	if len(otherWallets) != 1 || otherWallets[0].ID != ownWalletID {
+		t.Fatalf("other user's own wallet must still be stored, got %+v", otherWallets)
+	}
+	ownerWallets := env.listWallets(t, owner)
+	if len(ownerWallets) != 1 || ownerWallets[0].Name != "Owner cash" || ownerWallets[0].CurrentBalance != 950_000 {
+		t.Fatalf("owner data must be untouched, got %+v", ownerWallets)
+	}
+}
+
+// TestSync_StaleWriteIsNotReportedAsRejected verifies that a Last-Write-Wins skip of the caller's own
+// older edit is not confused with an ownership rejection.
+func TestSync_StaleWriteIsNotReportedAsRejected(t *testing.T) {
+	env := newSyncEnv(t)
+	user := env.newUserToken(t)
+	walletID := uuid.New()
+	now := time.Now().UTC()
+
+	env.doSync(t, user, model.SyncRequest{Mutations: model.SyncMutations{
+		Wallets: []model.WalletSync{wallet(walletID, "Newer", 2, now)},
+	}})
+	res := env.doSync(t, user, model.SyncRequest{Mutations: model.SyncMutations{
+		Wallets: []model.WalletSync{wallet(walletID, "Older", 1, now.Add(-time.Hour))},
+	}})
+	if len(res.Rejected) != 0 {
+		t.Fatalf("stale own write must not be reported, got %+v", res.Rejected)
+	}
+	if got := env.listWallets(t, user); len(got) != 1 || got[0].Name != "Newer" {
+		t.Fatalf("newer copy must win, got %+v", got)
+	}
+}
+
+// TestSync_SharedCategoryIDIsNotRejected verifies that category IDs, which are scoped per user,
+// never produce rejections when two users use the same ID.
+func TestSync_SharedCategoryIDIsNotRejected(t *testing.T) {
+	env := newSyncEnv(t)
+	a, b := env.newUserToken(t), env.newUserToken(t)
+	now := model.NewFlexibleTime(time.Now().UTC())
+	icon, color := "food", "#F59E0B"
+	cat := model.CategorySync{ID: "food", Name: "Food", Type: "expense", Icon: &icon, Color: &color,
+		ClientCreatedAt: now, ClientUpdatedAt: now}
+
+	env.doSync(t, a, model.SyncRequest{Mutations: model.SyncMutations{Categories: []model.CategorySync{cat}}})
+	res := env.doSync(t, b, model.SyncRequest{Mutations: model.SyncMutations{
+		Categories: []model.CategorySync{cat},
+		Deletions:  []model.TombstoneDeletion{{TableName: "categories", ID: "missing-for-b", DeletedAt: now}},
+	}})
+	if len(res.Rejected) != 0 {
+		t.Fatalf("per-user category IDs must not be rejected, got %+v", res.Rejected)
+	}
+}

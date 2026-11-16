@@ -31,16 +31,17 @@ func NewSyncRepository(pool *pgxpool.Pool) *SyncRepository {
 // @param userID uuid.UUID
 // @param lastSynced *model.FlexibleTime
 // @param mutations *model.SyncMutations
-// @returns serverTime time.Time, changes *model.SyncChanges, error
+// @returns serverTime time.Time, changes *model.SyncChanges,
+// rejected []model.RejectedRecord (pushed records not applied because another user owns the ID), error
 func (r *SyncRepository) ProcessSyncCycle(
 	ctx context.Context,
 	userID uuid.UUID,
 	lastSynced *model.FlexibleTime,
 	mutations *model.SyncMutations,
-) (time.Time, *model.SyncChanges, error) {
+) (time.Time, *model.SyncChanges, []model.RejectedRecord, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
-		return time.Time{}, nil, fmt.Errorf("failed to begin sync transaction: %w", err)
+		return time.Time{}, nil, nil, fmt.Errorf("failed to begin sync transaction: %w", err)
 	}
 	defer func() {
 		// Rollback after a successful Commit is a no-op returning ErrTxClosed.
@@ -51,7 +52,7 @@ func (r *SyncRepository) ProcessSyncCycle(
 	// commit rows stamped with a server_updated_at older than the cursor the other device
 	// already received, and those rows would never be pulled by that device.
 	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, userID.String()); err != nil {
-		return time.Time{}, nil, fmt.Errorf("failed to acquire per-user sync lock: %w", err)
+		return time.Time{}, nil, nil, fmt.Errorf("failed to acquire per-user sync lock: %w", err)
 	}
 
 	// Taken after the lock (clock_timestamp, not NOW(), which is frozen at transaction start),
@@ -59,7 +60,7 @@ func (r *SyncRepository) ProcessSyncCycle(
 	// All rows written in this cycle carry it and it is returned as the client's next cursor.
 	var syncTS time.Time
 	if err := tx.QueryRow(ctx, `SELECT clock_timestamp()`).Scan(&syncTS); err != nil {
-		return time.Time{}, nil, fmt.Errorf("failed to read sync timestamp: %w", err)
+		return time.Time{}, nil, nil, fmt.Errorf("failed to read sync timestamp: %w", err)
 	}
 	syncTS = syncTS.UTC()
 
@@ -69,47 +70,48 @@ func (r *SyncRepository) ProcessSyncCycle(
 		VALUES ($1, $2, $3)
 		ON CONFLICT (id) DO NOTHING
 	`, userID, fmt.Sprintf("user_%s@simo.app", userID.String()[:8]), "Simo User"); err != nil {
-		return time.Time{}, nil, fmt.Errorf("failed to ensure user record: %w", err)
+		return time.Time{}, nil, nil, fmt.Errorf("failed to ensure user record: %w", err)
 	}
 
 	// =========================================================================
 	// PHASE 1: PUSH (Apply incoming mutations with Last-Write-Wins & Tombstones)
 	// =========================================================================
-	if err := r.pushWallets(ctx, tx, userID, syncTS, mutations.Wallets); err != nil {
-		return time.Time{}, nil, fmt.Errorf("push wallets failed: %w", err)
+	rejected := make([]model.RejectedRecord, 0)
+	if err := r.pushWallets(ctx, tx, userID, syncTS, mutations.Wallets, &rejected); err != nil {
+		return time.Time{}, nil, nil, fmt.Errorf("push wallets failed: %w", err)
 	}
 	if err := r.pushCategories(ctx, tx, userID, syncTS, mutations.Categories); err != nil {
-		return time.Time{}, nil, fmt.Errorf("push categories failed: %w", err)
+		return time.Time{}, nil, nil, fmt.Errorf("push categories failed: %w", err)
 	}
-	if err := r.pushRecurringConfigs(ctx, tx, userID, syncTS, mutations.RecurringConfigs); err != nil {
-		return time.Time{}, nil, fmt.Errorf("push recurring configs failed: %w", err)
+	if err := r.pushRecurringConfigs(ctx, tx, userID, syncTS, mutations.RecurringConfigs, &rejected); err != nil {
+		return time.Time{}, nil, nil, fmt.Errorf("push recurring configs failed: %w", err)
 	}
-	if err := r.pushTransactions(ctx, tx, userID, syncTS, mutations.Transactions); err != nil {
-		return time.Time{}, nil, fmt.Errorf("push transactions failed: %w", err)
+	if err := r.pushTransactions(ctx, tx, userID, syncTS, mutations.Transactions, &rejected); err != nil {
+		return time.Time{}, nil, nil, fmt.Errorf("push transactions failed: %w", err)
 	}
-	if err := r.pushWalletTransfers(ctx, tx, userID, syncTS, mutations.WalletTransfers); err != nil {
-		return time.Time{}, nil, fmt.Errorf("push wallet transfers failed: %w", err)
+	if err := r.pushWalletTransfers(ctx, tx, userID, syncTS, mutations.WalletTransfers, &rejected); err != nil {
+		return time.Time{}, nil, nil, fmt.Errorf("push wallet transfers failed: %w", err)
 	}
 	if err := r.pushMonthlyBudgets(ctx, tx, userID, syncTS, mutations.MonthlyBudgets); err != nil {
-		return time.Time{}, nil, fmt.Errorf("push monthly budgets failed: %w", err)
+		return time.Time{}, nil, nil, fmt.Errorf("push monthly budgets failed: %w", err)
 	}
 	if err := r.pushCategoryMonthlyBudgets(ctx, tx, userID, syncTS, mutations.CategoryMonthlyBudgets); err != nil {
-		return time.Time{}, nil, fmt.Errorf("push category monthly budgets failed: %w", err)
+		return time.Time{}, nil, nil, fmt.Errorf("push category monthly budgets failed: %w", err)
 	}
-	if err := r.pushSavingGoals(ctx, tx, userID, syncTS, mutations.SavingGoals); err != nil {
-		return time.Time{}, nil, fmt.Errorf("push saving goals failed: %w", err)
+	if err := r.pushSavingGoals(ctx, tx, userID, syncTS, mutations.SavingGoals, &rejected); err != nil {
+		return time.Time{}, nil, nil, fmt.Errorf("push saving goals failed: %w", err)
 	}
-	if err := r.pushSavingGoalLogs(ctx, tx, userID, syncTS, mutations.SavingGoalLogs); err != nil {
-		return time.Time{}, nil, fmt.Errorf("push saving goal logs failed: %w", err)
+	if err := r.pushSavingGoalLogs(ctx, tx, userID, syncTS, mutations.SavingGoalLogs, &rejected); err != nil {
+		return time.Time{}, nil, nil, fmt.Errorf("push saving goal logs failed: %w", err)
 	}
-	if err := r.pushLoanContacts(ctx, tx, userID, syncTS, mutations.LoanContacts); err != nil {
-		return time.Time{}, nil, fmt.Errorf("push loan contacts failed: %w", err)
+	if err := r.pushLoanContacts(ctx, tx, userID, syncTS, mutations.LoanContacts, &rejected); err != nil {
+		return time.Time{}, nil, nil, fmt.Errorf("push loan contacts failed: %w", err)
 	}
-	if err := r.pushLoanTransactions(ctx, tx, userID, syncTS, mutations.LoanTransactions); err != nil {
-		return time.Time{}, nil, fmt.Errorf("push loan transactions failed: %w", err)
+	if err := r.pushLoanTransactions(ctx, tx, userID, syncTS, mutations.LoanTransactions, &rejected); err != nil {
+		return time.Time{}, nil, nil, fmt.Errorf("push loan transactions failed: %w", err)
 	}
-	if err := r.applyDeletions(ctx, tx, userID, syncTS, mutations.Deletions); err != nil {
-		return time.Time{}, nil, fmt.Errorf("apply deletions failed: %w", err)
+	if err := r.applyDeletions(ctx, tx, userID, syncTS, mutations.Deletions, &rejected); err != nil {
+		return time.Time{}, nil, nil, fmt.Errorf("apply deletions failed: %w", err)
 	}
 
 	// =========================================================================
@@ -117,17 +119,85 @@ func (r *SyncRepository) ProcessSyncCycle(
 	// =========================================================================
 	changes, err := r.pullChanges(ctx, tx, userID, lastSynced)
 	if err != nil {
-		return time.Time{}, nil, fmt.Errorf("pull changes failed: %w", err)
+		return time.Time{}, nil, nil, fmt.Errorf("pull changes failed: %w", err)
 	}
 
 	if err := tx.Commit(ctx); err != nil {
-		return time.Time{}, nil, fmt.Errorf("failed to commit sync transaction: %w", err)
+		return time.Time{}, nil, nil, fmt.Errorf("failed to commit sync transaction: %w", err)
 	}
 
-	return syncTS, changes, nil
+	return syncTS, changes, rejected, nil
 }
 
-func (r *SyncRepository) pushWallets(ctx context.Context, tx pgx.Tx, userID uuid.UUID, syncTS time.Time, list []model.WalletSync) error {
+// execOwnedUpsert runs an ID-keyed upsert whose UPDATE branch is guarded by user_id, and records a
+// rejection when nothing was written because the existing row belongs to another user.
+//
+// A zero-row result has two causes: the stored copy is newer (a legitimate Last-Write-Wins skip, not
+// reported) or the ID is owned by another user. Without telling them apart, a client whose IDs were
+// first pushed under another account keeps receiving 200 while none of its data is ever stored.
+//
+// @param ctx context.Context
+// @param tx pgx.Tx open sync transaction
+// @param userID uuid.UUID authenticated user performing the push
+// @param rejected *[]model.RejectedRecord collector for refused records
+// @param table string table name (a constant from this file, never client input)
+// @param id uuid.UUID primary key of the pushed record
+// @param query string upsert statement
+// @param args ...any upsert arguments
+// @returns error when the upsert or the ownership lookup fails
+func execOwnedUpsert(
+	ctx context.Context,
+	tx pgx.Tx,
+	userID uuid.UUID,
+	rejected *[]model.RejectedRecord,
+	table string,
+	id uuid.UUID,
+	query string,
+	args ...any,
+) error {
+	tag, err := tx.Exec(ctx, query, args...)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() > 0 {
+		return nil
+	}
+	return recordIfOwnedByOtherUser(ctx, tx, userID, rejected, table, id.String())
+}
+
+// recordIfOwnedByOtherUser appends a rejection when a row with the given ID exists under another user.
+//
+// @param ctx context.Context
+// @param tx pgx.Tx open sync transaction
+// @param userID uuid.UUID authenticated user performing the push
+// @param rejected *[]model.RejectedRecord collector for refused records
+// @param table string allowlisted table name
+// @param id string primary key of the record
+// @returns error when the lookup query fails
+func recordIfOwnedByOtherUser(
+	ctx context.Context,
+	tx pgx.Tx,
+	userID uuid.UUID,
+	rejected *[]model.RejectedRecord,
+	table string,
+	id string,
+) error {
+	var foreign bool
+	query := fmt.Sprintf(`SELECT EXISTS (SELECT 1 FROM %s WHERE id = $1 AND user_id <> $2)`, table)
+	if err := tx.QueryRow(ctx, query, id, userID).Scan(&foreign); err != nil {
+		return fmt.Errorf("failed to check owner of %s %s: %w", table, id, err)
+	}
+	if foreign {
+		*rejected = append(*rejected, model.RejectedRecord{
+			Table:  table,
+			ID:     id,
+			Reason: model.RejectReasonOwnedByAnotherUser,
+		})
+	}
+	return nil
+}
+
+func (r *SyncRepository) pushWallets(ctx context.Context, tx pgx.Tx, userID uuid.UUID, syncTS time.Time, list []model.WalletSync, rejected *[]model.RejectedRecord) error {
 	query := `
 		INSERT INTO wallets (
 			id, user_id, name, type, initial_balance, color, icon, currency,
@@ -150,7 +220,7 @@ func (r *SyncRepository) pushWallets(ctx context.Context, tx pgx.Tx, userID uuid
 		  AND wallets.user_id = EXCLUDED.user_id;
 	`
 	for _, w := range list {
-		if _, err := tx.Exec(ctx, query,
+		if err := execOwnedUpsert(ctx, tx, userID, rejected, "wallets", w.ID, query,
 			w.ID, userID, w.Name, w.Type, w.InitialBalance, w.Color, w.Icon, w.Currency,
 			w.IsDefault, w.ExcludeFromTotal, w.Priority, w.ClientCreatedAt, w.ClientUpdatedAt, w.DeletedAt, syncTS,
 		); err != nil {
@@ -189,7 +259,7 @@ func (r *SyncRepository) pushCategories(ctx context.Context, tx pgx.Tx, userID u
 	return nil
 }
 
-func (r *SyncRepository) pushTransactions(ctx context.Context, tx pgx.Tx, userID uuid.UUID, syncTS time.Time, list []model.TransactionSync) error {
+func (r *SyncRepository) pushTransactions(ctx context.Context, tx pgx.Tx, userID uuid.UUID, syncTS time.Time, list []model.TransactionSync, rejected *[]model.RejectedRecord) error {
 	query := `
 		INSERT INTO transactions (
 			id, user_id, wallet_id, category_id, recurring_config_id,
@@ -212,7 +282,7 @@ func (r *SyncRepository) pushTransactions(ctx context.Context, tx pgx.Tx, userID
 		  AND transactions.user_id = EXCLUDED.user_id;
 	`
 	for _, t := range list {
-		if _, err := tx.Exec(ctx, query,
+		if err := execOwnedUpsert(ctx, tx, userID, rejected, "transactions", t.ID, query,
 			t.ID, userID, t.WalletID, t.CategoryID, t.RecurringConfigID,
 			t.Amount, t.Formula, t.Note, t.Type, t.TransactionDate,
 			t.ClientCreatedAt, t.ClientUpdatedAt, t.DeletedAt, syncTS,
@@ -223,7 +293,7 @@ func (r *SyncRepository) pushTransactions(ctx context.Context, tx pgx.Tx, userID
 	return nil
 }
 
-func (r *SyncRepository) pushWalletTransfers(ctx context.Context, tx pgx.Tx, userID uuid.UUID, syncTS time.Time, list []model.WalletTransferSync) error {
+func (r *SyncRepository) pushWalletTransfers(ctx context.Context, tx pgx.Tx, userID uuid.UUID, syncTS time.Time, list []model.WalletTransferSync, rejected *[]model.RejectedRecord) error {
 	query := `
 		INSERT INTO wallet_transfers (
 			id, user_id, source_wallet_id, destination_wallet_id, amount, fee, transfer_date, note,
@@ -243,7 +313,7 @@ func (r *SyncRepository) pushWalletTransfers(ctx context.Context, tx pgx.Tx, use
 		  AND wallet_transfers.user_id = EXCLUDED.user_id;
 	`
 	for _, wt := range list {
-		if _, err := tx.Exec(ctx, query,
+		if err := execOwnedUpsert(ctx, tx, userID, rejected, "wallet_transfers", wt.ID, query,
 			wt.ID, userID, wt.SourceWalletID, wt.DestinationWalletID, wt.Amount, wt.Fee, wt.TransferDate, wt.Note,
 			wt.ClientCreatedAt, wt.ClientUpdatedAt, wt.DeletedAt, syncTS,
 		); err != nil {
@@ -303,7 +373,7 @@ func (r *SyncRepository) pushCategoryMonthlyBudgets(ctx context.Context, tx pgx.
 	return nil
 }
 
-func (r *SyncRepository) pushSavingGoals(ctx context.Context, tx pgx.Tx, userID uuid.UUID, syncTS time.Time, list []model.SavingGoalSync) error {
+func (r *SyncRepository) pushSavingGoals(ctx context.Context, tx pgx.Tx, userID uuid.UUID, syncTS time.Time, list []model.SavingGoalSync, rejected *[]model.RejectedRecord) error {
 	query := `
 		INSERT INTO saving_goals (
 			id, user_id, name, target_amount, current_amount, target_date, color, icon, note, status,
@@ -325,7 +395,7 @@ func (r *SyncRepository) pushSavingGoals(ctx context.Context, tx pgx.Tx, userID 
 		  AND saving_goals.user_id = EXCLUDED.user_id;
 	`
 	for _, sg := range list {
-		if _, err := tx.Exec(ctx, query,
+		if err := execOwnedUpsert(ctx, tx, userID, rejected, "saving_goals", sg.ID, query,
 			sg.ID, userID, sg.Name, sg.TargetAmount, sg.CurrentAmount, sg.TargetDate, sg.Color, sg.Icon, sg.Note, sg.Status,
 			sg.ClientCreatedAt, sg.ClientUpdatedAt, sg.DeletedAt, syncTS,
 		); err != nil {
@@ -335,7 +405,7 @@ func (r *SyncRepository) pushSavingGoals(ctx context.Context, tx pgx.Tx, userID 
 	return nil
 }
 
-func (r *SyncRepository) pushSavingGoalLogs(ctx context.Context, tx pgx.Tx, userID uuid.UUID, syncTS time.Time, list []model.SavingGoalLogSync) error {
+func (r *SyncRepository) pushSavingGoalLogs(ctx context.Context, tx pgx.Tx, userID uuid.UUID, syncTS time.Time, list []model.SavingGoalLogSync, rejected *[]model.RejectedRecord) error {
 	query := `
 		INSERT INTO saving_goal_logs (
 			id, user_id, goal_id, amount, type, log_date, note,
@@ -353,7 +423,7 @@ func (r *SyncRepository) pushSavingGoalLogs(ctx context.Context, tx pgx.Tx, user
 		  AND saving_goal_logs.user_id = EXCLUDED.user_id;
 	`
 	for _, sgl := range list {
-		if _, err := tx.Exec(ctx, query,
+		if err := execOwnedUpsert(ctx, tx, userID, rejected, "saving_goal_logs", sgl.ID, query,
 			sgl.ID, userID, sgl.GoalID, sgl.Amount, sgl.Type, sgl.LogDate, sgl.Note,
 			sgl.ClientCreatedAt, sgl.ClientUpdatedAt, sgl.DeletedAt, syncTS,
 		); err != nil {
@@ -363,7 +433,7 @@ func (r *SyncRepository) pushSavingGoalLogs(ctx context.Context, tx pgx.Tx, user
 	return nil
 }
 
-func (r *SyncRepository) pushLoanContacts(ctx context.Context, tx pgx.Tx, userID uuid.UUID, syncTS time.Time, list []model.LoanContactSync) error {
+func (r *SyncRepository) pushLoanContacts(ctx context.Context, tx pgx.Tx, userID uuid.UUID, syncTS time.Time, list []model.LoanContactSync, rejected *[]model.RejectedRecord) error {
 	query := `
 		INSERT INTO loan_contacts (
 			id, user_id, contact_name, type, total_amount, remaining_amount, status,
@@ -382,7 +452,7 @@ func (r *SyncRepository) pushLoanContacts(ctx context.Context, tx pgx.Tx, userID
 		  AND loan_contacts.user_id = EXCLUDED.user_id;
 	`
 	for _, lc := range list {
-		if _, err := tx.Exec(ctx, query,
+		if err := execOwnedUpsert(ctx, tx, userID, rejected, "loan_contacts", lc.ID, query,
 			lc.ID, userID, lc.ContactName, lc.Type, lc.TotalAmount, lc.RemainingAmount, lc.Status,
 			lc.ClientCreatedAt, lc.ClientUpdatedAt, lc.DeletedAt, syncTS,
 		); err != nil {
@@ -392,7 +462,7 @@ func (r *SyncRepository) pushLoanContacts(ctx context.Context, tx pgx.Tx, userID
 	return nil
 }
 
-func (r *SyncRepository) pushLoanTransactions(ctx context.Context, tx pgx.Tx, userID uuid.UUID, syncTS time.Time, list []model.LoanTransactionSync) error {
+func (r *SyncRepository) pushLoanTransactions(ctx context.Context, tx pgx.Tx, userID uuid.UUID, syncTS time.Time, list []model.LoanTransactionSync, rejected *[]model.RejectedRecord) error {
 	query := `
 		INSERT INTO loan_transactions (
 			id, user_id, loan_id, amount, type, date, due_date, note,
@@ -411,7 +481,7 @@ func (r *SyncRepository) pushLoanTransactions(ctx context.Context, tx pgx.Tx, us
 		  AND loan_transactions.user_id = EXCLUDED.user_id;
 	`
 	for _, lt := range list {
-		if _, err := tx.Exec(ctx, query,
+		if err := execOwnedUpsert(ctx, tx, userID, rejected, "loan_transactions", lt.ID, query,
 			lt.ID, userID, lt.LoanID, lt.Amount, lt.Type, lt.Date, lt.DueDate, lt.Note,
 			lt.ClientCreatedAt, lt.ClientUpdatedAt, lt.DeletedAt, syncTS,
 		); err != nil {
@@ -421,7 +491,7 @@ func (r *SyncRepository) pushLoanTransactions(ctx context.Context, tx pgx.Tx, us
 	return nil
 }
 
-func (r *SyncRepository) pushRecurringConfigs(ctx context.Context, tx pgx.Tx, userID uuid.UUID, syncTS time.Time, list []model.RecurringConfigSync) error {
+func (r *SyncRepository) pushRecurringConfigs(ctx context.Context, tx pgx.Tx, userID uuid.UUID, syncTS time.Time, list []model.RecurringConfigSync, rejected *[]model.RejectedRecord) error {
 	query := `
 		INSERT INTO recurring_configs (
 			id, user_id, category_id, wallet_id, name, amount, type, frequency, interval,
@@ -447,7 +517,7 @@ func (r *SyncRepository) pushRecurringConfigs(ctx context.Context, tx pgx.Tx, us
 		  AND recurring_configs.user_id = EXCLUDED.user_id;
 	`
 	for _, rc := range list {
-		if _, err := tx.Exec(ctx, query,
+		if err := execOwnedUpsert(ctx, tx, userID, rejected, "recurring_configs", rc.ID, query,
 			rc.ID, userID, rc.CategoryID, rc.WalletID, rc.Name, rc.Amount, rc.Type, rc.Frequency, rc.Interval,
 			rc.DayOfWeek, rc.DayOfMonth, rc.NextRun, rc.IsActive,
 			rc.ClientCreatedAt, rc.ClientUpdatedAt, rc.DeletedAt, syncTS,
@@ -458,7 +528,7 @@ func (r *SyncRepository) pushRecurringConfigs(ctx context.Context, tx pgx.Tx, us
 	return nil
 }
 
-func (r *SyncRepository) applyDeletions(ctx context.Context, tx pgx.Tx, userID uuid.UUID, syncTS time.Time, deletions []model.TombstoneDeletion) error {
+func (r *SyncRepository) applyDeletions(ctx context.Context, tx pgx.Tx, userID uuid.UUID, syncTS time.Time, deletions []model.TombstoneDeletion, rejected *[]model.RejectedRecord) error {
 	allowedTables := map[string]bool{
 		"wallets":                  true,
 		"wallet_transfers":         true,
@@ -484,8 +554,16 @@ func (r *SyncRepository) applyDeletions(ctx context.Context, tx pgx.Tx, userID u
 			WHERE user_id = $2 AND id = $3 AND (deleted_at IS NULL OR deleted_at < $1);
 		`, d.TableName)
 
-		if _, err := tx.Exec(ctx, query, d.DeletedAt, userID, d.ID, syncTS); err != nil {
+		tag, err := tx.Exec(ctx, query, d.DeletedAt, userID, d.ID, syncTS)
+		if err != nil {
 			return err
+		}
+		// Category IDs are scoped per user (primary key is user_id + id), so another user holding the
+		// same ID is not a conflict and must not be reported.
+		if tag.RowsAffected() == 0 && d.TableName != "categories" {
+			if err := recordIfOwnedByOtherUser(ctx, tx, userID, rejected, d.TableName, d.ID); err != nil {
+				return err
+			}
 		}
 	}
 	return nil

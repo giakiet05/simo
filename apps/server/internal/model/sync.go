@@ -302,6 +302,18 @@ type SyncMutations struct {
 type SyncResponseData struct {
 	ServerTime time.Time   `json:"server_time"`
 	Changes    SyncChanges `json:"changes"`
+	// Rejected lists pushed records the server refused to apply; always present, empty when none.
+	Rejected []RejectedRecord `json:"rejected"`
+}
+
+// RejectReasonOwnedByAnotherUser marks a pushed record whose ID already belongs to a different user.
+const RejectReasonOwnedByAnotherUser = "owned_by_another_user"
+
+// RejectedRecord describes a single pushed record (upsert or tombstone) the server did not apply.
+type RejectedRecord struct {
+	Table  string `json:"table"`
+	ID     string `json:"id"`
+	Reason string `json:"reason"`
 }
 
 // SyncChanges groups all entity deltas returned to the client.

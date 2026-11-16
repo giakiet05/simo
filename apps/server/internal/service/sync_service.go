@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/google/uuid"
 
@@ -40,7 +41,7 @@ func (s *SyncService) Sync(ctx context.Context, userID uuid.UUID, req *model.Syn
 		return nil, fmt.Errorf("sync request payload is nil")
 	}
 
-	serverTime, changes, err := s.syncRepo.ProcessSyncCycle(
+	serverTime, changes, rejected, err := s.syncRepo.ProcessSyncCycle(
 		ctx,
 		userID,
 		req.LastSyncedServerTime,
@@ -48,6 +49,14 @@ func (s *SyncService) Sync(ctx context.Context, userID uuid.UUID, req *model.Syn
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to process sync cycle: %w", err)
+	}
+	if len(rejected) > 0 {
+		slog.WarnContext(ctx, "sync rejected records owned by another user",
+			"user_id", userID.String(),
+			"device_id", req.DeviceID,
+			"count", len(rejected),
+			"by_table", countRejectedByTable(rejected),
+		)
 	}
 
 	// If the client pushed any mutations, notify other connected devices via SSE
@@ -64,7 +73,20 @@ func (s *SyncService) Sync(ctx context.Context, userID uuid.UUID, req *model.Syn
 	return &model.SyncResponseData{
 		ServerTime: serverTime,
 		Changes:    *changes,
+		Rejected:   rejected,
 	}, nil
+}
+
+// countRejectedByTable summarizes rejected records per table so one log line stays small even for large pushes.
+//
+// @param rejected []model.RejectedRecord records refused during the sync cycle
+// @returns map[string]int number of rejected records keyed by table name
+func countRejectedByTable(rejected []model.RejectedRecord) map[string]int {
+	counts := make(map[string]int)
+	for _, r := range rejected {
+		counts[r.Table]++
+	}
+	return counts
 }
 
 // hasMutations checks if the request payload contains any modifications or deletions.
