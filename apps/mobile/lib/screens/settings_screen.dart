@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/settings_provider.dart';
 import '../providers/localization_provider.dart';
 import '../providers/transaction_provider.dart';
@@ -167,6 +168,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   onPressed: isMatched
                       ? () async {
                           Navigator.pop(context);
+                          final prefs = await SharedPreferences.getInstance();
+                          await prefs.remove('last_synced_server_time');
                           await DatabaseHelper.instance.clearAllData();
                           // Reload all providers
                           await ref.read(categoryProvider.notifier).loadCategories();
@@ -676,29 +679,28 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       ),
                     ),
 
-                    const SizedBox(height: 24),
-                    
-                    // Dữ liệu & Thử nghiệm
-                    Padding(
-                      padding: const EdgeInsets.only(left: 8, bottom: 8),
-                      child: Text(
-                        l10n.dataAndTesting,
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context).colorScheme.primary,
+                    // Dữ liệu & Thử nghiệm (Chỉ hiển thị trong chế độ Debug / Dev App)
+                    if (kDebugMode) ...[
+                      const SizedBox(height: 24),
+                      Padding(
+                        padding: const EdgeInsets.only(left: 8, bottom: 8),
+                        child: Text(
+                          l10n.dataAndTesting,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
                         ),
                       ),
-                    ),
-                    Card(
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        side: BorderSide(color: Colors.grey.withValues(alpha: 0.2)),
-                      ),
-                      child: Column(
-                        children: [
-                          if (kDebugMode) ...[
+                      Card(
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          side: BorderSide(color: Colors.grey.withValues(alpha: 0.2)),
+                        ),
+                        child: Column(
+                          children: [
                             ListTile(
                               leading: const CategoryIconWidget(
                                 colorOverride: Colors.teal,
@@ -716,26 +718,26 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                               onTap: () => _showGenerateMockDataDialog(context, l10n),
                             ),
                             const Divider(height: 1, indent: 56),
+                            ListTile(
+                              leading: const CategoryIconWidget(
+                                colorOverride: Colors.redAccent,
+                                iconDataOverride: Icons.delete_forever,
+                              ),
+                              title: Text(
+                                l10n.resetAllData,
+                                style: const TextStyle(fontWeight: FontWeight.w500, color: Colors.redAccent),
+                              ),
+                              subtitle: Text(
+                                l10n.resetAllDataDesc,
+                                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                              ),
+                              trailing: const Icon(Icons.chevron_right),
+                              onTap: () => _showResetDataDialog(context, l10n),
+                            ),
                           ],
-                          ListTile(
-                            leading: const CategoryIconWidget(
-                              colorOverride: Colors.redAccent,
-                              iconDataOverride: Icons.delete_forever,
-                            ),
-                            title: Text(
-                              l10n.resetAllData,
-                              style: const TextStyle(fontWeight: FontWeight.w500, color: Colors.redAccent),
-                            ),
-                            subtitle: Text(
-                              l10n.resetAllDataDesc,
-                              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                            ),
-                            trailing: const Icon(Icons.chevron_right),
-                            onTap: () => _showResetDataDialog(context, l10n),
-                          ),
-                        ],
+                        ),
                       ),
-                    ),
+                    ],
 
                     const SizedBox(height: 24),
                     

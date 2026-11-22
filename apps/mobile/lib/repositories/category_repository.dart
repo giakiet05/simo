@@ -147,6 +147,14 @@ class CategoryRepository {
         whereArgs: [id],
       );
 
+      // Unassign category from associated recurring_configs
+      await txn.update(
+        'recurring_configs',
+        {'category_id': null, 'synced': 0, 'updated_at': nowIso},
+        where: 'category_id = ?',
+        whereArgs: [id],
+      );
+
       final deletedCount = await txn.delete(
         'categories',
         where: 'id = ?',

@@ -153,6 +153,14 @@ class RecurringRepository {
     final nowIso = DateTime.now().toUtc().toIso8601String();
 
     await db.transaction((txn) async {
+      // Nullify recurring_config_id on associated transactions
+      await txn.update(
+        'transactions',
+        {'recurring_config_id': null, 'synced': 0, 'updated_at': nowIso},
+        where: 'recurring_config_id = ?',
+        whereArgs: [id],
+      );
+
       await txn.delete(
         'recurring_configs',
         where: 'id = ?',

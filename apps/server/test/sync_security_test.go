@@ -367,3 +367,119 @@ func TestSync_SharedCategoryIDIsNotRejected(t *testing.T) {
 		t.Fatalf("per-user category IDs must not be rejected, got %+v", res.Rejected)
 	}
 }
+
+// TestSync_DanglingForeignKeysDoNotAbortSync verifies that pushing recurring_configs or transactions
+// referencing non-existent or foreign wallets/recurring_configs nullifies those optional FKs safely,
+// and pushing child records with missing required parents reports them as missing_parent rejections
+// without failing the sync cycle with HTTP 500.
+func TestSync_DanglingForeignKeysDoNotAbortSync(t *testing.T) {
+	env := newSyncEnv(t)
+	user := env.newUserToken(t)
+	now := model.NewFlexibleTime(time.Now().UTC())
+
+	missingWalletID := uuid.New()
+	missingRecurringID := uuid.New()
+	missingGoalID := uuid.New()
+	missingLoanID := uuid.New()
+
+	rcID := uuid.New()
+	txID := uuid.New()
+	transferID := uuid.New()
+	goalLogID := uuid.New()
+	loanTxID := uuid.New()
+
+	res := env.doSync(t, user, model.SyncRequest{
+		DeviceID: "dangling_fk_device",
+		Mutations: model.SyncMutations{
+			RecurringConfigs: []model.RecurringConfigSync{
+				{
+					ID:              rcID,
+					WalletID:        &missingWalletID,
+					Name:            "Monthly Internet",
+					Amount:          330_000,
+					Type:            "expense",
+					Frequency:       "monthly",
+					Interval:        1,
+					NextRun:         now,
+					IsActive:        true,
+					ClientCreatedAt: now,
+					ClientUpdatedAt: now,
+				},
+			},
+			Transactions: []model.TransactionSync{
+				{
+					ID:                txID,
+					WalletID:          &missingWalletID,
+					RecurringConfigID: &missingRecurringID,
+					Amount:            50_000,
+					Type:              "expense",
+					TransactionDate:   "2026-11-22",
+					ClientCreatedAt:   now,
+					ClientUpdatedAt:   now,
+				},
+			},
+			WalletTransfers: []model.WalletTransferSync{
+				{
+					ID:                  transferID,
+					SourceWalletID:      missingWalletID,
+					DestinationWalletID: uuid.New(),
+					Amount:              100_000,
+					TransferDate:        now,
+					ClientCreatedAt:     now,
+					ClientUpdatedAt:     now,
+				},
+			},
+			SavingGoalLogs: []model.SavingGoalLogSync{
+				{
+					ID:              goalLogID,
+					GoalID:          missingGoalID,
+					Amount:          200_000,
+					Type:            "deposit",
+					LogDate:         now,
+					ClientCreatedAt: now,
+					ClientUpdatedAt: now,
+				},
+			},
+			LoanTransactions: []model.LoanTransactionSync{
+				{
+					ID:              loanTxID,
+					LoanID:          missingLoanID,
+					Amount:          500_000,
+					Type:            "repay",
+					Date:            now,
+					ClientCreatedAt: now,
+					ClientUpdatedAt: now,
+				},
+			},
+		},
+	})
+
+	if len(res.Changes.RecurringConfigs) != 1 {
+		t.Fatalf("expected 1 recurring_config persisted, got %d", len(res.Changes.RecurringConfigs))
+	}
+	if res.Changes.RecurringConfigs[0].WalletID != nil {
+		t.Errorf("expected dangling wallet_id on recurring_config to be nullified, got %v", res.Changes.RecurringConfigs[0].WalletID)
+	}
+
+	if len(res.Changes.Transactions) != 1 {
+		t.Fatalf("expected 1 transaction persisted, got %d", len(res.Changes.Transactions))
+	}
+	if res.Changes.Transactions[0].WalletID != nil || res.Changes.Transactions[0].RecurringConfigID != nil {
+		t.Errorf("expected dangling FKs on transaction to be nullified, got wallet=%v recurring=%v",
+			res.Changes.Transactions[0].WalletID, res.Changes.Transactions[0].RecurringConfigID)
+	}
+
+	wantRejected := map[model.RejectedRecord]bool{
+		{Table: "wallet_transfers", ID: transferID.String(), Reason: model.RejectReasonMissingParent}: true,
+		{Table: "saving_goal_logs", ID: goalLogID.String(), Reason: model.RejectReasonMissingParent}:  true,
+		{Table: "loan_transactions", ID: loanTxID.String(), Reason: model.RejectReasonMissingParent}:  true,
+	}
+	if len(res.Rejected) != 3 {
+		t.Fatalf("expected 3 missing_parent rejections, got %+v", res.Rejected)
+	}
+	for _, r := range res.Rejected {
+		if !wantRejected[r] {
+			t.Fatalf("unexpected rejection record: %+v", r)
+		}
+	}
+}

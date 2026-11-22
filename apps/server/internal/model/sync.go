@@ -309,6 +309,9 @@ type SyncResponseData struct {
 // RejectReasonOwnedByAnotherUser marks a pushed record whose ID already belongs to a different user.
 const RejectReasonOwnedByAnotherUser = "owned_by_another_user"
 
+// RejectReasonMissingParent marks a pushed child record whose required parent row does not exist for the authenticated user.
+const RejectReasonMissingParent = "missing_parent"
+
 // RejectedRecord describes a single pushed record (upsert or tombstone) the server did not apply.
 type RejectedRecord struct {
 	Table  string `json:"table"`

@@ -4,7 +4,6 @@ import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:sqflite/sqflite.dart';
 
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../models/user_profile.dart';
@@ -142,11 +141,37 @@ class AuthService {
     return (token: token, user: user);
   }
 
-  /// Migrates local SQLite database records (if user_id column exists or needs associating).
+  /// Migrates local SQLite database records to be queued for synchronization under the newly authenticated user.
+  ///
+  /// @param userId The authenticated user UUID returned by the server.
   Future<void> migrateGuestDataToUser(String userId) async {
     try {
+      final prefs = await SharedPreferences.getInstance();
+      final previousUserId = prefs.getString('last_synced_user_id');
+      if (previousUserId != userId) {
+        await prefs.remove('last_synced_server_time');
+        await prefs.setString('last_synced_user_id', userId);
+      }
+
       final db = await _dbHelper.database;
-      // Ensure sync queue and records are marked for sync under this user session
+      await db.transaction((txn) async {
+        const tables = [
+          'wallets',
+          'wallet_transfers',
+          'categories',
+          'transactions',
+          'monthly_budgets',
+          'category_monthly_budgets',
+          'saving_goals',
+          'saving_goal_logs',
+          'loan_contacts',
+          'loan_transactions',
+          'recurring_configs',
+        ];
+        for (final table in tables) {
+          await txn.update(table, {'synced': 0});
+        }
+      });
       debugPrint('[AuthService] Migrated local guest records to user ID: $userId');
     } catch (e) {
       debugPrint('[AuthService] Error migrating guest data: $e');

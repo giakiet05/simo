@@ -218,6 +218,14 @@ class WalletRepository {
         whereArgs: [id],
       );
 
+      // Nullify wallet_id on associated recurring_configs
+      await txn.update(
+        'recurring_configs',
+        {'wallet_id': null, 'synced': 0, 'updated_at': nowIso},
+        where: 'wallet_id = ?',
+        whereArgs: [id],
+      );
+
       // Delete associated transfers and record tombstones
       final transfers = await txn.query(
         'wallet_transfers',

@@ -197,6 +197,30 @@ func recordIfOwnedByOtherUser(
 	return nil
 }
 
+// parentExistsForUser checks whether a parent entity with the given UUID belongs to the authenticated user.
+//
+// @param ctx context.Context
+// @param tx pgx.Tx open sync transaction
+// @param table string allowlisted parent table name
+// @param id uuid.UUID primary key of the parent entity
+// @param userID uuid.UUID authenticated user ID
+// @returns bool true if the parent record exists for the user, error on query failure
+func parentExistsForUser(
+	ctx context.Context,
+	tx pgx.Tx,
+	table string,
+	id uuid.UUID,
+	userID uuid.UUID,
+) (bool, error) {
+	var exists bool
+	query := fmt.Sprintf(`SELECT EXISTS (SELECT 1 FROM %s WHERE id = $1 AND user_id = $2)`, table)
+	if err := tx.QueryRow(ctx, query, id, userID).Scan(&exists); err != nil {
+		return false, fmt.Errorf("failed to check parent %s %s: %w", table, id, err)
+	}
+	return exists, nil
+}
+
+// pushWallets upserts client wallet mutations with Last-Write-Wins and user ownership enforcement.
 func (r *SyncRepository) pushWallets(ctx context.Context, tx pgx.Tx, userID uuid.UUID, syncTS time.Time, list []model.WalletSync, rejected *[]model.RejectedRecord) error {
 	query := `
 		INSERT INTO wallets (
@@ -230,6 +254,7 @@ func (r *SyncRepository) pushWallets(ctx context.Context, tx pgx.Tx, userID uuid
 	return nil
 }
 
+// pushCategories upserts client category mutations scoped per user.
 func (r *SyncRepository) pushCategories(ctx context.Context, tx pgx.Tx, userID uuid.UUID, syncTS time.Time, list []model.CategorySync) error {
 	query := `
 		INSERT INTO categories (
@@ -259,13 +284,21 @@ func (r *SyncRepository) pushCategories(ctx context.Context, tx pgx.Tx, userID u
 	return nil
 }
 
+// pushTransactions upserts client transaction mutations while safely nullifying dangling or cross-tenant
+// wallet_id and recurring_config_id references so missing optional parents never abort the sync transaction.
 func (r *SyncRepository) pushTransactions(ctx context.Context, tx pgx.Tx, userID uuid.UUID, syncTS time.Time, list []model.TransactionSync, rejected *[]model.RejectedRecord) error {
 	query := `
 		INSERT INTO transactions (
 			id, user_id, wallet_id, category_id, recurring_config_id,
 			amount, formula, note, type, transaction_date,
 			client_created_at, client_updated_at, server_updated_at, deleted_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $14, $13)
+		) VALUES (
+			$1, $2,
+			(SELECT id FROM wallets WHERE id = $3 AND user_id = $2),
+			$4,
+			(SELECT id FROM recurring_configs WHERE id = $5 AND user_id = $2),
+			$6, $7, $8, $9, $10, $11, $12, $14, $13
+		)
 		ON CONFLICT (id) DO UPDATE SET
 			wallet_id = EXCLUDED.wallet_id,
 			category_id = EXCLUDED.category_id,
@@ -293,6 +326,8 @@ func (r *SyncRepository) pushTransactions(ctx context.Context, tx pgx.Tx, userID
 	return nil
 }
 
+// pushWalletTransfers upserts client wallet transfer mutations, rejecting transfers whose source or destination
+// wallet does not exist for the authenticated user instead of failing with a foreign key constraint error.
 func (r *SyncRepository) pushWalletTransfers(ctx context.Context, tx pgx.Tx, userID uuid.UUID, syncTS time.Time, list []model.WalletTransferSync, rejected *[]model.RejectedRecord) error {
 	query := `
 		INSERT INTO wallet_transfers (
@@ -313,6 +348,22 @@ func (r *SyncRepository) pushWalletTransfers(ctx context.Context, tx pgx.Tx, use
 		  AND wallet_transfers.user_id = EXCLUDED.user_id;
 	`
 	for _, wt := range list {
+		srcOK, err := parentExistsForUser(ctx, tx, "wallets", wt.SourceWalletID, userID)
+		if err != nil {
+			return err
+		}
+		dstOK, err := parentExistsForUser(ctx, tx, "wallets", wt.DestinationWalletID, userID)
+		if err != nil {
+			return err
+		}
+		if !srcOK || !dstOK {
+			*rejected = append(*rejected, model.RejectedRecord{
+				Table:  "wallet_transfers",
+				ID:     wt.ID.String(),
+				Reason: model.RejectReasonMissingParent,
+			})
+			continue
+		}
 		if err := execOwnedUpsert(ctx, tx, userID, rejected, "wallet_transfers", wt.ID, query,
 			wt.ID, userID, wt.SourceWalletID, wt.DestinationWalletID, wt.Amount, wt.Fee, wt.TransferDate, wt.Note,
 			wt.ClientCreatedAt, wt.ClientUpdatedAt, wt.DeletedAt, syncTS,
@@ -323,6 +374,7 @@ func (r *SyncRepository) pushWalletTransfers(ctx context.Context, tx pgx.Tx, use
 	return nil
 }
 
+// pushMonthlyBudgets upserts client monthly budget mutations scoped per user, year, and month.
 func (r *SyncRepository) pushMonthlyBudgets(ctx context.Context, tx pgx.Tx, userID uuid.UUID, syncTS time.Time, list []model.MonthlyBudgetSync) error {
 	query := `
 		INSERT INTO monthly_budgets (
@@ -348,6 +400,7 @@ func (r *SyncRepository) pushMonthlyBudgets(ctx context.Context, tx pgx.Tx, user
 	return nil
 }
 
+// pushCategoryMonthlyBudgets upserts client category-specific monthly budget mutations.
 func (r *SyncRepository) pushCategoryMonthlyBudgets(ctx context.Context, tx pgx.Tx, userID uuid.UUID, syncTS time.Time, list []model.CategoryMonthlyBudgetSync) error {
 	query := `
 		INSERT INTO category_monthly_budgets (
@@ -373,6 +426,7 @@ func (r *SyncRepository) pushCategoryMonthlyBudgets(ctx context.Context, tx pgx.
 	return nil
 }
 
+// pushSavingGoals upserts client saving goal mutations.
 func (r *SyncRepository) pushSavingGoals(ctx context.Context, tx pgx.Tx, userID uuid.UUID, syncTS time.Time, list []model.SavingGoalSync, rejected *[]model.RejectedRecord) error {
 	query := `
 		INSERT INTO saving_goals (
@@ -405,6 +459,8 @@ func (r *SyncRepository) pushSavingGoals(ctx context.Context, tx pgx.Tx, userID 
 	return nil
 }
 
+// pushSavingGoalLogs upserts client saving goal log mutations, rejecting logs whose parent saving goal
+// does not exist for the authenticated user instead of failing with a foreign key constraint error.
 func (r *SyncRepository) pushSavingGoalLogs(ctx context.Context, tx pgx.Tx, userID uuid.UUID, syncTS time.Time, list []model.SavingGoalLogSync, rejected *[]model.RejectedRecord) error {
 	query := `
 		INSERT INTO saving_goal_logs (
@@ -423,6 +479,18 @@ func (r *SyncRepository) pushSavingGoalLogs(ctx context.Context, tx pgx.Tx, user
 		  AND saving_goal_logs.user_id = EXCLUDED.user_id;
 	`
 	for _, sgl := range list {
+		goalOK, err := parentExistsForUser(ctx, tx, "saving_goals", sgl.GoalID, userID)
+		if err != nil {
+			return err
+		}
+		if !goalOK {
+			*rejected = append(*rejected, model.RejectedRecord{
+				Table:  "saving_goal_logs",
+				ID:     sgl.ID.String(),
+				Reason: model.RejectReasonMissingParent,
+			})
+			continue
+		}
 		if err := execOwnedUpsert(ctx, tx, userID, rejected, "saving_goal_logs", sgl.ID, query,
 			sgl.ID, userID, sgl.GoalID, sgl.Amount, sgl.Type, sgl.LogDate, sgl.Note,
 			sgl.ClientCreatedAt, sgl.ClientUpdatedAt, sgl.DeletedAt, syncTS,
@@ -433,6 +501,7 @@ func (r *SyncRepository) pushSavingGoalLogs(ctx context.Context, tx pgx.Tx, user
 	return nil
 }
 
+// pushLoanContacts upserts client loan contact mutations.
 func (r *SyncRepository) pushLoanContacts(ctx context.Context, tx pgx.Tx, userID uuid.UUID, syncTS time.Time, list []model.LoanContactSync, rejected *[]model.RejectedRecord) error {
 	query := `
 		INSERT INTO loan_contacts (
@@ -462,6 +531,8 @@ func (r *SyncRepository) pushLoanContacts(ctx context.Context, tx pgx.Tx, userID
 	return nil
 }
 
+// pushLoanTransactions upserts client loan transaction mutations, rejecting transactions whose parent loan contact
+// does not exist for the authenticated user instead of failing with a foreign key constraint error.
 func (r *SyncRepository) pushLoanTransactions(ctx context.Context, tx pgx.Tx, userID uuid.UUID, syncTS time.Time, list []model.LoanTransactionSync, rejected *[]model.RejectedRecord) error {
 	query := `
 		INSERT INTO loan_transactions (
@@ -481,6 +552,18 @@ func (r *SyncRepository) pushLoanTransactions(ctx context.Context, tx pgx.Tx, us
 		  AND loan_transactions.user_id = EXCLUDED.user_id;
 	`
 	for _, lt := range list {
+		loanOK, err := parentExistsForUser(ctx, tx, "loan_contacts", lt.LoanID, userID)
+		if err != nil {
+			return err
+		}
+		if !loanOK {
+			*rejected = append(*rejected, model.RejectedRecord{
+				Table:  "loan_transactions",
+				ID:     lt.ID.String(),
+				Reason: model.RejectReasonMissingParent,
+			})
+			continue
+		}
 		if err := execOwnedUpsert(ctx, tx, userID, rejected, "loan_transactions", lt.ID, query,
 			lt.ID, userID, lt.LoanID, lt.Amount, lt.Type, lt.Date, lt.DueDate, lt.Note,
 			lt.ClientCreatedAt, lt.ClientUpdatedAt, lt.DeletedAt, syncTS,
@@ -491,13 +574,19 @@ func (r *SyncRepository) pushLoanTransactions(ctx context.Context, tx pgx.Tx, us
 	return nil
 }
 
+// pushRecurringConfigs upserts client recurring configuration mutations while safely nullifying dangling or
+// cross-tenant wallet_id references so missing optional wallets never abort the sync transaction.
 func (r *SyncRepository) pushRecurringConfigs(ctx context.Context, tx pgx.Tx, userID uuid.UUID, syncTS time.Time, list []model.RecurringConfigSync, rejected *[]model.RejectedRecord) error {
 	query := `
 		INSERT INTO recurring_configs (
 			id, user_id, category_id, wallet_id, name, amount, type, frequency, interval,
 			day_of_week, day_of_month, next_run, is_active,
 			client_created_at, client_updated_at, server_updated_at, deleted_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $17, $16)
+		) VALUES (
+			$1, $2, $3,
+			(SELECT id FROM wallets WHERE id = $4 AND user_id = $2),
+			$5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $17, $16
+		)
 		ON CONFLICT (id) DO UPDATE SET
 			category_id = EXCLUDED.category_id,
 			wallet_id = EXCLUDED.wallet_id,

@@ -151,8 +151,35 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const deleteWallet = async (cloudId: string) => {
     const state = localDb.loadState();
-    state.wallets = state.wallets.filter((w) => w.cloud_id !== cloudId);
+    const now = new Date().toISOString();
+    state.wallets = state.wallets.filter((w) => w.cloud_id !== cloudId && w.id !== cloudId);
+    state.transactions = state.transactions.map((t) =>
+      t.wallet_id === cloudId ? { ...t, wallet_id: undefined, synced: 0, updated_at: now } : t
+    );
+    state.recurring_configs = state.recurring_configs.map((rc) =>
+      rc.wallet_id === cloudId ? { ...rc, wallet_id: undefined, synced: 0, updated_at: now } : rc
+    );
+    const removedTransfers = state.wallet_transfers.filter(
+      (wt) =>
+        wt.source_wallet_id === cloudId ||
+        wt.destination_wallet_id === cloudId ||
+        wt.from_wallet_id === cloudId ||
+        wt.to_wallet_id === cloudId
+    );
+    for (const wt of removedTransfers) {
+      localDb.addTombstone(wt.cloud_id || wt.id, 'wallet_transfers');
+    }
+    state.wallet_transfers = state.wallet_transfers.filter(
+      (wt) =>
+        wt.source_wallet_id !== cloudId &&
+        wt.destination_wallet_id !== cloudId &&
+        wt.from_wallet_id !== cloudId &&
+        wt.to_wallet_id !== cloudId
+    );
     localDb.saveTable('wallets', state.wallets);
+    localDb.saveTable('transactions', state.transactions);
+    localDb.saveTable('recurring_configs', state.recurring_configs);
+    localDb.saveTable('wallet_transfers', state.wallet_transfers);
     localDb.addTombstone(cloudId, 'wallets');
     refreshFromDb();
     syncService.triggerDebouncedSync();
