@@ -12,9 +12,9 @@ WORKDIR /build
 # Install git and ca-certificates for fetching dependencies
 RUN apk add --no-cache git ca-certificates tzdata
 
-# Cache go modules
+# Cache go modules (strip unreachable IPv6 nameservers during Docker build)
 COPY go.mod go.sum ./
-RUN go mod download
+RUN sed '/:/d' /etc/resolv.conf > /tmp/resolv.conf && cat /tmp/resolv.conf > /etc/resolv.conf && go mod download
 
 # Copy source files
 COPY . .
