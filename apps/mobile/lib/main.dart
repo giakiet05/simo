@@ -7,8 +7,8 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'dart:io';
 import 'config/ads_config.dart';
 import 'screens/home_screen.dart';
-import 'utils/recurring_service.dart';
 import 'theme/app_theme.dart';
+import 'providers/recurring_provider.dart';
 import 'providers/settings_provider.dart';
 import 'providers/sync_provider.dart';
 
@@ -28,10 +28,6 @@ void main() async {
   if (AdsConfig.adsEnabled && (Platform.isAndroid || Platform.isIOS)) {
     MobileAds.instance.initialize();
   }
-
-  // Process recurring transactions on app start (non-blocking)
-  final recurringService = RecurringService();
-  recurringService.processRecurringTransactions();
 
   runApp(
     const ProviderScope(
@@ -54,6 +50,9 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    Future.microtask(() {
+      ref.read(recurringProvider.notifier).processDueRecurring();
+    });
   }
 
   @override
@@ -65,7 +64,9 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      // Reconnect SSE stream and pull latest changes from server
+      // Process any recurring schedules that became due while app was in background,
+      // then reconnect SSE stream and pull latest changes from server.
+      ref.read(recurringProvider.notifier).processDueRecurring();
       ref.read(syncProvider.notifier).resumeLiveSync();
     } else if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive || state == AppLifecycleState.detached) {
       // Pause SSE stream to save battery and network in background

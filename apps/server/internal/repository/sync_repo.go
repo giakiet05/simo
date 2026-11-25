@@ -580,12 +580,12 @@ func (r *SyncRepository) pushRecurringConfigs(ctx context.Context, tx pgx.Tx, us
 	query := `
 		INSERT INTO recurring_configs (
 			id, user_id, category_id, wallet_id, name, amount, type, frequency, interval,
-			day_of_week, day_of_month, next_run, is_active,
+			day_of_week, days_of_week, day_of_month, next_run, is_active,
 			client_created_at, client_updated_at, server_updated_at, deleted_at
 		) VALUES (
 			$1, $2, $3,
 			(SELECT id FROM wallets WHERE id = $4 AND user_id = $2),
-			$5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $17, $16
+			$5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $18, $17
 		)
 		ON CONFLICT (id) DO UPDATE SET
 			category_id = EXCLUDED.category_id,
@@ -596,19 +596,21 @@ func (r *SyncRepository) pushRecurringConfigs(ctx context.Context, tx pgx.Tx, us
 			frequency = EXCLUDED.frequency,
 			interval = EXCLUDED.interval,
 			day_of_week = EXCLUDED.day_of_week,
+			days_of_week = EXCLUDED.days_of_week,
 			day_of_month = EXCLUDED.day_of_month,
 			next_run = EXCLUDED.next_run,
 			is_active = EXCLUDED.is_active,
 			client_updated_at = EXCLUDED.client_updated_at,
-			server_updated_at = $17,
+			server_updated_at = $18,
 			deleted_at = COALESCE(recurring_configs.deleted_at, EXCLUDED.deleted_at)
 		WHERE EXCLUDED.client_updated_at >= recurring_configs.client_updated_at
 		  AND recurring_configs.user_id = EXCLUDED.user_id;
 	`
 	for _, rc := range list {
+		daysCSV := model.FormatDaysOfWeekCSV(rc.DaysOfWeek)
 		if err := execOwnedUpsert(ctx, tx, userID, rejected, "recurring_configs", rc.ID, query,
 			rc.ID, userID, rc.CategoryID, rc.WalletID, rc.Name, rc.Amount, rc.Type, rc.Frequency, rc.Interval,
-			rc.DayOfWeek, rc.DayOfMonth, rc.NextRun, rc.IsActive,
+			rc.DayOfWeek, daysCSV, rc.DayOfMonth, rc.NextRun, rc.IsActive,
 			rc.ClientCreatedAt, rc.ClientUpdatedAt, rc.DeletedAt, syncTS,
 		); err != nil {
 			return err
@@ -947,7 +949,7 @@ func (r *SyncRepository) pullChanges(ctx context.Context, tx pgx.Tx, userID uuid
 
 	// 11. Recurring Configs
 	rcRows, err := tx.Query(ctx, `
-		SELECT id, category_id, wallet_id, name, amount, type, frequency, interval, day_of_week, day_of_month, next_run, is_active,
+		SELECT id, category_id, wallet_id, name, amount, type, frequency, interval, day_of_week, days_of_week, day_of_month, next_run, is_active,
 		       client_created_at, client_updated_at, server_updated_at, deleted_at
 		FROM recurring_configs WHERE user_id = $1 AND server_updated_at > $2;
 	`, userID, since)
@@ -957,11 +959,13 @@ func (r *SyncRepository) pullChanges(ctx context.Context, tx pgx.Tx, userID uuid
 	defer rcRows.Close()
 	for rcRows.Next() {
 		var rc model.RecurringConfigSync
+		var daysCSV *string
 		if err := rcRows.Scan(&rc.ID, &rc.CategoryID, &rc.WalletID, &rc.Name, &rc.Amount, &rc.Type, &rc.Frequency,
-			&rc.Interval, &rc.DayOfWeek, &rc.DayOfMonth, &rc.NextRun, &rc.IsActive,
+			&rc.Interval, &rc.DayOfWeek, &daysCSV, &rc.DayOfMonth, &rc.NextRun, &rc.IsActive,
 			&rc.ClientCreatedAt, &rc.ClientUpdatedAt, &rc.ServerUpdatedAt, &rc.DeletedAt); err != nil {
 			return nil, err
 		}
+		rc.DaysOfWeek = model.ParseDaysOfWeekCSV(daysCSV)
 		if rc.DeletedAt != nil {
 			changes.Deletions = append(changes.Deletions, model.TombstoneDeletion{TableName: "recurring_configs", ID: rc.ID.String(), DeletedAt: *rc.DeletedAt})
 		} else {

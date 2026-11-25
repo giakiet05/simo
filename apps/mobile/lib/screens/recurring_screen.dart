@@ -10,6 +10,7 @@ import '../providers/wallet_provider.dart';
 import '../models/recurring_config.dart';
 import '../models/wallet.dart';
 import '../services/currency_service.dart';
+import '../utils/recurring_service.dart';
 import '../widgets/banner_ad_widget.dart';
 import '../widgets/category_icon_widget.dart';
 import '../utils/app_constants.dart';
@@ -156,7 +157,7 @@ class RecurringScreen extends ConsumerWidget {
                                   ),
                                   Text(_formatFrequency(ref, config), style: const TextStyle(fontSize: 13)),
                                   Text(
-                                    '${l10n.nextRun}: ${DateFormat('dd/MM/yyyy').format(config.nextRun)}',
+                                    '${l10n.nextRun}: ${DateFormat('dd/MM/yyyy').format(config.nextRun.toLocal())}',
                                     style: const TextStyle(fontSize: 12),
                                   ),
                                 ],
@@ -279,40 +280,59 @@ class RecurringScreen extends ConsumerWidget {
     return '${NumberFormat('#,###').format(amount)} $symbol';
   }
 
+  /// Formats a recurring configuration's frequency, interval, and weekday/day-of-month constraints.
   String _formatFrequency(WidgetRef ref, RecurringConfig config) {
     final l10n = ref.read(localizationProvider);
-    String freq;
+    final isVi = l10n.locale == 'vi';
 
-    // Get unit with correct plural form
     String unit;
     if (config.frequency == 'daily') {
       unit = config.interval == 1 ? l10n.day : l10n.days;
     } else if (config.frequency == 'weekly') {
       unit = config.interval == 1 ? l10n.week : l10n.weeks;
+    } else if (config.frequency == 'yearly') {
+      unit = isVi ? 'năm' : (config.interval == 1 ? 'year' : 'years');
     } else {
       unit = config.interval == 1 ? l10n.month : l10n.months;
     }
 
-    // Build frequency string
-    freq = '${l10n.every} ${config.interval} $unit';
+    var freq = '${l10n.every} ${config.interval} $unit';
 
-    // Add day/weekday info
-    if (config.frequency == 'weekly' && config.dayOfWeek != null) {
-      final days = [
-        l10n.sunday,
-        l10n.monday,
-        l10n.tuesday,
-        l10n.wednesday,
-        l10n.thursday,
-        l10n.friday,
-        l10n.saturday,
-      ];
-      freq += ' - ${days[config.dayOfWeek! % 7]}';
+    final effectiveDays = config.effectiveDaysOfWeek;
+    if (config.frequency == 'daily' && effectiveDays != null && effectiveDays.length < 7) {
+      freq += ' - ${_formatDaysSummary(isVi, effectiveDays)}';
+    } else if (config.frequency == 'weekly' && effectiveDays != null && effectiveDays.isNotEmpty) {
+      freq += ' - ${_formatDaysSummary(isVi, effectiveDays)}';
     } else if (config.frequency == 'monthly' && config.dayOfMonth != null) {
       freq += ' - ${l10n.day} ${config.dayOfMonth}';
     }
 
     return freq;
+  }
+
+  /// Formats a sorted list of ISO weekdays (1=Mon..7=Sun) into a concise human-readable label.
+  String _formatDaysSummary(bool isVi, List<int> days) {
+    if (_listEquals(days, RecurringConfig.weekdaysPreset)) {
+      return isVi ? 'T2 - T6 (Ngày làm việc)' : 'Mon - Fri (Weekdays)';
+    }
+    if (_listEquals(days, RecurringConfig.weekendsPreset)) {
+      return isVi ? 'T7 - CN (Cuối tuần)' : 'Sat - Sun (Weekends)';
+    }
+    if (days.length == 7) {
+      return isVi ? 'Mỗi ngày' : 'Every day';
+    }
+    final labels = isVi
+        ? const {1: 'T2', 2: 'T3', 3: 'T4', 4: 'T5', 5: 'T6', 6: 'T7', 7: 'CN'}
+        : const {1: 'Mon', 2: 'Tue', 3: 'Wed', 4: 'Thu', 5: 'Fri', 6: 'Sat', 7: 'Sun'};
+    return days.map((d) => labels[d] ?? '').where((s) => s.isNotEmpty).join(', ');
+  }
+
+  bool _listEquals(List<int> a, List<int> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
   }
 
   void _showAddDialog(BuildContext context, WidgetRef ref) {
@@ -397,7 +417,7 @@ class _RecurringFormModalState extends ConsumerState<_RecurringFormModal> {
   String _selectedType = 'expense';
   String _selectedFrequency = 'monthly';
   int _interval = 1;
-  int? _dayOfWeek;
+  Set<int> _selectedDaysOfWeek = RecurringConfig.allDaysPreset.toSet();
   int? _dayOfMonth;
   late DateTime _nextRun;
   bool _isActive = true;
@@ -422,22 +442,54 @@ class _RecurringFormModalState extends ConsumerState<_RecurringFormModal> {
     _intervalController =
         TextEditingController(text: widget.config?.interval.toString() ?? '1');
 
+    final today = RecurringService.dateOnlyLocal(DateTime.now());
     if (widget.config != null) {
       _selectedCategoryId = widget.config!.categoryId;
       _selectedWalletId = widget.config!.walletId;
       _selectedType = widget.config!.type;
       _selectedFrequency = widget.config!.frequency;
       _interval = widget.config!.interval;
-      _dayOfWeek = widget.config!.dayOfWeek;
-      _dayOfMonth = widget.config!.dayOfMonth;
-      _nextRun = widget.config!.nextRun;
+      final effectiveDays = widget.config!.effectiveDaysOfWeek;
+      if (effectiveDays != null && effectiveDays.isNotEmpty) {
+        _selectedDaysOfWeek = effectiveDays.toSet();
+      } else if (_selectedFrequency == 'daily') {
+        _selectedDaysOfWeek = RecurringConfig.allDaysPreset.toSet();
+      } else {
+        _selectedDaysOfWeek = {today.weekday};
+      }
+      _dayOfMonth = widget.config!.dayOfMonth ?? widget.config!.nextRun.toLocal().day;
+      _nextRun = RecurringService.dateOnlyLocal(widget.config!.nextRun);
       _isActive = widget.config!.isActive;
       _walletInitialized = true;
     } else {
-      _nextRun = DateTime.now();
-      _dayOfWeek = DateTime.now().weekday % 7;
-      _dayOfMonth = DateTime.now().day;
+      _nextRun = today;
+      _selectedDaysOfWeek = RecurringConfig.allDaysPreset.toSet();
+      _dayOfMonth = today.day;
     }
+  }
+
+  /// Snaps [_nextRun] forward to the nearest valid run date matching current frequency and day filters.
+  void _alignNextRunPreview() {
+    final sortedDays = _selectedDaysOfWeek.toList()..sort();
+    final List<int>? activeDays;
+    if (_selectedFrequency == 'daily') {
+      activeDays = sortedDays.length == 7 ? null : sortedDays;
+    } else if (_selectedFrequency == 'weekly') {
+      activeDays = sortedDays;
+    } else {
+      activeDays = null;
+    }
+
+    _nextRun = RecurringService.alignToValidRunDate(
+      candidate: _nextRun,
+      frequency: _selectedFrequency,
+      daysOfWeek: activeDays,
+    );
+  }
+
+  bool _matchesPreset(List<int> preset) {
+    return _selectedDaysOfWeek.length == preset.length &&
+        preset.every(_selectedDaysOfWeek.contains);
   }
 
   @override
@@ -482,59 +534,112 @@ class _RecurringFormModalState extends ConsumerState<_RecurringFormModal> {
     }
   }
 
+  /// Builds the multi-select weekday picker (ISO 1=Mon..7=Sun) with quick preset chips.
   Widget _buildWeekdaySelector(dynamic l10n) {
+    final isVi = l10n.locale == 'vi';
     final weekdays = [
-      {'val': 1, 'label': l10n.locale == 'vi' ? 'T2' : 'Mon'},
-      {'val': 2, 'label': l10n.locale == 'vi' ? 'T3' : 'Tue'},
-      {'val': 3, 'label': l10n.locale == 'vi' ? 'T4' : 'Wed'},
-      {'val': 4, 'label': l10n.locale == 'vi' ? 'T5' : 'Thu'},
-      {'val': 5, 'label': l10n.locale == 'vi' ? 'T6' : 'Fri'},
-      {'val': 6, 'label': l10n.locale == 'vi' ? 'T7' : 'Sat'},
-      {'val': 0, 'label': l10n.locale == 'vi' ? 'CN' : 'Sun'},
+      {'val': 1, 'label': isVi ? 'T2' : 'Mon'},
+      {'val': 2, 'label': isVi ? 'T3' : 'Tue'},
+      {'val': 3, 'label': isVi ? 'T4' : 'Wed'},
+      {'val': 4, 'label': isVi ? 'T5' : 'Thu'},
+      {'val': 5, 'label': isVi ? 'T6' : 'Fri'},
+      {'val': 6, 'label': isVi ? 'T7' : 'Sat'},
+      {'val': 7, 'label': isVi ? 'CN' : 'Sun'},
     ];
 
     final primaryColor = Theme.of(context).colorScheme.primary;
 
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: weekdays.map((item) {
-        final val = item['val'] as int;
-        final label = item['label'] as String;
-        final isSelected = _dayOfWeek == val;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: 8,
+          runSpacing: 6,
+          children: [
+            ChoiceChip(
+              label: Text(isVi ? 'Mỗi ngày' : 'Every day', style: const TextStyle(fontSize: 12)),
+              selected: _matchesPreset(RecurringConfig.allDaysPreset),
+              onSelected: (_) {
+                setState(() {
+                  _selectedDaysOfWeek = RecurringConfig.allDaysPreset.toSet();
+                  _alignNextRunPreview();
+                });
+              },
+            ),
+            ChoiceChip(
+              label: Text(isVi ? 'T2 - T6' : 'Weekdays', style: const TextStyle(fontSize: 12)),
+              selected: _matchesPreset(RecurringConfig.weekdaysPreset),
+              onSelected: (_) {
+                setState(() {
+                  _selectedDaysOfWeek = RecurringConfig.weekdaysPreset.toSet();
+                  _alignNextRunPreview();
+                });
+              },
+            ),
+            ChoiceChip(
+              label: Text(isVi ? 'T7 - CN' : 'Weekends', style: const TextStyle(fontSize: 12)),
+              selected: _matchesPreset(RecurringConfig.weekendsPreset),
+              onSelected: (_) {
+                setState(() {
+                  _selectedDaysOfWeek = RecurringConfig.weekendsPreset.toSet();
+                  _alignNextRunPreview();
+                });
+              },
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: weekdays.map((item) {
+            final val = item['val'] as int;
+            final label = item['label'] as String;
+            final isSelected = _selectedDaysOfWeek.contains(val);
 
-        return InkWell(
-          borderRadius: BorderRadius.circular(20),
-          onTap: () {
-            setState(() {
-              _dayOfWeek = val;
-            });
-          },
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: isSelected
-                  ? primaryColor
-                  : Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: isSelected ? primaryColor : Colors.grey.withValues(alpha: 0.25),
-                width: 1.5,
+            return InkWell(
+              borderRadius: BorderRadius.circular(20),
+              onTap: () {
+                setState(() {
+                  if (isSelected) {
+                    // Require at least one active weekday to keep the schedule valid.
+                    if (_selectedDaysOfWeek.length > 1) {
+                      _selectedDaysOfWeek.remove(val);
+                      _alignNextRunPreview();
+                    }
+                  } else {
+                    _selectedDaysOfWeek.add(val);
+                    _alignNextRunPreview();
+                  }
+                });
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? primaryColor
+                      : Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: isSelected ? primaryColor : Colors.grey.withValues(alpha: 0.25),
+                    width: 1.5,
+                  ),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    color: isSelected ? Colors.white : Theme.of(context).colorScheme.onSurface,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    fontSize: 13,
+                  ),
+                ),
               ),
-            ),
-            alignment: Alignment.center,
-            child: Text(
-              label,
-              style: TextStyle(
-                color: isSelected ? Colors.white : Theme.of(context).colorScheme.onSurface,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                fontSize: 13,
-              ),
-            ),
-          ),
-        );
-      }).toList(),
+            );
+          }).toList(),
+        ),
+      ],
     );
   }
 
@@ -558,6 +663,39 @@ class _RecurringFormModalState extends ConsumerState<_RecurringFormModal> {
       return;
     }
 
+    final sortedDays = _selectedDaysOfWeek.toList()..sort();
+    List<int>? daysOfWeekToSave;
+    bool clearDaysOfWeek = false;
+    int? dayOfWeekToSave;
+    bool clearDayOfWeek = false;
+    int? dayOfMonthToSave;
+    bool clearDayOfMonth = false;
+
+    if (_selectedFrequency == 'daily') {
+      if (sortedDays.length == 7) {
+        daysOfWeekToSave = null;
+        clearDaysOfWeek = true;
+      } else {
+        daysOfWeekToSave = sortedDays;
+      }
+      clearDayOfWeek = true;
+      clearDayOfMonth = true;
+    } else if (_selectedFrequency == 'weekly') {
+      daysOfWeekToSave = sortedDays;
+      dayOfWeekToSave = sortedDays.first % 7;
+      clearDayOfMonth = true;
+    } else if (_selectedFrequency == 'monthly') {
+      clearDaysOfWeek = true;
+      clearDayOfWeek = true;
+      dayOfMonthToSave = _dayOfMonth ?? _nextRun.day;
+    } else {
+      clearDaysOfWeek = true;
+      clearDayOfWeek = true;
+      clearDayOfMonth = true;
+    }
+
+    final normalizedNextRun = RecurringService.dateOnlyLocal(_nextRun);
+
     try {
       if (widget.config == null) {
         await ref.read(recurringProvider.notifier).createRecurringConfig(
@@ -568,9 +706,10 @@ class _RecurringFormModalState extends ConsumerState<_RecurringFormModal> {
               type: _selectedType,
               frequency: _selectedFrequency,
               interval: _interval,
-              dayOfWeek: _selectedFrequency == 'weekly' ? _dayOfWeek : null,
-              dayOfMonth: _selectedFrequency == 'monthly' ? _dayOfMonth : null,
-              nextRun: _nextRun,
+              dayOfWeek: dayOfWeekToSave,
+              daysOfWeek: daysOfWeekToSave,
+              dayOfMonth: dayOfMonthToSave,
+              nextRun: normalizedNextRun,
             );
       } else {
         await ref.read(recurringProvider.notifier).updateRecurringConfig(
@@ -584,9 +723,13 @@ class _RecurringFormModalState extends ConsumerState<_RecurringFormModal> {
               type: _selectedType,
               frequency: _selectedFrequency,
               interval: _interval,
-              dayOfWeek: _selectedFrequency == 'weekly' ? _dayOfWeek : null,
-              dayOfMonth: _selectedFrequency == 'monthly' ? _dayOfMonth : null,
-              nextRun: _nextRun,
+              dayOfWeek: dayOfWeekToSave,
+              clearDayOfWeek: clearDayOfWeek,
+              daysOfWeek: daysOfWeekToSave,
+              clearDaysOfWeek: clearDaysOfWeek,
+              dayOfMonth: dayOfMonthToSave,
+              clearDayOfMonth: clearDayOfMonth,
+              nextRun: normalizedNextRun,
               isActive: _isActive,
             );
       }
@@ -882,12 +1025,15 @@ class _RecurringFormModalState extends ConsumerState<_RecurringFormModal> {
                           onSelectionChanged: (selection) {
                             setState(() {
                               _selectedFrequency = selection.first;
-                              if (_selectedFrequency == 'weekly' && _dayOfWeek == null) {
-                                _dayOfWeek = DateTime.now().weekday % 7;
-                              }
-                              if (_selectedFrequency == 'monthly' && _dayOfMonth == null) {
+                              if (_selectedFrequency == 'daily' && _selectedDaysOfWeek.isEmpty) {
+                                _selectedDaysOfWeek = RecurringConfig.allDaysPreset.toSet();
+                              } else if (_selectedFrequency == 'weekly' &&
+                                  (_selectedDaysOfWeek.isEmpty || _selectedDaysOfWeek.length == 7)) {
+                                _selectedDaysOfWeek = {DateTime.now().weekday};
+                              } else if (_selectedFrequency == 'monthly' && _dayOfMonth == null) {
                                 _dayOfMonth = DateTime.now().day;
                               }
+                              _alignNextRunPreview();
                             });
                           },
                         ),
@@ -933,12 +1079,24 @@ class _RecurringFormModalState extends ConsumerState<_RecurringFormModal> {
                       ),
                       const SizedBox(height: 14),
 
-                      // 8. Details for weekly or monthly
-                      if (_selectedFrequency == 'weekly') ...[
+                      // 8. Day-of-week filter (daily & weekly) or day-of-month selector (monthly)
+                      if (_selectedFrequency == 'daily' || _selectedFrequency == 'weekly') ...[
                         Text(
-                          l10n.dayOfWeek,
+                          l10n.locale == 'vi' ? 'Áp dụng vào các ngày' : 'Apply on days',
                           style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
                         ),
+                        if (_selectedFrequency == 'daily') ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            l10n.locale == 'vi'
+                                ? 'Các ngày không chọn sẽ tự động bỏ qua'
+                                : 'Unselected days will be skipped automatically',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
                         const SizedBox(height: 8),
                         _buildWeekdaySelector(l10n),
                         const SizedBox(height: 14),
@@ -961,6 +1119,7 @@ class _RecurringFormModalState extends ConsumerState<_RecurringFormModal> {
                           onChanged: (val) {
                             setState(() {
                               _dayOfMonth = val;
+                              _alignNextRunPreview();
                             });
                           },
                         ),

@@ -21,6 +21,11 @@ class CreateRecurringTool extends SimoAgentTool<Map<String, dynamic>, Map<String
       'note': {'type': 'string'},
       'type': {'type': 'string', 'enum': ['expense', 'income']},
       'frequency': {'type': 'string', 'enum': ['daily', 'weekly', 'monthly', 'yearly']},
+      'daysOfWeek': {
+        'type': ['array', 'null'],
+        'items': {'type': 'integer', 'minimum': 1, 'maximum': 7},
+        'description': 'ISO weekdays (1=Mon..7=Sun), e.g. [1,2,3,4,5] for weekdays only',
+      },
       'dayOfMonth': {'type': ['integer', 'null']},
       'categoryId': {'type': ['string', 'null']},
       'walletId': {'type': ['string', 'null']},
@@ -35,6 +40,7 @@ class CreateRecurringTool extends SimoAgentTool<Map<String, dynamic>, Map<String
     final note = input['note'] as String? ?? 'Giao dịch định kỳ';
     final type = input['type'] as String? ?? 'expense';
     final frequency = input['frequency'] as String? ?? 'monthly';
+    final List<int>? daysOfWeek = RecurringConfig.decodeDaysOfWeek(input['daysOfWeek']);
     final int? dayOfMonth = (input['dayOfMonth'] as num?)?.toInt();
 
     var categories = context.ref.read(categoryProvider).value ?? [];
@@ -59,12 +65,14 @@ class CreateRecurringTool extends SimoAgentTool<Map<String, dynamic>, Map<String
     }
 
     final now = DateTime.now();
-    DateTime nextRun = now;
-    if (dayOfMonth != null && dayOfMonth > 0 && dayOfMonth <= 31) {
+    DateTime nextRun = DateTime(now.year, now.month, now.day);
+    if (frequency == 'monthly' && dayOfMonth != null && dayOfMonth > 0 && dayOfMonth <= 31) {
       if (now.day > dayOfMonth) {
-        nextRun = DateTime(now.year, now.month + 1, dayOfMonth);
+        final daysInNextMonth = DateTime(now.year, now.month + 2, 0).day;
+        nextRun = DateTime(now.year, now.month + 1, dayOfMonth.clamp(1, daysInNextMonth));
       } else {
-        nextRun = DateTime(now.year, now.month, dayOfMonth);
+        final daysInMonth = DateTime(now.year, now.month + 1, 0).day;
+        nextRun = DateTime(now.year, now.month, dayOfMonth.clamp(1, daysInMonth));
       }
     }
 
@@ -76,7 +84,11 @@ class CreateRecurringTool extends SimoAgentTool<Map<String, dynamic>, Map<String
       type: type,
       frequency: frequency,
       interval: 1,
-      dayOfMonth: dayOfMonth ?? now.day,
+      daysOfWeek: (frequency == 'daily' || frequency == 'weekly') ? daysOfWeek : null,
+      dayOfWeek: frequency == 'weekly' && daysOfWeek != null && daysOfWeek.isNotEmpty
+          ? daysOfWeek.first % 7
+          : null,
+      dayOfMonth: frequency == 'monthly' ? (dayOfMonth ?? now.day) : null,
       nextRun: nextRun,
     );
 
@@ -86,7 +98,8 @@ class CreateRecurringTool extends SimoAgentTool<Map<String, dynamic>, Map<String
       'amount': amount,
       'type': type,
       'frequency': frequency,
-      'dayOfMonth': dayOfMonth ?? now.day,
+      'daysOfWeek': daysOfWeek,
+      'dayOfMonth': frequency == 'monthly' ? (dayOfMonth ?? now.day) : null,
       'nextRun': nextRun.toIso8601String(),
     };
   }
@@ -107,6 +120,11 @@ class UpdateRecurringTool extends SimoAgentTool<Map<String, dynamic>, Map<String
       'recurringId': {'type': ['string', 'null']},
       'note': {'type': ['string', 'null']},
       'amount': {'type': ['number', 'null']},
+      'daysOfWeek': {
+        'type': ['array', 'null'],
+        'items': {'type': 'integer', 'minimum': 1, 'maximum': 7},
+        'description': 'ISO weekdays (1=Mon..7=Sun), e.g. [1,2,3,4,5] for weekdays only',
+      },
       'dayOfMonth': {'type': ['integer', 'null']},
       'categoryId': {'type': ['string', 'null']},
       'walletId': {'type': ['string', 'null']},
@@ -123,6 +141,8 @@ class UpdateRecurringTool extends SimoAgentTool<Map<String, dynamic>, Map<String
     final recurringId = input['recurringId'] as String?;
     final note = input['note'] as String?;
     final amount = (input['amount'] as num?)?.toDouble();
+    final hasDaysOfWeek = input.containsKey('daysOfWeek');
+    final daysOfWeek = RecurringConfig.decodeDaysOfWeek(input['daysOfWeek']);
     final dayOfMonth = (input['dayOfMonth'] as num?)?.toInt();
     final categoryId = input['categoryId'] as String?;
     final walletId = input['walletId'] as String?;
@@ -142,9 +162,11 @@ class UpdateRecurringTool extends SimoAgentTool<Map<String, dynamic>, Map<String
     if (dayOfMonth != null && dayOfMonth > 0 && dayOfMonth <= 31) {
       final now = DateTime.now();
       if (now.day > dayOfMonth) {
-        nextRun = DateTime(now.year, now.month + 1, dayOfMonth);
+        final daysInNextMonth = DateTime(now.year, now.month + 2, 0).day;
+        nextRun = DateTime(now.year, now.month + 1, dayOfMonth.clamp(1, daysInNextMonth));
       } else {
-        nextRun = DateTime(now.year, now.month, dayOfMonth);
+        final daysInMonth = DateTime(now.year, now.month + 1, 0).day;
+        nextRun = DateTime(now.year, now.month, dayOfMonth.clamp(1, daysInMonth));
       }
     }
 
@@ -152,6 +174,8 @@ class UpdateRecurringTool extends SimoAgentTool<Map<String, dynamic>, Map<String
       target.id,
       name: note,
       amount: amount,
+      daysOfWeek: daysOfWeek,
+      clearDaysOfWeek: hasDaysOfWeek && daysOfWeek == null,
       dayOfMonth: dayOfMonth,
       categoryId: categoryId,
       walletId: walletId,
@@ -164,6 +188,7 @@ class UpdateRecurringTool extends SimoAgentTool<Map<String, dynamic>, Map<String
       'recurringId': target.id,
       'name': note ?? target.name,
       'amount': amount ?? target.amount,
+      'daysOfWeek': hasDaysOfWeek ? daysOfWeek : target.daysOfWeek,
       'isActive': isActive ?? target.isActive,
     };
   }

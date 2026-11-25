@@ -22,7 +22,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 19,
+      version: 20,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -83,6 +83,7 @@ class DatabaseHelper {
         frequency $textType,
         interval $intType,
         day_of_week INTEGER,
+        days_of_week TEXT,
         day_of_month INTEGER,
         next_run $textType,
         is_active $boolType,
@@ -707,6 +708,14 @@ class DatabaseHelper {
       ''');
       await db.execute('CREATE INDEX IF NOT EXISTS idx_ai_messages_timestamp ON ai_messages(timestamp)');
       await db.execute('CREATE INDEX IF NOT EXISTS idx_ai_messages_turn_id ON ai_messages(turn_id)');
+    }
+
+    if (oldVersion < 20) {
+      final tableInfo = await db.rawQuery('PRAGMA table_info(recurring_configs)');
+      final hasDaysOfWeek = tableInfo.any((col) => col['name'] == 'days_of_week');
+      if (!hasDaysOfWeek) {
+        await db.execute('ALTER TABLE recurring_configs ADD COLUMN days_of_week TEXT');
+      }
     }
   }
 

@@ -325,6 +325,7 @@ class SyncService {
       frequency: rc.frequency as any,
       interval: rc.interval || 1,
       day_of_week: rc.day_of_week,
+      days_of_week: rc.days_of_week,
       day_of_month: rc.day_of_month,
       next_run: rc.next_run,
       next_run_date: rc.next_run,

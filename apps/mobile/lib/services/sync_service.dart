@@ -8,6 +8,7 @@ import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
 
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import '../models/recurring_config.dart';
 import '../repositories/database_helper.dart';
 
 /// SyncResult encapsulates the outcome of a synchronization cycle.
@@ -850,6 +851,7 @@ class SyncService {
         'frequency': rc['frequency'],
         'interval': rc['interval'] ?? 1,
         'day_of_week': rc['day_of_week'],
+        'days_of_week': RecurringConfig.decodeDaysOfWeek(rc['days_of_week']),
         'day_of_month': rc['day_of_month'],
         'next_run': _formatIsoUtcRequired(rc['next_run']),
         'is_active': (rc['is_active'] == 1 || rc['is_active'] == true),
@@ -996,6 +998,9 @@ class SyncService {
         'frequency': rc['frequency'],
         'interval': rc['interval'] ?? 1,
         'day_of_week': rc['day_of_week'],
+        'days_of_week': RecurringConfig.encodeDaysOfWeek(
+          RecurringConfig.decodeDaysOfWeek(rc['days_of_week']),
+        ),
         'day_of_month': rc['day_of_month'],
         'next_run': rc['next_run'],
         'is_active': (rc['is_active'] == true || rc['is_active'] == 1) ? 1 : 0,

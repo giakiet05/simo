@@ -1,78 +1,98 @@
-package model_test
+package model
 
 import (
-	"encoding/json"
+	"reflect"
 	"testing"
-	"time"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
-	"simo-server/internal/model"
 )
 
-func TestFlexibleTime_UnmarshalJSON(t *testing.T) {
+func TestFormatDaysOfWeekCSV(t *testing.T) {
 	tests := []struct {
-		name     string
-		input    string
-		expected time.Time
-		wantErr  bool
+		name string
+		in   []int
+		want string
+		nilP bool
 	}{
 		{
-			name:     "RFC3339 with Z",
-			input:    `"2026-09-13T18:04:50Z"`,
-			expected: time.Date(2026, 9, 13, 18, 4, 50, 0, time.UTC),
+			name: "nil slice returns nil",
+			in:   nil,
+			nilP: true,
 		},
 		{
-			name:     "RFC3339Nano with Z",
-			input:    `"2026-09-13T18:04:50.123456Z"`,
-			expected: time.Date(2026, 9, 13, 18, 4, 50, 123456000, time.UTC),
+			name: "empty slice returns nil",
+			in:   []int{},
+			nilP: true,
 		},
 		{
-			name:     "ISO8601 without timezone offset",
-			input:    `"2026-09-13T18:04:50.123456"`,
-			expected: time.Date(2026, 9, 13, 18, 4, 50, 123456000, time.UTC),
+			name: "only out of range values returns nil",
+			in:   []int{0, 8, -1},
+			nilP: true,
 		},
 		{
-			name:     "ISO8601 with timezone offset",
-			input:    `"2026-09-13T18:04:50+07:00"`,
-			expected: time.Date(2026, 9, 13, 11, 4, 50, 0, time.UTC),
+			name: "unsorted with duplicates and invalid values is normalized",
+			in:   []int{5, 1, 3, 1, 9, 2, 4, 0},
+			want: "1,2,3,4,5",
 		},
 		{
-			name:     "Datetime space separated",
-			input:    `"2026-09-13 18:04:50"`,
-			expected: time.Date(2026, 9, 13, 18, 4, 50, 0, time.UTC),
-		},
-		{
-			name:     "Date only",
-			input:    `"2026-09-13"`,
-			expected: time.Date(2026, 9, 13, 0, 0, 0, 0, time.UTC),
-		},
-		{
-			name:     "Empty string",
-			input:    `""`,
-			expected: time.Time{},
-		},
-		{
-			name:     "Null value",
-			input:    `null`,
-			expected: time.Time{},
+			name: "weekends preset",
+			in:   []int{7, 6},
+			want: "6,7",
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			var ft model.FlexibleTime
-			err := json.Unmarshal([]byte(tc.input), &ft)
-			if tc.wantErr {
-				require.Error(t, err)
-			} else {
-				require.NoError(t, err)
-				if tc.expected.IsZero() {
-					assert.True(t, ft.IsZero())
-				} else {
-					assert.Equal(t, tc.expected, ft.Time)
+			got := FormatDaysOfWeekCSV(tc.in)
+			if tc.nilP {
+				if got != nil {
+					t.Fatalf("expected nil, got %q", *got)
 				}
+				return
+			}
+			if got == nil {
+				t.Fatalf("expected %q, got nil", tc.want)
+			}
+			if *got != tc.want {
+				t.Fatalf("expected %q, got %q", tc.want, *got)
+			}
+		})
+	}
+}
+
+func TestParseDaysOfWeekCSV(t *testing.T) {
+	strPtr := func(s string) *string { return &s }
+
+	tests := []struct {
+		name string
+		in   *string
+		want []int
+	}{
+		{
+			name: "nil returns nil",
+			in:   nil,
+			want: nil,
+		},
+		{
+			name: "blank string returns nil",
+			in:   strPtr("   "),
+			want: nil,
+		},
+		{
+			name: "canonical weekdays",
+			in:   strPtr("1,2,3,4,5"),
+			want: []int{1, 2, 3, 4, 5},
+		},
+		{
+			name: "unordered with whitespace, duplicates, and invalid tokens",
+			in:   strPtr(" 7, 6, invalid, 6, 0, 8 "),
+			want: []int{6, 7},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := ParseDaysOfWeekCSV(tc.in)
+			if !reflect.DeepEqual(got, tc.want) {
+				t.Fatalf("expected %v, got %v", tc.want, got)
 			}
 		})
 	}

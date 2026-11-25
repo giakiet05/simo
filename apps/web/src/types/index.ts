@@ -182,6 +182,7 @@ export interface RecurringConfig {
   frequency: RecurringFrequency;
   interval?: number;
   day_of_week?: number;
+  days_of_week?: number[];
   day_of_month?: number;
   category_id?: string;
   wallet_id?: string;
@@ -368,6 +369,7 @@ export interface ServerRecurringConfigSync {
   frequency: string;
   interval: number;
   day_of_week?: number;
+  days_of_week?: number[];
   day_of_month?: number;
   next_run: string;
   is_active: boolean;

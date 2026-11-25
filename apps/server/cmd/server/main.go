@@ -47,6 +47,11 @@ func main() {
 	defer dbPool.Close()
 	log.Println("PostgreSQL connection pool initialized successfully.")
 
+	// Ensure incremental schema columns exist idempotently on startup
+	if _, err := dbPool.Exec(signalCtx, `ALTER TABLE recurring_configs ADD COLUMN IF NOT EXISTS days_of_week VARCHAR(20)`); err != nil {
+		log.Fatalf("Failed to ensure recurring_configs.days_of_week column: %v", err)
+	}
+
 	// Auth domain
 	userRepo := repository.NewUserRepository(dbPool)
 	authService := service.NewAuthService(cfg, userRepo)

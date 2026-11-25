@@ -4,6 +4,8 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -266,6 +268,7 @@ type RecurringConfigSync struct {
 	Frequency       string        `json:"frequency"`
 	Interval        int           `json:"interval"`
 	DayOfWeek       *int          `json:"day_of_week,omitempty"`
+	DaysOfWeek      []int         `json:"days_of_week,omitempty"`
 	DayOfMonth      *int          `json:"day_of_month,omitempty"`
 	NextRun         FlexibleTime  `json:"next_run"`
 	IsActive        bool          `json:"is_active"`
@@ -273,6 +276,58 @@ type RecurringConfigSync struct {
 	ClientUpdatedAt FlexibleTime  `json:"updated_at"`
 	ServerUpdatedAt FlexibleTime  `json:"server_updated_at,omitempty"`
 	DeletedAt       *FlexibleTime `json:"deleted_at,omitempty"`
+}
+
+// FormatDaysOfWeekCSV normalizes ISO weekday integers (1=Mon..7=Sun) into a sorted unique CSV string.
+//
+// @param days []int slice of ISO weekday integers
+// @returns *string nil if empty, otherwise canonical CSV such as "1,2,3,4,5"
+func FormatDaysOfWeekCSV(days []int) *string {
+	if len(days) == 0 {
+		return nil
+	}
+	seen := make(map[int]bool, len(days))
+	valid := make([]int, 0, len(days))
+	for _, d := range days {
+		if d >= 1 && d <= 7 && !seen[d] {
+			seen[d] = true
+			valid = append(valid, d)
+		}
+	}
+	if len(valid) == 0 {
+		return nil
+	}
+	sort.Ints(valid)
+	parts := make([]string, len(valid))
+	for i, d := range valid {
+		parts[i] = strconv.Itoa(d)
+	}
+	joined := strings.Join(parts, ",")
+	return &joined
+}
+
+// ParseDaysOfWeekCSV parses a stored CSV weekday string (1=Mon..7=Sun) into a sorted unique int slice.
+//
+// @param raw *string nullable CSV column from PostgreSQL
+// @returns []int nil if empty, otherwise sorted unique ISO weekday integers
+func ParseDaysOfWeekCSV(raw *string) []int {
+	if raw == nil || strings.TrimSpace(*raw) == "" {
+		return nil
+	}
+	seen := make(map[int]bool)
+	result := make([]int, 0, 7)
+	for _, token := range strings.Split(*raw, ",") {
+		n, err := strconv.Atoi(strings.TrimSpace(token))
+		if err == nil && n >= 1 && n <= 7 && !seen[n] {
+			seen[n] = true
+			result = append(result, n)
+		}
+	}
+	if len(result) == 0 {
+		return nil
+	}
+	sort.Ints(result)
+	return result
 }
 
 // SyncRequest represents the full request payload for POST /api/v1/sync.

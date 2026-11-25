@@ -7,6 +7,8 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sort"
+	"strings"
 	"time"
 
 	"simo-server/internal/config"
@@ -33,16 +35,31 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	migrationFile := filepath.Join(migrationDir, "001_initial_schema.up.sql")
-	sqlBytes, err := os.ReadFile(migrationFile)
+	entries, err := os.ReadDir(migrationDir)
 	if err != nil {
-		log.Fatalf("Failed to read migration file %s: %v", migrationFile, err)
+		log.Fatalf("Failed to read migrations directory %s: %v", migrationDir, err)
 	}
 
-	log.Printf("Executing schema migration: %s...", migrationFile)
-	if _, err := pool.Exec(ctx, string(sqlBytes)); err != nil {
-		log.Fatalf("Migration failed: %v", err)
+	var migrationFiles []string
+	for _, entry := range entries {
+		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".up.sql") {
+			migrationFiles = append(migrationFiles, entry.Name())
+		}
+	}
+	sort.Strings(migrationFiles)
+
+	for _, name := range migrationFiles {
+		migrationFile := filepath.Join(migrationDir, name)
+		sqlBytes, err := os.ReadFile(migrationFile)
+		if err != nil {
+			log.Fatalf("Failed to read migration file %s: %v", migrationFile, err)
+		}
+
+		log.Printf("Executing schema migration: %s...", migrationFile)
+		if _, err := pool.Exec(ctx, string(sqlBytes)); err != nil {
+			log.Fatalf("Migration %s failed: %v", name, err)
+		}
 	}
 
-	fmt.Println("Schema migration applied successfully!")
+	fmt.Println("Schema migrations applied successfully!")
 }

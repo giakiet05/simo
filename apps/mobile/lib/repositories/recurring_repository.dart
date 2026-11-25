@@ -1,10 +1,16 @@
 import 'package:uuid/uuid.dart';
 import '../models/recurring_config.dart';
+import '../utils/recurring_service.dart';
 import 'database_helper.dart';
 
+/// Data access repository for managing [RecurringConfig] rows in local SQLite.
 class RecurringRepository {
   final _uuid = const Uuid();
 
+  /// Retrieves all recurring configurations, optionally filtered by active status.
+  ///
+  /// @param isActive Optional boolean filter for active/paused schedules.
+  /// @returns List of [RecurringConfig] ordered newest first.
   Future<List<RecurringConfig>> getAll({bool? isActive}) async {
     final db = await DatabaseHelper.instance.database;
 
@@ -26,6 +32,10 @@ class RecurringRepository {
     return maps.map((map) => RecurringConfig.fromMap(map)).toList();
   }
 
+  /// Retrieves a single recurring configuration by its UUID.
+  ///
+  /// @param id UUID of the recurring configuration.
+  /// @returns [RecurringConfig] or null if not found.
   Future<RecurringConfig?> getById(String id) async {
     final db = await DatabaseHelper.instance.database;
     final maps = await db.query(
@@ -38,6 +48,8 @@ class RecurringRepository {
     return RecurringConfig.fromMap(maps.first);
   }
 
+  /// Creates and persists a new recurring configuration, aligning its initial [nextRun]
+  /// to the configured weekday filter when applicable.
   Future<RecurringConfig> create({
     required String? categoryId,
     String? walletId,
@@ -47,17 +59,32 @@ class RecurringRepository {
     required String frequency,
     required int interval,
     int? dayOfWeek,
+    List<int>? daysOfWeek,
     int? dayOfMonth,
     DateTime? nextRun,
   }) async {
     final db = await DatabaseHelper.instance.database;
     final now = DateTime.now();
-    final effectiveNextRun = nextRun ?? _calculateNextRun(
-      frequency: frequency,
-      interval: interval,
-      dayOfWeek: dayOfWeek,
-      dayOfMonth: dayOfMonth,
-    );
+    final normalizedDays = RecurringConfig.normalizeDaysOfWeek(daysOfWeek);
+
+    final DateTime effectiveNextRun;
+    if (nextRun != null) {
+      effectiveNextRun = RecurringService.alignToValidRunDate(
+        candidate: nextRun,
+        frequency: frequency,
+        daysOfWeek: normalizedDays,
+        dayOfWeek: dayOfWeek,
+      );
+    } else {
+      effectiveNextRun = RecurringService.calculateNextRun(
+        from: now,
+        frequency: frequency,
+        interval: interval,
+        dayOfWeek: dayOfWeek,
+        daysOfWeek: normalizedDays,
+        dayOfMonth: dayOfMonth,
+      );
+    }
 
     final config = RecurringConfig(
       id: _uuid.v4(),
@@ -69,6 +96,7 @@ class RecurringRepository {
       frequency: frequency,
       interval: interval,
       dayOfWeek: dayOfWeek,
+      daysOfWeek: normalizedDays,
       dayOfMonth: dayOfMonth,
       nextRun: effectiveNextRun,
       isActive: true,
@@ -77,10 +105,12 @@ class RecurringRepository {
     );
 
     final configMap = config.toMap();
+    configMap['synced'] = 0;
     await db.insert('recurring_configs', configMap);
     return config;
   }
 
+  /// Updates an existing recurring configuration and marks it unsynced.
   Future<RecurringConfig> update(
     String id, {
     String? categoryId,
@@ -93,7 +123,11 @@ class RecurringRepository {
     String? frequency,
     int? interval,
     int? dayOfWeek,
+    bool clearDayOfWeek = false,
+    List<int>? daysOfWeek,
+    bool clearDaysOfWeek = false,
     int? dayOfMonth,
+    bool clearDayOfMonth = false,
     DateTime? nextRun,
     bool? isActive,
   }) async {
@@ -106,37 +140,67 @@ class RecurringRepository {
 
     final updatedFrequency = frequency ?? config.frequency;
     final updatedInterval = interval ?? config.interval;
-    final updatedDayOfWeek = dayOfWeek ?? config.dayOfWeek;
-    final updatedDayOfMonth = dayOfMonth ?? config.dayOfMonth;
+    final updatedDayOfWeek = clearDayOfWeek ? null : (dayOfWeek ?? config.dayOfWeek);
+    final updatedDaysOfWeek = clearDaysOfWeek
+        ? null
+        : (daysOfWeek != null
+            ? RecurringConfig.normalizeDaysOfWeek(daysOfWeek)
+            : config.daysOfWeek);
+    final updatedDayOfMonth = clearDayOfMonth ? null : (dayOfMonth ?? config.dayOfMonth);
 
-    DateTime updatedNextRun = nextRun ?? config.nextRun;
-    if (nextRun == null && (frequency != null || interval != null || dayOfWeek != null || dayOfMonth != null)) {
-      updatedNextRun = _calculateNextRun(
+    final scheduleChanged = frequency != null ||
+        interval != null ||
+        dayOfWeek != null ||
+        clearDayOfWeek ||
+        daysOfWeek != null ||
+        clearDaysOfWeek ||
+        dayOfMonth != null ||
+        clearDayOfMonth;
+
+    DateTime updatedNextRun;
+    if (nextRun != null) {
+      updatedNextRun = RecurringService.alignToValidRunDate(
+        candidate: nextRun,
         frequency: updatedFrequency,
-        interval: updatedInterval,
+        daysOfWeek: updatedDaysOfWeek,
         dayOfWeek: updatedDayOfWeek,
-        dayOfMonth: updatedDayOfMonth,
       );
+    } else if (scheduleChanged) {
+      updatedNextRun = RecurringService.alignToValidRunDate(
+        candidate: config.nextRun,
+        frequency: updatedFrequency,
+        daysOfWeek: updatedDaysOfWeek,
+        dayOfWeek: updatedDayOfWeek,
+      );
+    } else {
+      updatedNextRun = config.nextRun;
     }
 
+    final nowUtc = DateTime.now().toUtc();
     final updated = config.copyWith(
-      categoryId: clearCategory ? null : (categoryId ?? config.categoryId),
-      walletId: clearWallet ? null : (walletId ?? config.walletId),
+      categoryId: categoryId,
+      clearCategoryId: clearCategory,
+      walletId: walletId,
+      clearWalletId: clearWallet,
       name: name ?? config.name,
       amount: amount ?? config.amount,
       type: type ?? config.type,
       frequency: updatedFrequency,
       interval: updatedInterval,
       dayOfWeek: updatedDayOfWeek,
+      clearDayOfWeek: clearDayOfWeek,
+      daysOfWeek: updatedDaysOfWeek,
+      clearDaysOfWeek: clearDaysOfWeek || updatedDaysOfWeek == null,
       dayOfMonth: updatedDayOfMonth,
+      clearDayOfMonth: clearDayOfMonth,
       nextRun: updatedNextRun,
       isActive: isActive ?? config.isActive,
-      updatedAt: DateTime.now().toUtc(),
+      updatedAt: nowUtc,
     );
 
     final map = updated.toMap();
     map['synced'] = 0;
-    map['updated_at'] = DateTime.now().toUtc().toIso8601String();
+    map['updated_at'] = nowUtc.toIso8601String();
 
     await db.update(
       'recurring_configs',
@@ -148,6 +212,9 @@ class RecurringRepository {
     return updated;
   }
 
+  /// Deletes a recurring configuration, unlinks associated transactions, and records a sync tombstone.
+  ///
+  /// @param id UUID of the recurring configuration to delete.
   Future<void> delete(String id) async {
     final db = await DatabaseHelper.instance.database;
     final nowIso = DateTime.now().toUtc().toIso8601String();
@@ -174,6 +241,10 @@ class RecurringRepository {
     });
   }
 
+  /// Advances the [nextRun] date of a recurring configuration and marks it unsynced.
+  ///
+  /// @param id UUID of the recurring configuration.
+  /// @param nextRun Next local scheduled run date.
   Future<void> updateNextRun(String id, DateTime nextRun) async {
     final db = await DatabaseHelper.instance.database;
     await db.update(
@@ -186,49 +257,5 @@ class RecurringRepository {
       where: 'id = ?',
       whereArgs: [id],
     );
-  }
-
-  DateTime _calculateNextRun({
-    required String frequency,
-    required int interval,
-    int? dayOfWeek,
-    int? dayOfMonth,
-  }) {
-    final now = DateTime.now();
-
-    switch (frequency) {
-      case 'daily':
-        return DateTime(now.year, now.month, now.day + interval);
-
-      case 'weekly':
-        int daysToAdd = interval * 7;
-        if (dayOfWeek != null) {
-          final targetDay = dayOfWeek % 7;
-          final currentDay = now.weekday % 7;
-          daysToAdd = (targetDay - currentDay + 7) % 7;
-          if (daysToAdd == 0) daysToAdd = 7 * interval;
-        }
-        return DateTime(now.year, now.month, now.day + daysToAdd);
-
-      case 'monthly':
-        int targetDay = dayOfMonth ?? now.day;
-        int targetMonth = now.month + interval;
-        int targetYear = now.year;
-
-        while (targetMonth > 12) {
-          targetMonth -= 12;
-          targetYear += 1;
-        }
-
-        final daysInMonth = DateTime(targetYear, targetMonth + 1, 0).day;
-        if (targetDay > daysInMonth) {
-          targetDay = daysInMonth;
-        }
-
-        return DateTime(targetYear, targetMonth, targetDay);
-
-      default:
-        return DateTime(now.year, now.month, now.day + 1);
-    }
   }
 }

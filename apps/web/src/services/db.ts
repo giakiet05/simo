@@ -288,15 +288,19 @@ class LocalDatabase {
           id: rc.id || rc.cloud_id,
           category_id: rc.category_id || undefined,
           wallet_id: rc.wallet_id || undefined,
-          name: rc.name || 'Giao dịch định kỳ',
+          name: rc.name || rc.note || 'Giao dịch định kỳ',
           amount: Number(rc.amount),
           type: (rc.type || 'expense') as string,
           frequency: rc.frequency,
           interval: Number(rc.interval || 1),
           day_of_week: rc.day_of_week !== undefined ? Number(rc.day_of_week) : undefined,
+          days_of_week:
+            rc.days_of_week && rc.days_of_week.length > 0
+              ? [...rc.days_of_week].sort((a, b) => a - b)
+              : undefined,
           day_of_month: rc.day_of_month !== undefined ? Number(rc.day_of_month) : undefined,
           next_run: rc.next_run || rc.next_run_date || new Date().toISOString(),
-          is_active: Boolean(rc.is_active),
+          is_active: rc.is_active !== false,
           created_at: rc.created_at || new Date().toISOString(),
           updated_at: rc.updated_at || new Date().toISOString(),
         })),
